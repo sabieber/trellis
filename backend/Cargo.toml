@@ -18,7 +18,7 @@ uuid = { version = "1.22.0", features = ["v4", "serde"] }
 argon2 = { version = "0.5.3", features = ["std"] }
 chrono = "0.4.44"
 csv = "1.4.0"
-jsonwebtoken = "10.3.0"
+jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
