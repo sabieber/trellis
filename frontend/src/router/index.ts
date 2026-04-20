@@ -3,8 +3,7 @@ import HomeView from '@/views/HomeView.vue';
 import LibraryView from "@/views/LibraryView.vue";
 import SearchView from "@/views/SearchView.vue";
 import SearchDetailView from "@/views/SearchDetailView.vue";
-import LoginView from "@/views/LoginView.vue";
-import RegisterView from "@/views/RegisterView.vue";
+import AuthView from "@/views/AuthView.vue";
 import ShelfDetailView from "@/views/ShelfDetailView.vue";
 import BookDetailView from "@/views/BookDetailView.vue";
 import ReadingDetailView from "@/views/ReadingDetailView.vue";
@@ -77,12 +76,14 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: LoginView,
+      component: AuthView,
+      meta: { hideNav: true },
     },
     {
       path: '/register',
       name: 'register',
-      component: RegisterView,
+      component: AuthView,
+      meta: { hideNav: true },
     }
   ],
 })

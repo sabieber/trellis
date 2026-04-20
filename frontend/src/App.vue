@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col min-h-screen">
-    <div class="navbar bg-gray-800 fixed w-full z-10">
+    <div v-if="!$route.meta.hideNav" class="navbar bg-gray-800 fixed w-full z-10">
       <div class="flex-1">
         <a class="btn btn-ghost text-xl">
           <RouterLink to="/">Books</RouterLink>
@@ -32,9 +32,9 @@
       </div>
     </div>
     
-    <RouterView class="pt-16 pb-16 flex-grow" />
+    <RouterView class="flex-grow" :class="{ 'pt-16 pb-16': !$route.meta.hideNav }" />
 
-    <div class="dock dock-sm sm:hidden">
+    <div v-if="!$route.meta.hideNav" class="dock dock-sm sm:hidden">
       <button :class="{ 'dock-active': $route.path === '/' }">
         <RouterLink to="/">
           <HomeIcon class="size-6" />
