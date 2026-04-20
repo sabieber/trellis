@@ -1,18 +1,27 @@
 <template>
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-    <div class="bg-gray-800 p-6 rounded-lg shadow-md w-full max-w-md">
-      <h3 class="text-xl font-semibold text-white mb-4">Select a Shelf</h3>
-      <div v-if="loadingShelves" class="flex justify-center">
-        <span class="loading loading-spinner loading-lg"></span>
+  <div class="modal modal-open">
+    <div class="modal-box flex flex-col gap-4">
+      <h3 class="font-bold text-lg">Add to Shelf</h3>
+      <div v-if="loadingShelves" class="flex justify-center py-4">
+        <span class="loading loading-spinner loading-md"></span>
       </div>
-      <ul v-else-if="shelves.length" class="list-disc list-inside text-white">
-        <li v-for="shelf in shelves" :key="shelf.id" @click="addBookToShelf(shelf.id)" class="cursor-pointer">
-          {{ shelf.name }} - {{ shelf.description }}
+      <ul v-else-if="shelves.length" class="flex flex-col gap-1">
+        <li
+          v-for="shelf in shelves"
+          :key="shelf.id"
+          @click="addBookToShelf(shelf.id)"
+          class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-base-200 transition-colors"
+        >
+          <span class="font-medium">{{ shelf.name }}</span>
+          <span v-if="shelf.description" class="text-sm opacity-50 truncate">{{ shelf.description }}</span>
         </li>
       </ul>
-      <div v-else class="text-white text-center">No shelves found.</div>
-      <button @click="$emit('close')" class="mt-4 text-white">Close</button>
+      <div v-else class="text-center opacity-50 py-4">No shelves found.</div>
+      <div class="modal-action mt-0">
+        <button @click="$emit('close')" class="btn btn-ghost w-full">Cancel</button>
+      </div>
     </div>
+    <div class="modal-backdrop" @click="$emit('close')"></div>
   </div>
 </template>
 

@@ -1,32 +1,30 @@
 <template>
   <div>
-    <button class="btn btn-circle btn-primary" @click="show = true">
-      <PlusIcon class="size-6 text-white"/>
+    <button class="btn btn-sm btn-neutral rounded-full gap-1" @click="show = true">
+      <PlusIcon class="size-4"/>
+      New Shelf
     </button>
     <div v-if="show" class="modal modal-open">
-      <div class="modal-box">
-        <h3 class="font-bold text-lg">Create Shelf</h3>
-        <div role="alert" class="alert alert-error mb-4" v-show="errorMessage">
-          <ExclamationTriangleIcon class="size-6 text-white"/>
+      <div class="modal-box flex flex-col gap-4">
+        <h3 class="font-bold text-lg">New Shelf</h3>
+        <div role="alert" class="alert alert-error" v-show="errorMessage">
+          <ExclamationTriangleIcon class="size-5 shrink-0"/>
           <span v-text="errorMessage"></span>
         </div>
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Name</span>
-          </label>
-          <input type="text" v-model="name" class="input input-bordered" required/>
-        </div>
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Description</span>
-          </label>
-          <input type="text" v-model="description" class="input input-bordered"/>
-        </div>
-        <div class="modal-action">
-          <button class="btn" @click="createShelf" :disabled="!name">Create</button>
-          <button class="btn" @click="cancel">Cancel</button>
+        <fieldset class="flex flex-col gap-1">
+          <label class="text-sm font-medium opacity-70">Name</label>
+          <input type="text" v-model="name" placeholder="e.g. Want to Read" class="input input-bordered w-full" required/>
+        </fieldset>
+        <fieldset class="flex flex-col gap-1">
+          <label class="text-sm font-medium opacity-70">Description <span class="opacity-50">(optional)</span></label>
+          <input type="text" v-model="description" placeholder="A short description" class="input input-bordered w-full"/>
+        </fieldset>
+        <div class="modal-action mt-0">
+          <button class="btn btn-primary flex-1" @click="createShelf" :disabled="!name">Create</button>
+          <button class="btn btn-ghost" @click="cancel">Cancel</button>
         </div>
       </div>
+      <div class="modal-backdrop" @click="cancel"></div>
     </div>
   </div>
 </template>

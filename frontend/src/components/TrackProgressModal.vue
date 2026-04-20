@@ -1,22 +1,23 @@
 <template>
-  <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-    <div class="bg-white rounded-lg p-6 w-full max-w-md">
-      <h2 class="text-xl font-bold mb-4">Track Progress</h2>
-      <form @submit.prevent.stop="submitForm">
-        <div class="mb-4">
-          <label for="progress" class="block text-sm font-medium text-gray-700">Page Number</label>
-          <input type="number" v-model="progress" id="progress" class="input input-bordered w-full" ref="progressInput" required />
-        </div>
-        <div class="mb-4">
-          <label for="readAt" class="block text-sm font-medium text-gray-700">Date</label>
-          <input type="date" v-model="readAt" id="readAt" class="input input-bordered w-full" required />
-        </div>
-        <div class="flex justify-end">
-          <button type="button" @click="$emit('close')" class="btn btn-secondary mr-2">Cancel</button>
-          <button type="submit" class="btn btn-primary">Submit</button>
+  <div class="modal modal-open">
+    <div class="modal-box flex flex-col gap-4">
+      <h3 class="font-bold text-lg">Track Progress</h3>
+      <form @submit.prevent.stop="submitForm" class="contents">
+        <fieldset class="flex flex-col gap-1">
+          <label class="text-sm font-medium opacity-70">Page Number</label>
+          <input type="number" v-model="progress" class="input input-bordered w-full" ref="progressInput" required />
+        </fieldset>
+        <fieldset class="flex flex-col gap-1">
+          <label class="text-sm font-medium opacity-70">Date</label>
+          <input type="date" v-model="readAt" class="input input-bordered w-full" required />
+        </fieldset>
+        <div class="modal-action mt-0">
+          <button type="submit" class="btn btn-primary flex-1">Submit</button>
+          <button type="button" @click="$emit('close')" class="btn btn-ghost">Cancel</button>
         </div>
       </form>
     </div>
+    <div class="modal-backdrop" @click="$emit('close')"></div>
   </div>
 </template>
 
@@ -32,7 +33,7 @@ export default defineComponent({
   },
   setup(props, { emit }) {
     const progress = ref(props.initialProgress);
-    const readAt = ref(new Date().toISOString().split('T')[0]); // Initialize with current date
+    const readAt = ref(new Date().toISOString().split('T')[0]);
     const progressInput = ref<HTMLInputElement | null>(null);
 
     const submitForm = () => {
@@ -44,18 +45,11 @@ export default defineComponent({
     });
 
     onMounted(() => {
-      if (progressInput.value) {
-        progressInput.value.focus();
-        progressInput.value.select();
-      }
+      progressInput.value?.focus();
+      progressInput.value?.select();
     });
 
-    return {
-      progress,
-      readAt,
-      submitForm,
-      progressInput,
-    };
+    return { progress, readAt, submitForm, progressInput };
   },
 });
 </script>
