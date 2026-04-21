@@ -1,5 +1,6 @@
 mod books;
 mod db;
+mod google_books_client;
 mod goodreads_importer;
 mod models;
 mod readings;
@@ -40,6 +41,7 @@ async fn main() {
     router = shelves::register_routes(router);
     router = books::register_routes(router);
     router = readings::register_routes(router);
+    router = google_books_client::register_routes(router);
     router = router.layer(cors);
 
     info!("starting server...");
