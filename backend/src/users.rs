@@ -336,6 +336,42 @@ pub(crate) async fn import_good_reads(
         })
         .collect();
 
+    // Collect unique ISBNs and look them up on Google Books concurrently.
+    let unique_isbns: Vec<String> = records
+        .iter()
+        .filter_map(|r| {
+            let isbn13 = r.isbn13.trim_matches(|c| c == '=' || c == '"').to_string();
+            let isbn10 = r.isbn.trim_matches(|c| c == '=' || c == '"').to_string();
+            if !isbn13.is_empty() {
+                Some(isbn13)
+            } else if !isbn10.is_empty() {
+                Some(isbn10)
+            } else {
+                None
+            }
+        })
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    let gb_client = reqwest::Client::new();
+    let lookup_futures: Vec<_> = unique_isbns
+        .iter()
+        .map(|isbn| {
+            let client = gb_client.clone();
+            let isbn = isbn.clone();
+            async move {
+                let id = crate::google_books_client::lookup_id_by_isbn(&client, &isbn).await;
+                (isbn, id)
+            }
+        })
+        .collect();
+    let enrichment_map: HashMap<String, String> = futures::future::join_all(lookup_futures)
+        .await
+        .into_iter()
+        .filter_map(|(isbn, id)| id.map(|id| (isbn, id)))
+        .collect();
+
     let mut books_added = 0usize;
     let mut books_skipped = 0usize;
     let mut books_failed = 0usize;
@@ -396,7 +432,10 @@ pub(crate) async fn import_good_reads(
                 } else {
                     Some(isbn10.clone())
                 },
-                google_books_id: None,
+                google_books_id: {
+                    let isbn = if !isbn13.is_empty() { &isbn13 } else { &isbn10 };
+                    enrichment_map.get(isbn).cloned()
+                },
                 added_at: now,
             };
 
