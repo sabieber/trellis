@@ -25,6 +25,7 @@ pub struct BookInfoRequest {
 #[derive(Debug, Serialize)]
 pub struct BookInfoResponse {
     pub google_books_id: Option<String>,
+    pub isbn13: Option<String>,
     pub readings: Vec<serde_json::Value>,
 }
 
@@ -75,6 +76,7 @@ pub(crate) async fn get_book_info(
             StatusCode::OK,
             Json(json!(BookInfoResponse {
                 google_books_id: book.google_books_id,
+                isbn13: book.isbn13,
                 readings: json_readings,
             })),
         ),

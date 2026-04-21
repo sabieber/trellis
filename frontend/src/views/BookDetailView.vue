@@ -30,7 +30,7 @@
 import { defineComponent, ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { PlusIcon } from "@heroicons/vue/16/solid";
-import { fetchBookDetails } from '@/api/googleBooksApi';
+import { fetchBookDetails, searchBooks } from '@/api/googleBooksApi';
 import StartReadingModal from '@/components/StartReadingModal.vue';
 import PageContainer from '@/components/PageContainer.vue';
 import moment from 'moment';
@@ -56,7 +56,7 @@ export default defineComponent({
         if (response.ok) {
           const data = await response.json();
           readings.value = data.readings;
-          return data.google_books_id;
+          return { googleBooksId: data.google_books_id as string | null, isbn13: data.isbn13 as string | null };
         } else {
           console.error('Failed to fetch book info:', await response.json());
           return null;
@@ -68,9 +68,14 @@ export default defineComponent({
     };
 
     const fetchBookDetailsWrapper = async (bookId: string) => {
-      const googleBooksId = await fetchBookInfo(bookId);
-      if (googleBooksId) {
-        book.value = await fetchBookDetails(googleBooksId);
+      const info = await fetchBookInfo(bookId);
+      if (info?.googleBooksId) {
+        book.value = await fetchBookDetails(info.googleBooksId);
+      } else if (info?.isbn13) {
+        const results = await searchBooks(`isbn:${info.isbn13}`);
+        if (results.length > 0) {
+          book.value = results[0];
+        }
       }
       loading.value = false;
     };
