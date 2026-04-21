@@ -42,8 +42,10 @@ pub struct BookRecord {
     #[serde(rename = "Private Notes")]
     pub private_notes: Option<String>,
     #[allow(dead_code)]
+    #[serde(rename = "Read Count")]
     pub read_count: u8,
     #[allow(dead_code)]
+    #[serde(rename = "Owned Copies")]
     pub owned_copies: u8,
 }
 
