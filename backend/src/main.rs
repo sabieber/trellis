@@ -46,7 +46,7 @@ async fn main() {
 
     info!("starting server...");
 
-    let port = 3000_u16;
+    let port = 5174_u16;
     let address = std::net::SocketAddr::from(([0, 0, 0, 0], port));
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
