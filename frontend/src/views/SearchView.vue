@@ -66,6 +66,7 @@ export default defineComponent({
       loading.value = true;
       books.value = await searchBooks(query.value);
       loading.value = false;
+      router.replace({ query: { q: query.value } });
     };
 
     const viewBookDetail = (id: string) => {
