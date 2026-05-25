@@ -12,7 +12,9 @@ use serde_json::json;
 use uuid::Uuid;
 
 pub(crate) fn register_routes(router: Router) -> Router {
-    router.route("/api/books/info", post(get_book_info))
+    router
+        .route("/api/books/info", post(get_book_info))
+        .route("/api/books/resolve-google-id", post(resolve_google_id))
 }
 
 /// Request type for getting information about a book.
@@ -89,6 +91,85 @@ pub(crate) async fn get_book_info(
     }
 }
 
+/// Request type for resolving a Google Books ID.
+#[derive(Debug, Deserialize)]
+pub struct ResolveGoogleIdRequest {
+    pub book_id: String,
+}
+
+/// Resolves the Google Books ID for a book.
+///
+/// This route accepts a JSON payload with the following structure:
+/// - `book_id`: The UUID of the book to resolve the Google Books ID for.
+///
+/// If the book already has a `google_books_id` stored, it is returned immediately.
+/// Otherwise, the ISBN is used to look up the ID via the Google Books API.
+/// On success, the resolved ID is persisted to the database.
+pub(crate) async fn resolve_google_id(
+    auth: AuthUser,
+    Json(payload): Json<ResolveGoogleIdRequest>,
+) -> impl IntoResponse {
+    let book_id = match Uuid::parse_str(&payload.book_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "google_books_id": serde_json::Value::Null })),
+            )
+        }
+    };
+
+    let connection = &mut connect();
+
+    let book = match books
+        .filter(schema::books::dsl::id.eq(book_id))
+        .filter(schema::books::dsl::user.eq(auth.0))
+        .first::<Book>(connection)
+    {
+        Ok(b) => b,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "google_books_id": serde_json::Value::Null })),
+            )
+        }
+    };
+
+    if let Some(gid) = book.google_books_id {
+        return (StatusCode::OK, Json(json!({ "google_books_id": gid })));
+    }
+
+    let isbn = book
+        .isbn13
+        .filter(|s| !s.is_empty())
+        .or(book.isbn10.filter(|s| !s.is_empty()));
+
+    let Some(isbn) = isbn else {
+        return (
+            StatusCode::OK,
+            Json(json!({ "google_books_id": serde_json::Value::Null })),
+        );
+    };
+
+    let client = reqwest::Client::new();
+    let google_id = crate::google_books_client::lookup_id_by_isbn(&client, &isbn).await;
+
+    if let Some(ref gid) = google_id {
+        let _ = diesel::update(
+            books
+                .filter(schema::books::dsl::id.eq(book_id))
+                .filter(schema::books::dsl::user.eq(auth.0)),
+        )
+        .set(schema::books::dsl::google_books_id.eq(gid))
+        .execute(connection);
+    }
+
+    (
+        StatusCode::OK,
+        Json(json!({ "google_books_id": google_id })),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use axum::{body::Body, http::Request, routing::post, Router};
@@ -100,6 +181,15 @@ mod tests {
         let app = Router::new().route("/api/books/info", post(get_book_info));
         let response = app
             .oneshot(Request::builder().method("POST").uri("/api/books/info").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_resolve_google_id_requires_auth() {
+        let app = Router::new().route("/api/books/resolve-google-id", post(resolve_google_id));
+        let response = app
+            .oneshot(Request::builder().method("POST").uri("/api/books/resolve-google-id").body(Body::empty()).unwrap())
             .await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }

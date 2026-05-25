@@ -131,7 +131,7 @@
 import { defineComponent, ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ChevronLeftIcon, BookOpenIcon } from "@heroicons/vue/24/solid";
-import { fetchBookDetails, searchBooks } from '@/api/googleBooksApi';
+import { fetchBookDetails, searchBooks, resolveGoogleId } from '@/api/googleBooksApi';
 import StartReadingModal from '@/components/StartReadingModal.vue';
 import { apiFetch } from '@/api/client';
 import moment from 'moment';
@@ -180,8 +180,12 @@ export default defineComponent({
 
     const fetchBookDetailsWrapper = async (bookId: string) => {
       const info = await fetchBookInfo(bookId);
-      if (info?.googleBooksId) {
-        book.value = await fetchBookDetails(info.googleBooksId);
+      let googleBooksId = info?.googleBooksId;
+      if (!googleBooksId) {
+        googleBooksId = await resolveGoogleId(bookId);
+      }
+      if (googleBooksId) {
+        book.value = await fetchBookDetails(googleBooksId);
       } else if (info?.isbn13) {
         const results = await searchBooks(`isbn:${info.isbn13}`);
         if (results.length > 0) book.value = results[0];

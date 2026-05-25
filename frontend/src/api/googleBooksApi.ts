@@ -15,6 +15,22 @@ export const fetchBookDetails = async (bookId: string) => {
   }
 }
 
+export const resolveGoogleId = async (bookId: string): Promise<string | null> => {
+  try {
+    const response = await apiFetch('/api/books/resolve-google-id', {
+      method: 'POST',
+      body: JSON.stringify({ book_id: bookId }),
+    })
+    if (response.ok) {
+      const data = await response.json()
+      return data.google_books_id ?? null
+    }
+  } catch (error) {
+    console.error('Failed to resolve Google Books ID:', error)
+  }
+  return null
+}
+
 export const searchBooks = async (query: string) => {
   try {
     const response = await apiFetch(
