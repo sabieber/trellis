@@ -7,6 +7,7 @@ import AuthView from "@/views/AuthView.vue";
 import ShelfDetailView from "@/views/ShelfDetailView.vue";
 import BookDetailView from "@/views/BookDetailView.vue";
 import ReadingDetailView from "@/views/ReadingDetailView.vue";
+import GoalsView from "@/views/GoalsView.vue";
 import { useAuthStore } from '@/stores/auth';
 
 const router = createRouter({
@@ -61,6 +62,14 @@ const router = createRouter({
       path: '/reading/:id',
       name: 'reading-detail',
       component: ReadingDetailView,
+      meta: {
+        requiresAuth: true
+      }
+    },
+    {
+      path: '/goals',
+      name: 'goals',
+      component: GoalsView,
       meta: {
         requiresAuth: true
       }

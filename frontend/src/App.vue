@@ -23,6 +23,11 @@
               <BookOpenIcon class="size-6" />
             </RouterLink>
           </li>
+          <li class="tooltip tooltip-bottom" data-tip="Goals">
+            <RouterLink to="/goals" :class="{ 'menu-active': $route.path === '/goals' }">
+              <ChartBarIcon class="size-6" />
+            </RouterLink>
+          </li>
           <li class="tooltip tooltip-bottom" data-tip="Profile">
             <RouterLink to="/profile" :class="{ 'menu-active': $route.path === '/profile' }">
               <UserIcon class="size-6" />
@@ -50,6 +55,11 @@
           <BookOpenIcon class="size-6" />
         </RouterLink>
       </button>
+      <button :class="{ 'dock-active': $route.path === '/goals' }">
+        <RouterLink to="/goals">
+          <ChartBarIcon class="size-6" />
+        </RouterLink>
+      </button>
       <button :class="{ 'dock-active': $route.path === '/profile' }">
         <RouterLink to="/profile">
           <UserIcon class="size-6" />
@@ -60,9 +70,9 @@
 </template>
 
 <script lang="ts">
-import { MagnifyingGlassIcon, HomeIcon, BookOpenIcon, UserIcon } from "@heroicons/vue/16/solid";
+import { MagnifyingGlassIcon, HomeIcon, BookOpenIcon, UserIcon, ChartBarIcon } from "@heroicons/vue/16/solid";
 
 export default {
-  components: { MagnifyingGlassIcon, HomeIcon, BookOpenIcon, UserIcon },
+  components: { MagnifyingGlassIcon, HomeIcon, BookOpenIcon, UserIcon, ChartBarIcon },
 };
 </script>

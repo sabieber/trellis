@@ -198,6 +198,12 @@ pub(crate) async fn track_progress(
             .set(schema::readings::dsl::progress.eq(payload.progress))
             .execute(connection)?;
 
+        if payload.progress >= reading.total_pages {
+            diesel::update(readings.filter(schema::readings::dsl::id.eq(reading_id)))
+                .set(schema::readings::dsl::finished_at.eq(new_entry.read_at))
+                .execute(connection)?;
+        }
+
         Ok(())
     });
 

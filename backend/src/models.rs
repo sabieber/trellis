@@ -60,6 +60,54 @@ impl Display for ReadingMode {
     }
 }
 
+#[derive(Debug, diesel_derive_enum::DbEnum)]
+#[ExistingTypePath = "crate::schema::sql_types::ReadingGoalType"]
+pub enum ReadingGoalType {
+    Books,
+    Pages,
+}
+
+impl Display for ReadingGoalType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ReadingGoalType::Books => write!(f, "books"),
+            ReadingGoalType::Pages => write!(f, "pages"),
+        }
+    }
+}
+
+#[derive(Debug, diesel_derive_enum::DbEnum)]
+#[ExistingTypePath = "crate::schema::sql_types::ReadingGoalTimeframe"]
+pub enum ReadingGoalTimeframe {
+    Year,
+    Month,
+    Week,
+}
+
+impl Display for ReadingGoalTimeframe {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ReadingGoalTimeframe::Year => write!(f, "year"),
+            ReadingGoalTimeframe::Month => write!(f, "month"),
+            ReadingGoalTimeframe::Week => write!(f, "week"),
+        }
+    }
+}
+
+#[derive(Queryable, Selectable, Insertable)]
+#[diesel(table_name = crate::schema::reading_goals)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+#[diesel(belongs_to(User))]
+pub struct ReadingGoal {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub goal_type: ReadingGoalType,
+    pub timeframe: ReadingGoalTimeframe,
+    pub target: i32,
+    pub created_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::NaiveDateTime,
+}
+
 #[derive(Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::readings)]
 #[diesel(check_for_backend(diesel::pg::Pg))]

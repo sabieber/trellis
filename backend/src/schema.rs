@@ -2,6 +2,14 @@
 
 pub mod sql_types {
     #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "reading_goal_timeframe"))]
+    pub struct ReadingGoalTimeframe;
+
+    #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "reading_goal_type"))]
+    pub struct ReadingGoalType;
+
+    #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "reading_mode"))]
     pub struct ReadingMode;
 }
@@ -32,6 +40,22 @@ diesel::table! {
         progress -> Int4,
         mode -> ReadingMode,
         read_at -> Date,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::ReadingGoalType;
+    use super::sql_types::ReadingGoalTimeframe;
+
+    reading_goals (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        goal_type -> ReadingGoalType,
+        timeframe -> ReadingGoalTimeframe,
+        target -> Int4,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
@@ -82,8 +106,16 @@ diesel::joinable!(books -> users (user));
 diesel::joinable!(reading_entries -> books (book));
 diesel::joinable!(reading_entries -> readings (reading));
 diesel::joinable!(reading_entries -> users (user));
+diesel::joinable!(reading_goals -> users (user_id));
 diesel::joinable!(readings -> books (book));
 diesel::joinable!(readings -> users (user));
 diesel::joinable!(shelves -> users (user));
 
-diesel::allow_tables_to_appear_in_same_query!(books, reading_entries, readings, shelves, users,);
+diesel::allow_tables_to_appear_in_same_query!(
+    books,
+    reading_entries,
+    reading_goals,
+    readings,
+    shelves,
+    users,
+);
