@@ -16,29 +16,58 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/google-books/volume/{id}", get(get_volume))
 }
 
+/// Query parameters for the Google Books search endpoint.
 #[derive(Deserialize)]
 pub struct SearchQuery {
     pub q: String,
 }
 
+/// Looks up a Google Books volume ID by ISBN.
+///
+/// Queries the Google Books API with the given ISBN and returns the first
+/// matching volume ID. Retries up to 3 times with exponential backoff on
+/// transient failures and 429 rate-limit responses.
 pub async fn lookup_id_by_isbn(client: &Client, isbn: &str) -> Option<String> {
     if isbn.is_empty() {
         return None;
     }
-    let mut req = client
-        .get("https://www.googleapis.com/books/v1/volumes")
-        .query(&[("q", &format!("isbn:{}", isbn)), ("maxResults", &"1".to_string())]);
-    if let Some(key) = std::env::var("GOOGLE_BOOKS_API_KEY").ok() {
-        req = req.query(&[("key", key)]);
+    let max_retries = 3;
+    for attempt in 0..=max_retries {
+        if attempt > 0 {
+            let delay = std::time::Duration::from_millis(500 * (1 << (attempt - 1)));
+            tokio::time::sleep(delay).await;
+        }
+        let mut req = client
+            .get("https://www.googleapis.com/books/v1/volumes")
+            .query(&[("q", &format!("isbn:{}", isbn)), ("maxResults", &"1".to_string())]);
+        if let Some(key) = std::env::var("GOOGLE_BOOKS_API_KEY").ok() {
+            req = req.query(&[("key", key)]);
+        }
+        let resp = match req.send().await {
+            Ok(r) => r,
+            Err(_) if attempt < max_retries => continue,
+            Err(_) => return None,
+        };
+        if resp.status().as_u16() == 429 && attempt < max_retries {
+            continue;
+        }
+        if !resp.status().is_success() {
+            return None;
+        }
+        let json: Value = match resp.json().await {
+            Ok(j) => j,
+            Err(_) if attempt < max_retries => continue,
+            Err(_) => return None,
+        };
+        return json["items"][0]["id"].as_str().map(|s| s.to_string());
     }
-    let resp = req.send().await.ok()?;
-    if !resp.status().is_success() {
-        return None;
-    }
-    let json: Value = resp.json().await.ok()?;
-    json["items"][0]["id"].as_str().map(|s| s.to_string())
+    None
 }
 
+/// Searches for books via the Google Books API.
+///
+/// Accepts a query parameter `q` and proxies the request to the Google Books
+/// Volumes endpoint. Requires authentication.
 pub(crate) async fn search_books(
     _auth: AuthUser,
     Query(params): Query<SearchQuery>,
@@ -53,6 +82,10 @@ pub(crate) async fn search_books(
     proxy_request(req).await
 }
 
+/// Fetches a single volume by ID from the Google Books API.
+///
+/// Accepts a path parameter `id` (the Google Books volume ID) and proxies
+/// the request to the Google Books API. Requires authentication.
 pub(crate) async fn get_volume(
     _auth: AuthUser,
     Path(id): Path<String>,

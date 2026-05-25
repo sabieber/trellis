@@ -355,22 +355,19 @@ pub(crate) async fn import_good_reads(
         .collect();
 
     let gb_client = reqwest::Client::new();
-    let lookup_futures: Vec<_> = unique_isbns
-        .iter()
+    use futures::stream::StreamExt;
+    let enrichment_map: HashMap<String, String> = futures::stream::iter(unique_isbns)
         .map(|isbn| {
             let client = gb_client.clone();
-            let isbn = isbn.clone();
             async move {
                 let id = crate::google_books_client::lookup_id_by_isbn(&client, &isbn).await;
                 (isbn, id)
             }
         })
-        .collect();
-    let enrichment_map: HashMap<String, String> = futures::future::join_all(lookup_futures)
-        .await
-        .into_iter()
-        .filter_map(|(isbn, id)| id.map(|id| (isbn, id)))
-        .collect();
+        .buffer_unordered(5)
+        .filter_map(|(isbn, id)| async move { id.map(|id| (isbn, id)) })
+        .collect()
+        .await;
 
     let mut books_added = 0usize;
     let mut books_skipped = 0usize;
