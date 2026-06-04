@@ -15,10 +15,17 @@ pub mod sql_types {
 }
 
 diesel::table! {
+    book_shelves (book, shelf) {
+        book -> Uuid,
+        shelf -> Uuid,
+        added_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     books (id) {
         id -> Uuid,
         user -> Uuid,
-        shelf -> Uuid,
         title -> Nullable<Text>,
         author -> Nullable<Text>,
         isbn13 -> Nullable<Text>,
@@ -101,7 +108,8 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(books -> shelves (shelf));
+diesel::joinable!(book_shelves -> books (book));
+diesel::joinable!(book_shelves -> shelves (shelf));
 diesel::joinable!(books -> users (user));
 diesel::joinable!(reading_entries -> books (book));
 diesel::joinable!(reading_entries -> readings (reading));
@@ -112,6 +120,7 @@ diesel::joinable!(readings -> users (user));
 diesel::joinable!(shelves -> users (user));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    book_shelves,
     books,
     reading_entries,
     reading_goals,

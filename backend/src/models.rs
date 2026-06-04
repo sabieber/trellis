@@ -31,16 +31,25 @@ pub struct Shelf {
 #[diesel(table_name = crate::schema::books)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 #[diesel(belongs_to(User))]
-#[diesel(belongs_to(Shelf))]
 pub struct Book {
     pub id: Uuid,
     pub user: Uuid,
-    pub shelf: Uuid,
     pub title: Option<String>,
     pub author: Option<String>,
     pub isbn13: Option<String>,
     pub isbn10: Option<String>,
     pub google_books_id: Option<String>,
+    pub added_at: chrono::NaiveDateTime,
+}
+
+#[derive(Queryable, Selectable, Insertable)]
+#[diesel(table_name = crate::schema::book_shelves)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+#[diesel(belongs_to(Book))]
+#[diesel(belongs_to(Shelf))]
+pub struct BookShelf {
+    pub book: Uuid,
+    pub shelf: Uuid,
     pub added_at: chrono::NaiveDateTime,
 }
 

@@ -2,7 +2,7 @@ use crate::auth::AuthUser;
 use crate::db::connect;
 use crate::models::{Book, Shelf};
 use crate::schema::books::dsl::books;
-use crate::{schema, ErrorResponse};
+use crate::ErrorResponse;
 use axum::routing::post;
 use axum::{extract::Json, http::StatusCode, response::IntoResponse, Router};
 use diesel::prelude::*;
@@ -123,11 +123,37 @@ pub(crate) async fn remove_shelf(
     }
 
     let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
+        use crate::schema::book_shelves::dsl as bs;
+        use crate::schema::reading_entries::dsl as re;
+        use crate::schema::readings::dsl as rd;
+
+        // Books that live only on this shelf become orphans once it is gone.
+        let books_on_shelf: Vec<Uuid> = bs::book_shelves
+            .filter(bs::shelf.eq(shelf_id))
+            .select(bs::book)
+            .load(conn)?;
+
+        let mut orphan_ids: Vec<Uuid> = Vec::new();
+        for book_id in books_on_shelf {
+            let count: i64 = bs::book_shelves
+                .filter(bs::book.eq(book_id))
+                .count()
+                .get_result(conn)?;
+            if count <= 1 {
+                orphan_ids.push(book_id);
+            }
+        }
+
+        // Remove the orphaned books along with their readings; the cascade on
+        // book_shelves clears their membership rows.
+        diesel::delete(re::reading_entries.filter(re::book.eq_any(&orphan_ids))).execute(conn)?;
+        diesel::delete(rd::readings.filter(rd::book.eq_any(&orphan_ids))).execute(conn)?;
         diesel::delete(
-            crate::schema::books::dsl::books.filter(crate::schema::books::dsl::shelf.eq(shelf_id)),
+            books.filter(crate::schema::books::dsl::id.eq_any(&orphan_ids)),
         )
         .execute(conn)?;
 
+        // Deleting the shelf cascades the remaining memberships of shared books.
         diesel::delete(
             crate::schema::shelves::dsl::shelves.filter(crate::schema::shelves::dsl::id.eq(shelf_id)),
         )
@@ -137,7 +163,7 @@ pub(crate) async fn remove_shelf(
     });
 
     match result {
-        Ok(_) => (StatusCode::OK, Json(json!({ "message": "Shelf and its books removed successfully." }))),
+        Ok(_) => (StatusCode::OK, Json(json!({ "message": "Shelf removed successfully." }))),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!(ErrorResponse { error: format!("Error while removing the shelf: {}", e) })),
@@ -175,8 +201,10 @@ pub(crate) async fn list_shelf_books(
         return (StatusCode::FORBIDDEN, Json(json!(ErrorResponse { error: "Access denied.".to_string() })));
     }
 
-    let results = match books
-        .filter(crate::schema::books::dsl::shelf.eq(shelf_id))
+    let results = match crate::schema::book_shelves::dsl::book_shelves
+        .inner_join(books)
+        .filter(crate::schema::book_shelves::dsl::shelf.eq(shelf_id))
+        .select(Book::as_select())
         .load::<Book>(connection)
     {
         Ok(r) => r,
@@ -248,22 +276,23 @@ pub(crate) async fn add_book_to_shelf(
         return (StatusCode::FORBIDDEN, Json(json!(ErrorResponse { error: "Access denied.".to_string() })));
     }
 
-    let new_book = Book {
-        id: Uuid::new_v4(),
-        user: auth.0,
-        shelf: shelf_id,
-        title: payload.title,
-        author: payload.author,
-        isbn13: payload.isbn13,
-        isbn10: payload.isbn10,
-        google_books_id: payload.google_books_id,
-        added_at: chrono::Utc::now().naive_utc(),
-    };
+    let now = chrono::Utc::now().naive_utc();
+    let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
+        let book_id = crate::books::resolve_or_create_book(
+            conn,
+            auth.0,
+            payload.title,
+            payload.author,
+            payload.isbn13,
+            payload.isbn10,
+            payload.google_books_id,
+            now,
+        )?;
+        crate::books::ensure_membership(conn, book_id, shelf_id, now)?;
+        Ok(())
+    });
 
-    match diesel::insert_into(schema::books::dsl::books)
-        .values(&new_book)
-        .execute(connection)
-    {
+    match result {
         Ok(_) => (StatusCode::CREATED, Json(json!({ "message": "Book added to shelf successfully." }))),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(ErrorResponse { error: format!("Error while adding the book to the shelf: {}", e) }))),
     }
@@ -273,18 +302,30 @@ pub(crate) async fn add_book_to_shelf(
 #[derive(Debug, Deserialize)]
 pub struct RemoveBookFromShelfRequest {
     pub book_id: String,
+    pub shelf_id: String,
 }
 
 /// Removes a book from a shelf.
+///
+/// Deletes only the membership of the book on the given shelf. If this is the
+/// book's last shelf, the book row is deleted too — unless it has readings, in
+/// which case the removal is blocked to preserve reading history.
 pub(crate) async fn remove_book_from_shelf(
     auth: AuthUser,
     Json(payload): Json<RemoveBookFromShelfRequest>,
 ) -> impl IntoResponse {
+    use crate::schema::book_shelves::dsl as bs;
+    use crate::schema::readings::dsl as r;
+
     let connection = &mut connect();
 
     let book_id = match Uuid::parse_str(&payload.book_id) {
         Ok(id) => id,
         Err(_) => return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Invalid book ID.".to_string() }))),
+    };
+    let shelf_id = match Uuid::parse_str(&payload.shelf_id) {
+        Ok(id) => id,
+        Err(_) => return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Invalid shelf ID.".to_string() }))),
     };
 
     let book: Book = match crate::schema::books::dsl::books
@@ -299,9 +340,57 @@ pub(crate) async fn remove_book_from_shelf(
         return (StatusCode::FORBIDDEN, Json(json!(ErrorResponse { error: "Access denied.".to_string() })));
     }
 
-    match diesel::delete(
-        crate::schema::books::dsl::books.filter(crate::schema::books::dsl::id.eq(book_id)),
-    ).execute(connection) {
+    let on_shelf: bool = diesel::select(diesel::dsl::exists(
+        bs::book_shelves
+            .filter(bs::book.eq(book_id))
+            .filter(bs::shelf.eq(shelf_id)),
+    ))
+    .get_result(connection)
+    .unwrap_or(false);
+
+    if !on_shelf {
+        return (StatusCode::NOT_FOUND, Json(json!(ErrorResponse { error: "Book is not on this shelf.".to_string() })));
+    }
+
+    let membership_count: i64 = bs::book_shelves
+        .filter(bs::book.eq(book_id))
+        .count()
+        .get_result(connection)
+        .unwrap_or(0);
+
+    // Removing the last shelf would orphan the book. Block it if readings exist
+    // so reading history is never silently lost.
+    if membership_count <= 1 {
+        let has_readings: bool = diesel::select(diesel::dsl::exists(
+            r::readings.filter(r::book.eq(book_id)),
+        ))
+        .get_result(connection)
+        .unwrap_or(false);
+
+        if has_readings {
+            return (StatusCode::CONFLICT, Json(json!(ErrorResponse {
+                error: "Cannot remove the book from its last shelf because it has readings. Delete the readings first.".to_string(),
+            })));
+        }
+    }
+
+    // When this is the last membership, delete the book; the ON DELETE CASCADE on
+    // book_shelves removes the membership row. Otherwise delete just the membership.
+    let result = if membership_count <= 1 {
+        diesel::delete(
+            crate::schema::books::dsl::books.filter(crate::schema::books::dsl::id.eq(book_id)),
+        )
+        .execute(connection)
+    } else {
+        diesel::delete(
+            bs::book_shelves
+                .filter(bs::book.eq(book_id))
+                .filter(bs::shelf.eq(shelf_id)),
+        )
+        .execute(connection)
+    };
+
+    match result {
         Ok(_) => (StatusCode::OK, Json(json!({ "message": "Book removed from shelf successfully." }))),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(ErrorResponse { error: format!("Error while removing the book from the shelf: {}", e) }))),
     }

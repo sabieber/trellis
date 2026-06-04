@@ -1,7 +1,7 @@
 use crate::auth::AuthUser;
 use crate::db::connect;
 use crate::goodreads_importer::BookRecord;
-use crate::models::{Book, Shelf, User};
+use crate::models::{Shelf, User};
 use crate::schema::users::dsl::users;
 use crate::schema::users::name;
 use crate::ErrorResponse;
@@ -308,34 +308,6 @@ pub(crate) async fn import_good_reads(
         }
     }
 
-    // Load existing books for this user to detect duplicates.
-    // A book is keyed by (shelf_id, isbn13) if available, else (shelf_id, "title|author").
-    let existing_books: Vec<Book> = match crate::schema::books::dsl::books
-        .filter(crate::schema::books::dsl::user.eq(user_uuid))
-        .load(connection)
-    {
-        Ok(b) => b,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "error": format!("Failed to load books: {}", e) })),
-            );
-        }
-    };
-
-    let mut existing_keys: HashSet<(Uuid, String)> = existing_books
-        .into_iter()
-        .flat_map(|b| {
-            if let Some(isbn) = b.isbn13.filter(|s| !s.is_empty()) {
-                vec![(b.shelf, isbn)]
-            } else if let (Some(title), Some(author)) = (b.title, b.author) {
-                vec![(b.shelf, format!("{}|{}", title, author))]
-            } else {
-                vec![]
-            }
-        })
-        .collect();
-
     // Collect unique ISBNs and look them up on Google Books concurrently.
     let unique_isbns: Vec<String> = records
         .iter()
@@ -393,6 +365,31 @@ pub(crate) async fn import_good_reads(
             }
         }
 
+        let google_books_id = {
+            let isbn = if !isbn13.is_empty() { &isbn13 } else { &isbn10 };
+            enrichment_map.get(isbn).cloned()
+        };
+
+        // Resolve (or create) the single canonical book row for this record,
+        // then attach it to each target shelf.
+        let book_id = match crate::books::resolve_or_create_book(
+            connection,
+            user_uuid,
+            Some(record.title.clone()),
+            Some(record.author.clone()),
+            Some(isbn13.clone()),
+            Some(isbn10.clone()),
+            google_books_id,
+            now,
+        ) {
+            Ok(id) => id,
+            Err(e) => {
+                tracing::error!("Error resolving book '{}': {}", record.title, e);
+                books_failed += 1;
+                continue;
+            }
+        };
+
         for shelf_name in &target_shelves {
             if shelf_name.is_empty() {
                 continue;
@@ -402,50 +399,23 @@ pub(crate) async fn import_good_reads(
                 None => continue,
             };
 
-            let book_key = if !isbn13.is_empty() {
-                (shelf_id, isbn13.clone())
-            } else {
-                (shelf_id, format!("{}|{}", record.title, record.author))
-            };
+            let already_member: bool = diesel::select(diesel::dsl::exists(
+                crate::schema::book_shelves::dsl::book_shelves
+                    .filter(crate::schema::book_shelves::dsl::book.eq(book_id))
+                    .filter(crate::schema::book_shelves::dsl::shelf.eq(shelf_id)),
+            ))
+            .get_result(connection)
+            .unwrap_or(false);
 
-            if existing_keys.contains(&book_key) {
+            if already_member {
                 books_skipped += 1;
                 continue;
             }
 
-            let new_book = Book {
-                id: Uuid::new_v4(),
-                user: user_uuid,
-                shelf: shelf_id,
-                title: Some(record.title.clone()),
-                author: Some(record.author.clone()),
-                isbn13: if isbn13.is_empty() {
-                    None
-                } else {
-                    Some(isbn13.clone())
-                },
-                isbn10: if isbn10.is_empty() {
-                    None
-                } else {
-                    Some(isbn10.clone())
-                },
-                google_books_id: {
-                    let isbn = if !isbn13.is_empty() { &isbn13 } else { &isbn10 };
-                    enrichment_map.get(isbn).cloned()
-                },
-                added_at: now,
-            };
-
-            match diesel::insert_into(crate::schema::books::dsl::books)
-                .values(&new_book)
-                .execute(connection)
-            {
-                Ok(_) => {
-                    existing_keys.insert(book_key);
-                    books_added += 1;
-                }
+            match crate::books::ensure_membership(connection, book_id, shelf_id, now) {
+                Ok(_) => books_added += 1,
                 Err(e) => {
-                    tracing::error!("Error inserting book '{}': {}", record.title, e);
+                    tracing::error!("Error adding book '{}' to a shelf: {}", record.title, e);
                     books_failed += 1;
                 }
             }

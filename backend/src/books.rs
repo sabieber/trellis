@@ -1,6 +1,6 @@
 use crate::auth::AuthUser;
 use crate::db::connect;
-use crate::models::{Book, Reading};
+use crate::models::{Book, BookShelf, Reading};
 use crate::schema::books::dsl::books;
 use crate::schema::readings::dsl::readings;
 use crate::{schema, ErrorResponse};
@@ -10,6 +10,120 @@ use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
+
+/// Trims a string and maps the empty result to `None`, so blank ISBNs/IDs are
+/// stored as SQL NULL rather than `""` (which would collide under the partial
+/// unique indexes).
+fn normalize(value: Option<String>) -> Option<String> {
+    value
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Resolves the canonical book row for a user using the identity ladder
+/// (google_books_id → isbn13 → isbn10 → title+author). Returns the id of the
+/// first match, or inserts a new book and returns its id.
+///
+/// All lookups and the insert run on the passed connection, so within a single
+/// transaction repeated calls for the same book converge on one row.
+pub(crate) fn resolve_or_create_book(
+    conn: &mut PgConnection,
+    user_id: Uuid,
+    title: Option<String>,
+    author: Option<String>,
+    isbn13: Option<String>,
+    isbn10: Option<String>,
+    google_books_id: Option<String>,
+    added_at: chrono::NaiveDateTime,
+) -> QueryResult<Uuid> {
+    use crate::schema::books::dsl as b;
+
+    let title = normalize(title);
+    let author = normalize(author);
+    let isbn13 = normalize(isbn13);
+    let isbn10 = normalize(isbn10);
+    let google_books_id = normalize(google_books_id);
+
+    let base = || b::books.filter(b::user.eq(user_id)).into_boxed();
+
+    if let Some(ref gid) = google_books_id {
+        if let Some(id) = base()
+            .filter(b::google_books_id.eq(gid))
+            .select(b::id)
+            .first::<Uuid>(conn)
+            .optional()?
+        {
+            return Ok(id);
+        }
+    }
+    if let Some(ref v) = isbn13 {
+        if let Some(id) = base()
+            .filter(b::isbn13.eq(v))
+            .select(b::id)
+            .first::<Uuid>(conn)
+            .optional()?
+        {
+            return Ok(id);
+        }
+    }
+    if let Some(ref v) = isbn10 {
+        if let Some(id) = base()
+            .filter(b::isbn10.eq(v))
+            .select(b::id)
+            .first::<Uuid>(conn)
+            .optional()?
+        {
+            return Ok(id);
+        }
+    }
+    if let (Some(ref t), Some(ref a)) = (&title, &author) {
+        if let Some(id) = base()
+            .filter(b::title.eq(t))
+            .filter(b::author.eq(a))
+            .select(b::id)
+            .first::<Uuid>(conn)
+            .optional()?
+        {
+            return Ok(id);
+        }
+    }
+
+    let new_id = Uuid::new_v4();
+    let new_book = Book {
+        id: new_id,
+        user: user_id,
+        title,
+        author,
+        isbn13,
+        isbn10,
+        google_books_id,
+        added_at,
+    };
+    diesel::insert_into(b::books).values(&new_book).execute(conn)?;
+    Ok(new_id)
+}
+
+/// Ensures a book is a member of a shelf. Idempotent: adding a book to a shelf it
+/// already belongs to is a no-op.
+pub(crate) fn ensure_membership(
+    conn: &mut PgConnection,
+    book_id: Uuid,
+    shelf_id: Uuid,
+    added_at: chrono::NaiveDateTime,
+) -> QueryResult<()> {
+    use crate::schema::book_shelves::dsl as bs;
+
+    diesel::insert_into(bs::book_shelves)
+        .values(&BookShelf {
+            book: book_id,
+            shelf: shelf_id,
+            added_at,
+        })
+        .on_conflict((bs::book, bs::shelf))
+        .do_nothing()
+        .execute(conn)?;
+    Ok(())
+}
 
 pub(crate) fn register_routes(router: Router) -> Router {
     router

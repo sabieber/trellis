@@ -114,14 +114,15 @@ export default defineComponent({
       try {
         const response = await apiFetch('/api/shelves/remove-book', {
           method: 'POST',
-          body: JSON.stringify({ book_id: bookId }),
+          body: JSON.stringify({ book_id: bookId, shelf_id: route.params.id }),
         });
         if (response.ok) {
           pageContainer.value?.showToast({ message: 'Book removed from shelf successfully.', type: 'alert-success' });
           books.value = books.value.filter((book: { id: string }) => book.id !== bookId);
         } else {
-          console.error('Failed to remove book:', await response.json());
-          pageContainer.value?.showToast({ message: 'Failed to remove book from shelf.', type: 'alert-error' });
+          const data = await response.json();
+          console.error('Failed to remove book:', data);
+          pageContainer.value?.showToast({ message: data.error || 'Failed to remove book from shelf.', type: 'alert-error' });
         }
       } catch (error) {
         console.error('Failed to remove book:', error);
