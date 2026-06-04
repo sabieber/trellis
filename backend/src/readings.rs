@@ -1,6 +1,7 @@
 use crate::auth::AuthUser;
 use crate::db::connect;
 use crate::models::{Reading, ReadingEntry, ReadingMode};
+use crate::schema::books::dsl::books;
 use crate::schema::reading_entries::dsl::reading_entries;
 use crate::schema::readings::dsl::readings;
 use crate::{schema, ErrorResponse};
@@ -16,6 +17,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/books/reading", post(get_reading_info))
         .route("/api/books/start-reading", post(start_reading_session))
         .route("/api/books/track-progress", post(track_progress))
+        .route("/api/readings/active", post(list_active_readings))
 }
 
 /// Request type for getting information about a reading session.
@@ -210,6 +212,46 @@ pub(crate) async fn track_progress(
     match transaction_result {
         Ok(_) => (StatusCode::CREATED, Json(json!({ "message": "Progress tracked successfully." }))),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(ErrorResponse { error: format!("Error while tracking progress: {}", e) }))),
+    }
+}
+
+pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
+    let connection = &mut connect();
+
+    type Row = (uuid::Uuid, i32, i32, uuid::Uuid, Option<String>, Option<String>, Option<String>);
+
+    let rows = readings
+        .inner_join(books)
+        .filter(schema::readings::dsl::user.eq(auth.0))
+        .filter(schema::readings::dsl::finished_at.is_null())
+        .filter(schema::readings::dsl::cancelled_at.is_null())
+        .select((
+            schema::readings::dsl::id,
+            schema::readings::dsl::progress,
+            schema::readings::dsl::total_pages,
+            schema::books::dsl::id,
+            schema::books::dsl::title,
+            schema::books::dsl::author,
+            schema::books::dsl::google_books_id,
+        ))
+        .load::<Row>(connection);
+
+    match rows {
+        Ok(rows) => {
+            let items: Vec<_> = rows.into_iter().map(|(reading_id, progress, total_pages, book_id, title, author, google_books_id)| {
+                json!({
+                    "reading_id": reading_id.to_string(),
+                    "book_id": book_id.to_string(),
+                    "title": title,
+                    "author": author,
+                    "google_books_id": google_books_id,
+                    "progress": progress,
+                    "total_pages": total_pages,
+                })
+            }).collect();
+            (StatusCode::OK, Json(json!({ "readings": items })))
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(ErrorResponse { error: format!("Error loading active readings: {}", e) }))),
     }
 }
 
