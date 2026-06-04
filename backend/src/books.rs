@@ -143,6 +143,7 @@ pub struct BookInfoResponse {
     pub google_books_id: Option<String>,
     pub isbn13: Option<String>,
     pub readings: Vec<serde_json::Value>,
+    pub shelf_ids: Vec<String>,
 }
 
 /// Fetches book information by book ID.
@@ -183,6 +184,15 @@ pub(crate) async fn get_book_info(
         json_readings.push(json_reading);
     }
 
+    let shelf_ids: Vec<String> = schema::book_shelves::dsl::book_shelves
+        .filter(schema::book_shelves::dsl::book.eq(book_id))
+        .select(schema::book_shelves::dsl::shelf)
+        .load::<Uuid>(connection)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|id| id.to_string())
+        .collect();
+
     match books
         .filter(schema::books::dsl::id.eq(book_id))
         .filter(schema::books::dsl::user.eq(auth.0))
@@ -194,6 +204,7 @@ pub(crate) async fn get_book_info(
                 google_books_id: book.google_books_id,
                 isbn13: book.isbn13,
                 readings: json_readings,
+                shelf_ids,
             })),
         ),
         Err(_) => (

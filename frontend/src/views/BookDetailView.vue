@@ -97,11 +97,16 @@
             <div
               v-for="shelf in shelves"
               :key="shelf.id"
-              @click="addBookToShelf(shelf.id)"
+              @click="toggleShelf(shelf.id)"
               class="flex items-center justify-between py-3 cursor-pointer"
             >
               <span class="text-white">{{ shelf.name }}</span>
-              <div class="size-7 rounded-full bg-gray-700"></div>
+              <div
+                class="size-7 rounded-full flex items-center justify-center border transition-colors"
+                :class="isOnShelf(shelf.id) ? 'bg-primary border-primary' : 'bg-gray-700 border-gray-600'"
+              >
+                <CheckIcon v-if="isOnShelf(shelf.id)" class="size-4 text-white" />
+              </div>
             </div>
           </div>
           <div v-else class="text-gray-500 text-sm text-center py-4">No shelves found.</div>
@@ -130,14 +135,14 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ChevronLeftIcon, BookOpenIcon } from "@heroicons/vue/24/solid";
+import { ChevronLeftIcon, BookOpenIcon, CheckIcon } from "@heroicons/vue/24/solid";
 import { fetchBookDetails, searchBooks, resolveGoogleId } from '@/api/googleBooksApi';
 import StartReadingModal from '@/components/StartReadingModal.vue';
 import { apiFetch } from '@/api/client';
 import moment from 'moment';
 
 export default defineComponent({
-  components: { ChevronLeftIcon, BookOpenIcon, StartReadingModal },
+  components: { ChevronLeftIcon, BookOpenIcon, CheckIcon, StartReadingModal },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -148,6 +153,7 @@ export default defineComponent({
     const activeTab = ref('Info');
     const tabs = ['Info', 'Log', 'Shelves'];
     const shelves = ref<Array<{ id: string; name: string; description: string }>>([]);
+    const shelfIds = ref<string[]>([]);
     const loadingShelves = ref(false);
     const toastMessage = ref('');
     const toastType = ref('');
@@ -170,6 +176,7 @@ export default defineComponent({
         if (response.ok) {
           const data = await response.json();
           readings.value = data.readings;
+          shelfIds.value = data.shelf_ids ?? [];
           return { googleBooksId: data.google_books_id as string | null, isbn13: data.isbn13 as string | null };
         }
       } catch (error) {
@@ -208,6 +215,8 @@ export default defineComponent({
       }
     };
 
+    const isOnShelf = (shelfId: string) => shelfIds.value.includes(shelfId);
+
     const addBookToShelf = async (shelfId: string) => {
       if (!book.value) return;
       try {
@@ -223,6 +232,7 @@ export default defineComponent({
           }),
         });
         if (response.ok) {
+          if (!shelfIds.value.includes(shelfId)) shelfIds.value.push(shelfId);
           showToast('Book added to shelf successfully.', 'alert-success');
         } else {
           showToast('Failed to add book to shelf.', 'alert-error');
@@ -231,6 +241,27 @@ export default defineComponent({
         showToast('Failed to add book to shelf.', 'alert-error');
       }
     };
+
+    const removeBookFromShelf = async (shelfId: string) => {
+      try {
+        const response = await apiFetch('/api/shelves/remove-book', {
+          method: 'POST',
+          body: JSON.stringify({ book_id: route.params.id, shelf_id: shelfId }),
+        });
+        if (response.ok) {
+          shelfIds.value = shelfIds.value.filter((id) => id !== shelfId);
+          showToast('Book removed from shelf successfully.', 'alert-success');
+        } else {
+          const data = await response.json();
+          showToast(data.error || 'Failed to remove book from shelf.', 'alert-error');
+        }
+      } catch {
+        showToast('Failed to remove book from shelf.', 'alert-error');
+      }
+    };
+
+    const toggleShelf = (shelfId: string) =>
+      isOnShelf(shelfId) ? removeBookFromShelf(shelfId) : addBookToShelf(shelfId);
 
     const viewReadingDetail = (readingId: string) => {
       router.push({ name: 'reading-detail', params: { id: readingId } });
@@ -275,7 +306,8 @@ export default defineComponent({
       toastType,
       viewReadingDetail,
       startReadingSession,
-      addBookToShelf,
+      isOnShelf,
+      toggleShelf,
       formatDate,
     };
   },
