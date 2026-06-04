@@ -1,6 +1,7 @@
+name: trellis
 services:
   db:
-    container_name: books-db
+    container_name: trellis-db
     image: postgres:17.2
     ports:
       - "5432:5432"
@@ -15,10 +16,10 @@ services:
       timeout: 30s
       retries: 5
     networks:
-      - books-network
+      - trellis-network
 
   backend:
-    container_name: books-backend
+    container_name: trellis-backend
     restart: always
     build:
       context: ./backend
@@ -29,11 +30,11 @@ services:
     env_file:
       - ./.env
     networks:
-      - books-network
+      - trellis-network
     command: cargo run
 
   frontend:
-    container_name: books-frontend
+    container_name: trellis-frontend
     restart: always
     build:
       context: ./frontend
@@ -43,11 +44,10 @@ services:
     ports:
       - "5173:5173"
     networks:
-      - books-network
+      - trellis-network
     command: npm run dev -- --host
 
 networks:
-  books-network:
+  trellis-network:
     driver: bridge
-    external: true
-    name: books-network
+    name: trellis-network

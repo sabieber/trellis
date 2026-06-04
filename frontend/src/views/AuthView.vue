@@ -9,7 +9,7 @@
       <div class="size-16 rounded-2xl overflow-hidden mb-4">
         <img src="/favicon.ico" class="size-full" alt="Books" />
       </div>
-      <h1 class="text-2xl font-bold text-white">Books</h1>
+      <h1 class="text-2xl font-bold text-white">trellis</h1>
       <p class="text-gray-400 text-sm mt-1">Your open source reading tracker</p>
     </div>
 

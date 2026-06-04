@@ -104,30 +104,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "backend"
-version = "0.1.0"
-dependencies = [
- "argon2",
- "axum",
- "chrono",
- "csv",
- "diesel",
- "diesel-derive-enum",
- "dotenvy",
- "futures",
- "jsonwebtoken",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
 name = "base16ct"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2166,6 +2142,30 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "trellis-backend"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "axum",
+ "chrono",
+ "csv",
+ "diesel",
+ "diesel-derive-enum",
+ "dotenvy",
+ "futures",
+ "jsonwebtoken",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

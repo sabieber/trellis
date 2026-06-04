@@ -3,7 +3,7 @@
     <div v-if="!$route.meta.hideNav" class="navbar bg-gray-800 fixed w-full z-10">
       <div class="flex-1">
         <a class="btn btn-ghost text-xl">
-          <RouterLink to="/">Books</RouterLink>
+          <RouterLink to="/">trellis</RouterLink>
         </a>
       </div>
       <div class="flex-none hidden sm:flex">
