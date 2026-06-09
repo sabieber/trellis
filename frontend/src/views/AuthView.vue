@@ -6,11 +6,9 @@
     </div>
 
     <div class="flex flex-col items-center mb-8">
-      <div class="size-16 rounded-2xl overflow-hidden mb-4">
-        <img src="/favicon.ico" class="size-full" alt="Books" />
-      </div>
+      <img src="/logo.svg" class="size-16 mb-4" alt="trellis" />
       <h1 class="text-2xl font-bold text-white">trellis</h1>
-      <p class="text-gray-400 text-sm mt-1">Your open source reading tracker</p>
+      <p class="text-gray-400 text-sm mt-1">grow your library and reading goals</p>
     </div>
 
     <div role="tablist" class="tabs tabs-box w-full max-w-sm mb-6">

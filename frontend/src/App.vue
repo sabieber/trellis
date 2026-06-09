@@ -2,9 +2,10 @@
   <div class="flex flex-col min-h-screen">
     <div v-if="!$route.meta.hideNav" class="navbar bg-gray-800 fixed w-full z-10">
       <div class="flex-1">
-        <a class="btn btn-ghost text-xl">
-          <RouterLink to="/">trellis</RouterLink>
-        </a>
+        <RouterLink to="/" class="btn btn-ghost text-xl gap-2">
+          <img src="/logo.svg" alt="" class="h-8 w-8" />
+          trellis
+        </RouterLink>
       </div>
       <div class="flex-none hidden sm:flex">
         <ul class="menu menu-horizontal px-1">

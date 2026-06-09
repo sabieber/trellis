@@ -91,8 +91,8 @@
     </div>
 
     <div v-else class="flex flex-col items-center justify-center flex-1 px-4">
-      <h2 class="text-2xl font-semibold text-center">Welcome to trellis</h2>
-      <p class="opacity-50 text-center mt-2">Track your reading, set goals, and build your library.</p>
+      <h2 class="text-2xl font-semibold text-center">welcome to trellis</h2>
+      <p class="opacity-50 text-center mt-2">grow your library and reading goals</p>
     </div>
 
     <!-- Track progress modal -->
