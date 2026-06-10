@@ -428,9 +428,12 @@ pub(crate) async fn import_good_reads(
             }
         }
 
-        // Finished books (the "read" shelf) get reading record(s) derived from "Read Count" and
-        // "Date Read". Skip if the book already has a reading, so re-importing stays idempotent.
-        if record.exclusive_shelf.trim() == "read" {
+        // Derive reading record(s) from the exclusive shelf. The "read" shelf
+        // yields finished reading(s); "currently-reading" yields a single open
+        // reading so the book surfaces on the home page. Skip if the book
+        // already has a reading, so re-importing stays idempotent.
+        let exclusive = record.exclusive_shelf.trim();
+        if exclusive == "read" || exclusive == "currently-reading" {
             let already_has_reading: bool = diesel::select(diesel::dsl::exists(
                 crate::schema::readings::dsl::readings
                     .filter(crate::schema::readings::dsl::book.eq(book_id))
@@ -440,30 +443,58 @@ pub(crate) async fn import_good_reads(
             .unwrap_or(false);
 
             if !already_has_reading {
-                // GoodReads stores a single finish date regardless of read count;
-                // fall back to Date Added, then today, when it is absent.
-                let finish = record
-                    .date_read
-                    .as_deref()
-                    .and_then(parse_goodreads_date)
-                    .or_else(|| parse_goodreads_date(&record.date_added))
-                    .unwrap_or_else(|| chrono::Utc::now().date_naive());
                 let total_pages = record.number_of_pages.unwrap_or(0) as i32;
+                let added = parse_goodreads_date(&record.date_added);
 
-                for _ in 0..record.read_count.max(1) {
-                    let new_reading = Reading {
-                        id: Uuid::new_v4(),
-                        book: book_id,
-                        user: user_uuid,
-                        total_pages,
-                        progress: total_pages,
-                        mode: ReadingMode::Pages,
-                        started_at: finish,
-                        finished_at: Some(finish),
-                        cancelled_at: None,
-                        created_at: now,
-                        updated_at: now,
+                // "read" creates one reading per read (Read Count, min 1);
+                // "currently-reading" creates a single open reading.
+                let count = if exclusive == "read" {
+                    record.read_count.max(1)
+                } else {
+                    1
+                };
+
+                for _ in 0..count {
+                    let new_reading = if exclusive == "read" {
+                        // GoodReads stores a single finish date regardless of read
+                        // count; fall back to Date Added, then today, when absent.
+                        let finish = record
+                            .date_read
+                            .as_deref()
+                            .and_then(parse_goodreads_date)
+                            .or(added)
+                            .unwrap_or_else(|| chrono::Utc::now().date_naive());
+                        Reading {
+                            id: Uuid::new_v4(),
+                            book: book_id,
+                            user: user_uuid,
+                            total_pages,
+                            progress: total_pages,
+                            mode: ReadingMode::Pages,
+                            started_at: finish,
+                            finished_at: Some(finish),
+                            cancelled_at: None,
+                            created_at: now,
+                            updated_at: now,
+                        }
+                    } else {
+                        // Open reading: GoodReads exports no progress, so start at 0
+                        // with no finish date. Date Added approximates the start.
+                        Reading {
+                            id: Uuid::new_v4(),
+                            book: book_id,
+                            user: user_uuid,
+                            total_pages,
+                            progress: 0,
+                            mode: ReadingMode::Pages,
+                            started_at: added.unwrap_or_else(|| chrono::Utc::now().date_naive()),
+                            finished_at: None,
+                            cancelled_at: None,
+                            created_at: now,
+                            updated_at: now,
+                        }
                     };
+
                     match diesel::insert_into(crate::schema::readings::dsl::readings)
                         .values(&new_reading)
                         .execute(connection)
