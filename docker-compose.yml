@@ -18,34 +18,23 @@ services:
     networks:
       - trellis-network
 
-  backend:
-    container_name: trellis-backend
+  app:
+    container_name: trellis-app
     restart: always
     build:
-      context: ./backend
-    volumes:
-      - ./backend:/code/app
+      context: .
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "5174:5174"
     env_file:
       - ./.env
+    environment:
+      # Override the .env localhost URL so the app reaches the db service.
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_USER}
     networks:
       - trellis-network
-    command: cargo run
-
-  frontend:
-    container_name: trellis-frontend
-    restart: always
-    build:
-      context: ./frontend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules/
-    ports:
-      - "5173:5173"
-    networks:
-      - trellis-network
-    command: npm run dev -- --host
 
 networks:
   trellis-network:

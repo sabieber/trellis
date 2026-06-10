@@ -57,4 +57,12 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  // In dev, the frontend and backend run on separate ports. Proxy API calls to
+  // the backend so they stay same-origin (matching production, where the
+  // backend serves the built frontend) and no CORS is needed.
+  server: {
+    proxy: {
+      '/api': 'http://localhost:5174',
+    },
+  },
 })

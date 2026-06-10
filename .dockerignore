@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+.vscode
+.worktrees
+db
+inspiration
+docs
+**/target
+**/node_modules
+**/dist
+.env
+*.md
+goodreads_library_export.csv

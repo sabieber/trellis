@@ -24,17 +24,37 @@ Track books and reading progress, set reading goals, and organise your library �
 
 ## Getting started
 
-Start the backend:
+First, create your environment file from the template and fill in the values:
 
 ```sh
-cd backend
-cargo run
+cp .env.example .env
 ```
 
-Start the frontend dev server:
+Then run the full stack (app + database) with Docker:
 
 ```sh
-cd frontend
-pnpm install
-pnpm dev
+docker compose up --build
 ```
+
+The app is served at http://localhost:5174. The database schema is created
+automatically on first start.
+
+### Local development
+
+For hot-reloading dev servers, run the database in Docker and the backend and
+frontend locally. This needs three terminals:
+
+```sh
+# terminal 1 — database (Postgres on localhost:5432)
+docker compose up db
+
+# terminal 2 — backend (applies migrations, serves the API on :5174)
+cd backend && cargo run
+
+# terminal 3 — frontend dev server (proxies /api to the backend)
+cd frontend && npm install && npm run dev
+```
+
+The app is then served at http://localhost:5173. The backend requires a
+reachable database — it applies migrations on startup and exits if it cannot
+connect, so start the database (terminal 1) before the backend.
