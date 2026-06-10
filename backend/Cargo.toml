@@ -16,7 +16,7 @@ diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 dotenvy = "0.15.7"
 uuid = { version = "1.23.3", features = ["v4", "serde"] }
 argon2 = { version = "0.5.3", features = ["std"] }
-chrono = "0.4.44"
+chrono = "0.4.45"
 csv = "1.4.0"
 jsonwebtoken = { version = "10.4.0", features = ["rust_crypto"] }
 reqwest = { version = "0.12.28", features = ["json", "rustls-tls"], default-features = false }
