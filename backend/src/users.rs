@@ -1,7 +1,7 @@
 use crate::auth::AuthUser;
 use crate::db::connect;
-use crate::goodreads_importer::BookRecord;
-use crate::models::{Shelf, User};
+use crate::goodreads_importer::{parse_goodreads_date, BookRecord};
+use crate::models::{Reading, ReadingMode, Shelf, User};
 use crate::schema::users::dsl::users;
 use crate::schema::users::name;
 use crate::ErrorResponse;
@@ -344,8 +344,15 @@ pub(crate) async fn import_good_reads(
     let mut books_added = 0usize;
     let mut books_skipped = 0usize;
     let mut books_failed = 0usize;
+    let mut readings_created = 0usize;
 
     for record in &records {
+        // GoodReads "Date Added" drives the timestamp for the book row and its
+        // shelf memberships. Fall back to import time if it is missing/malformed.
+        let added_at = parse_goodreads_date(&record.date_added)
+            .and_then(|d| d.and_hms_opt(0, 0, 0))
+            .unwrap_or(now);
+
         // GoodReads exports ISBNs wrapped in ="..." — strip that formatting
         let isbn13 = record
             .isbn13
@@ -380,7 +387,7 @@ pub(crate) async fn import_good_reads(
             Some(isbn13.clone()),
             Some(isbn10.clone()),
             google_books_id,
-            now,
+            added_at,
         ) {
             Ok(id) => id,
             Err(e) => {
@@ -412,7 +419,7 @@ pub(crate) async fn import_good_reads(
                 continue;
             }
 
-            match crate::books::ensure_membership(connection, book_id, shelf_id, now) {
+            match crate::books::ensure_membership(connection, book_id, shelf_id, added_at) {
                 Ok(_) => books_added += 1,
                 Err(e) => {
                     tracing::error!("Error adding book '{}' to a shelf: {}", record.title, e);
@@ -420,17 +427,70 @@ pub(crate) async fn import_good_reads(
                 }
             }
         }
+
+        // Finished books (the "read" shelf) get reading record(s) derived from "Read Count" and
+        // "Date Read". Skip if the book already has a reading, so re-importing stays idempotent.
+        if record.exclusive_shelf.trim() == "read" {
+            let already_has_reading: bool = diesel::select(diesel::dsl::exists(
+                crate::schema::readings::dsl::readings
+                    .filter(crate::schema::readings::dsl::book.eq(book_id))
+                    .filter(crate::schema::readings::dsl::user.eq(user_uuid)),
+            ))
+            .get_result(connection)
+            .unwrap_or(false);
+
+            if !already_has_reading {
+                // GoodReads stores a single finish date regardless of read count;
+                // fall back to Date Added, then today, when it is absent.
+                let finish = record
+                    .date_read
+                    .as_deref()
+                    .and_then(parse_goodreads_date)
+                    .or_else(|| parse_goodreads_date(&record.date_added))
+                    .unwrap_or_else(|| chrono::Utc::now().date_naive());
+                let total_pages = record.number_of_pages.unwrap_or(0) as i32;
+
+                for _ in 0..record.read_count.max(1) {
+                    let new_reading = Reading {
+                        id: Uuid::new_v4(),
+                        book: book_id,
+                        user: user_uuid,
+                        total_pages,
+                        progress: total_pages,
+                        mode: ReadingMode::Pages,
+                        started_at: finish,
+                        finished_at: Some(finish),
+                        cancelled_at: None,
+                        created_at: now,
+                        updated_at: now,
+                    };
+                    match diesel::insert_into(crate::schema::readings::dsl::readings)
+                        .values(&new_reading)
+                        .execute(connection)
+                    {
+                        Ok(_) => readings_created += 1,
+                        Err(e) => {
+                            tracing::error!(
+                                "Error creating reading for book '{}': {}",
+                                record.title,
+                                e
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 
     let message = if books_failed > 0 {
         format!(
-            "Import complete. {} books added, {} already present, {} failed to insert.",
-            books_added, books_skipped, books_failed
+            "Import complete. {} books added, {} already present, {} failed to insert, {} readings created.",
+            books_added, books_skipped, books_failed, readings_created
         )
     } else {
         format!(
-            "Import complete. {} books added, {} already present.",
-            books_added, books_skipped
+            "Import complete. {} books added, {} already present, {} readings created.",
+            books_added, books_skipped, readings_created
         )
     };
 
@@ -439,9 +499,9 @@ pub(crate) async fn import_good_reads(
 
 #[cfg(test)]
 mod tests {
+    use super::{import_good_reads, login};
     use axum::{body::Body, http::Request, routing::post, Router};
     use tower::ServiceExt;
-    use super::{import_good_reads, login};
 
     #[tokio::test]
     async fn test_login_without_credentials_returns_non_ok() {
@@ -464,10 +524,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_import_good_reads_requires_auth() {
-        let app = Router::new().route(
-            "/api/user/import-good-reads",
-            post(import_good_reads),
-        );
+        let app = Router::new().route("/api/user/import-good-reads", post(import_good_reads));
         let response = app
             .oneshot(
                 Request::builder()

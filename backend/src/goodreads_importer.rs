@@ -1,11 +1,20 @@
+use chrono::NaiveDate;
 use csv::ReaderBuilder;
 use serde::Deserialize;
 use std::io::Read;
+
+/// Parses a GoodReads date string (`YYYY/MM/DD`) into a `NaiveDate`.
+///
+/// Returns `None` for empty or malformed input.
+pub fn parse_goodreads_date(s: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(s.trim(), "%Y/%m/%d").ok()
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct BookRecord {
     #[serde(rename = "Book Id")]
+    #[allow(dead_code)]
     pub book_id: String,
     pub title: String,
     pub author: String,
@@ -20,16 +29,13 @@ pub struct BookRecord {
     pub publisher: String,
     #[allow(dead_code)]
     pub binding: String,
-    #[allow(dead_code)]
     #[serde(rename = "Number of Pages")]
     pub number_of_pages: Option<u32>,
     #[allow(dead_code)]
     #[serde(rename = "Year Published")]
     pub year_published: Option<u16>,
-    #[allow(dead_code)]
     #[serde(rename = "Date Read")]
     pub date_read: Option<String>,
-    #[allow(dead_code)]
     #[serde(rename = "Date Added")]
     pub date_added: String,
     pub bookshelves: String,
@@ -41,7 +47,6 @@ pub struct BookRecord {
     #[allow(dead_code)]
     #[serde(rename = "Private Notes")]
     pub private_notes: Option<String>,
-    #[allow(dead_code)]
     #[serde(rename = "Read Count")]
     pub read_count: u8,
     #[allow(dead_code)]
@@ -58,5 +63,28 @@ impl BookRecord {
             records.push(record);
         }
         Ok(records)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_valid_goodreads_date() {
+        assert_eq!(
+            parse_goodreads_date("2025/02/20"),
+            chrono::NaiveDate::from_ymd_opt(2025, 2, 20)
+        );
+    }
+
+    #[test]
+    fn returns_none_for_empty_string() {
+        assert_eq!(parse_goodreads_date(""), None);
+    }
+
+    #[test]
+    fn returns_none_for_garbage() {
+        assert_eq!(parse_goodreads_date("not-a-date"), None);
     }
 }
