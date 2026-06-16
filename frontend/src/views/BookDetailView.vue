@@ -37,16 +37,8 @@
         </div>
 
         <!-- Tabs -->
-        <div class="flex gap-2 mb-5">
-          <Chip
-              v-for="tab in tabs"
-              :key="tab"
-              :active="activeTab === tab"
-              class="flex-1 justify-center"
-              @click="activeTab = tab"
-          >
-            {{ tab }}
-          </Chip>
+        <div class="mb-5">
+          <SegmentedControl v-model="activeTab" :options="tabs" class="w-full"/>
         </div>
 
         <!-- Info tab -->
@@ -146,12 +138,12 @@ import {fetchBookDetails, searchBooks, resolveGoogleId} from '@/api/googleBooksA
 import StartReadingModal from '@/components/StartReadingModal.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
-import Chip from '@/components/ui/Chip.vue';
+import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import {apiFetch} from '@/api/client';
 import moment from 'moment';
 
 export default defineComponent({
-  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, StartReadingModal, BookCover, Button, Chip},
+  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, StartReadingModal, BookCover, Button, SegmentedControl},
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -166,7 +158,11 @@ export default defineComponent({
     const loading = ref(true);
     const showStartReadingModal = ref(false);
     const activeTab = ref((route.query.tab as string) || 'Info');
-    const tabs = ['Info', 'Log', 'Shelves'];
+    const tabs = [
+      { value: 'Info', label: 'Info' },
+      { value: 'Log', label: 'Log' },
+      { value: 'Shelves', label: 'Shelves' },
+    ];
     const shelves = ref<Array<{ id: string; name: string; description: string }>>([]);
     const shelfIds = ref<string[]>([]);
     const loadingShelves = ref(false);

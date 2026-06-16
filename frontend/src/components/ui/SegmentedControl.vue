@@ -34,7 +34,7 @@ defineEmits<{ (e: 'update:modelValue', value: string): void }>();
 
 <style scoped>
 .segmented-control {
-  display: inline-flex;
+  display: flex;
   padding: 3px;
   gap: 2px;
   background: #221f17;
@@ -46,6 +46,7 @@ defineEmits<{ (e: 'update:modelValue', value: string): void }>();
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 1;
   min-width: 38px;
   height: 32px;
   padding: 0 10px;
