@@ -1,37 +1,37 @@
 <template>
-  <div class="min-h-screen bg-base-300 flex flex-col">
+  <div class="min-h-screen flex flex-col">
     <div v-if="auth.isAuthenticated" class="flex flex-col gap-6 px-4 pt-5 pb-4">
+      <div>
+        <div class="t-display text-2xl">Good {{ daypart }}</div>
+        <div class="t-meta mt-1">{{ today }}</div>
+      </div>
 
       <!-- Goals section -->
       <div>
         <div class="flex justify-between items-center mb-3">
-          <h2 class="font-bold text-lg">Reading Goals</h2>
-          <RouterLink to="/goals" class="text-sm text-primary flex items-center gap-0.5">
-            See all <ChevronRightIcon class="size-4" />
+          <h2 class="t-eyebrow">Reading goals</h2>
+          <RouterLink to="/goals" class="t-meta text-green-soft flex items-center gap-0.5">
+            See all
+            <ChevronRightIcon class="size-4"/>
           </RouterLink>
         </div>
 
         <div v-if="goalsLoading" class="flex justify-center py-4">
           <span class="loading loading-spinner loading-sm"></span>
         </div>
-        <div v-else-if="goals.length === 0" class="text-sm opacity-50 text-center py-4">
+        <div v-else-if="goals.length === 0" class="t-meta text-center py-4">
           No goals yet.
-          <RouterLink to="/goals" class="text-primary ml-1">Create one</RouterLink>
+          <RouterLink to="/goals" class="text-green-soft ml-1">Create one</RouterLink>
         </div>
-        <div v-else class="flex flex-col gap-2">
-          <div v-for="goal in goals.slice(0, 3)" :key="goal.id" class="bg-base-200 rounded-xl p-3">
-            <div class="flex justify-between items-center mb-1">
-              <span class="font-medium text-sm">{{ formatGoalLabel(goal) }}</span>
-              <span class="text-xs" :class="goal.percentage >= 100 ? 'text-success' : 'opacity-50'">
+        <div v-else class="flex flex-col gap-2.5">
+          <div v-for="goal in goals.slice(0, 3)" :key="goal.id" class="bg-surface border border-line rounded-md p-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-sm">{{ formatGoalLabel(goal) }}</span>
+              <span class="t-meta" :class="{ 'text-green-soft': goal.percentage >= 100 }">
                 {{ goal.progress }}/{{ goal.target }}
               </span>
             </div>
-            <progress
-              class="progress w-full h-1.5"
-              :class="goal.percentage >= 100 ? 'progress-success' : 'progress-primary'"
-              :value="goal.progress"
-              :max="goal.target"
-            ></progress>
+            <PlainProgress :pct="goal.percentage"/>
           </div>
         </div>
       </div>
@@ -39,68 +39,66 @@
       <!-- Currently Reading section -->
       <div>
         <div class="flex justify-between items-center mb-3">
-          <h2 class="font-bold text-lg">Currently Reading</h2>
-          <RouterLink to="/library" class="text-sm text-primary flex items-center gap-0.5">
-            See all <ChevronRightIcon class="size-4" />
+          <h2 class="t-eyebrow">Currently reading</h2>
+          <RouterLink to="/library" class="t-meta text-green-soft flex items-center gap-0.5">
+            See all
+            <ChevronRightIcon class="size-4"/>
           </RouterLink>
         </div>
 
         <div v-if="readingsLoading" class="flex justify-center py-4">
           <span class="loading loading-spinner loading-sm"></span>
         </div>
-        <div v-else-if="activeReadings.length === 0" class="text-sm opacity-50 text-center py-4">
+        <div v-else-if="activeReadings.length === 0" class="t-meta text-center py-4">
           Nothing in progress yet.
         </div>
-        <div v-else class="flex flex-col gap-2">
-          <div v-for="reading in activeReadings" :key="reading.reading_id" class="bg-base-200 rounded-xl p-3 flex gap-3 items-center">
-            <!-- Cover -->
-            <div
-              class="w-12 h-16 rounded-lg flex-none overflow-hidden relative"
-              :style="{ backgroundColor: getBookColor(reading.book_id) }"
-            >
-              <img
-                v-if="reading.google_books_id"
-                :src="`https://books.google.com/books/content?id=${reading.google_books_id}&printsec=frontcover&img=1&zoom=1&source=gbs_api`"
-                class="absolute inset-0 w-full h-full object-cover"
-                loading="lazy"
-              />
+        <div v-else class="flex flex-col gap-2.5">
+          <div
+              v-for="reading in activeReadings"
+              :key="reading.reading_id"
+              class="bg-surface border border-line rounded-md p-3.5 flex gap-3.5"
+          >
+            <BookCover
+                :title="reading.title || 'Untitled'"
+                :author="reading.author || ''"
+                :width="64"
+                :cover-url="coverUrl(reading.google_books_id)"
+            />
+            <div class="flex-1 min-w-0 flex flex-col justify-between">
+              <div>
+                <p class="t-title text-base leading-tight truncate">{{ reading.title || 'Untitled' }}</p>
+                <p class="t-meta truncate mt-0.5">{{ reading.author || 'Unknown author' }}</p>
+              </div>
+              <div>
+                <VineProgress :pct="readingPercent(reading)" :height="18"/>
+                <p class="t-meta mt-1.5">
+                  page {{ reading.progress }} of {{ reading.total_pages }} ·
+                  <span class="text-green-soft">{{ readingPercent(reading) }}%</span>
+                </p>
+              </div>
             </div>
-
-            <!-- Info -->
-            <div class="flex-1 min-w-0">
-              <p class="font-medium text-sm leading-tight truncate">{{ reading.title || 'Untitled' }}</p>
-              <p class="text-xs opacity-50 truncate mb-1">{{ reading.author || 'Unknown author' }}</p>
-              <p class="text-xs opacity-50 mb-1">Page {{ reading.progress }} of {{ reading.total_pages }} · {{ readingPercent(reading) }}%</p>
-              <progress
-                class="progress progress-primary w-full h-1.5"
-                :value="reading.progress"
-                :max="reading.total_pages"
-              ></progress>
-            </div>
-
-            <!-- Update button -->
-            <button
-              @click="openUpdateModal(reading)"
-              class="btn btn-sm btn-neutral rounded-full flex-none"
-            >
+            <Button variant="soft" class="self-center flex-none px-3.5! py-2! text-[13px]!"
+                    @click="openUpdateModal(reading)">
               Update
-            </button>
+            </Button>
           </div>
         </div>
       </div>
     </div>
 
-    <div v-else class="flex flex-col items-center justify-center flex-1 px-4">
-      <h2 class="text-2xl font-semibold text-center">welcome to trellis</h2>
-      <p class="opacity-50 text-center mt-2">grow your library and reading goals</p>
+    <div v-else class="lattice-bg flex flex-col items-center justify-center flex-1 px-4">
+      <img src="/logo.svg" class="size-20 rounded-full shadow-soft" alt=""/>
+      <h2 class="t-display text-4xl mt-4">trellis</h2>
+      <p class="t-italic text-green-soft text-lg mt-1">a garden library</p>
+      <p class="t-meta text-center mt-3.5">grow your library and reading goals</p>
     </div>
 
     <!-- Track progress modal -->
     <TrackProgressModal
-      v-if="updateTarget"
-      :initialProgress="updateTarget.progress"
-      @close="updateTarget = null"
-      @submit="submitProgress"
+        v-if="updateTarget"
+        :initialProgress="updateTarget.progress"
+        @close="updateTarget = null"
+        @submit="submitProgress"
     />
 
     <!-- Toast -->
@@ -113,12 +111,16 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted } from 'vue';
-import { RouterLink } from 'vue-router';
-import { ChevronRightIcon } from '@heroicons/vue/16/solid';
-import { useAuthStore } from '@/stores/auth';
+import {defineComponent, ref, onMounted} from 'vue';
+import {RouterLink} from 'vue-router';
+import {ChevronRightIcon} from '@heroicons/vue/24/outline';
+import {useAuthStore} from '@/stores/auth';
 import TrackProgressModal from '@/components/TrackProgressModal.vue';
-import { apiFetch } from '@/api/client';
+import Button from '@/components/ui/Button.vue';
+import BookCover from '@/components/ui/BookCover.vue';
+import VineProgress from '@/components/ui/VineProgress.vue';
+import {apiFetch} from '@/api/client';
+import PlainProgress from "@/components/ui/PlainProgress.vue";
 
 interface Goal {
   id: string;
@@ -143,22 +145,13 @@ interface ActiveReading {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const BOOK_COLORS = [
-  '#1e3a5f', '#4a2500', '#2d1454', '#3a0f0f', '#0f3d2a',
-  '#1a1a4e', '#3d2b00', '#1f3a2a', '#3a1a00', '#0f2a3d',
-];
-
-function getBookColor(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = ((hash << 5) - hash) + id.charCodeAt(i);
-    hash |= 0;
-  }
-  return BOOK_COLORS[Math.abs(hash) % BOOK_COLORS.length];
+function coverUrl(googleBooksId: string | null | undefined): string | undefined {
+  if (!googleBooksId) return undefined;
+  return `https://books.google.com/books/content?id=${googleBooksId}&printsec=frontcover&img=1&zoom=1&source=gbs_api`;
 }
 
 export default defineComponent({
-  components: { RouterLink, ChevronRightIcon, TrackProgressModal },
+  components: {RouterLink, ChevronRightIcon, TrackProgressModal, Button, PlainProgress, BookCover, VineProgress},
   setup() {
     const auth = useAuthStore();
     const goals = ref<Goal[]>([]);
@@ -169,17 +162,25 @@ export default defineComponent({
     const toastMessage = ref('');
     const toastType = ref('');
 
+    const now = new Date();
+    const hour = now.getHours();
+    const daypart = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+    const today = now.toLocaleDateString(undefined, {weekday: 'long', day: 'numeric', month: 'long'});
+
     const showToast = (message: string, type: string) => {
       toastMessage.value = message;
       toastType.value = type;
-      setTimeout(() => { toastMessage.value = ''; toastType.value = ''; }, 3000);
+      setTimeout(() => {
+        toastMessage.value = '';
+        toastType.value = '';
+      }, 3000);
     };
 
     const fetchGoals = async () => {
       if (!auth.isAuthenticated) return;
       goalsLoading.value = true;
       try {
-        const res = await apiFetch('/api/goals/list', { method: 'POST' });
+        const res = await apiFetch('/api/goals/list', {method: 'POST'});
         if (res.ok) {
           const data = await res.json();
           goals.value = data.goals;
@@ -195,7 +196,7 @@ export default defineComponent({
       if (!auth.isAuthenticated) return;
       readingsLoading.value = true;
       try {
-        const res = await apiFetch('/api/readings/active', { method: 'POST' });
+        const res = await apiFetch('/api/readings/active', {method: 'POST'});
         if (res.ok) {
           const data = await res.json();
           activeReadings.value = data.readings;
@@ -216,7 +217,7 @@ export default defineComponent({
       try {
         const res = await apiFetch('/api/books/track-progress', {
           method: 'POST',
-          body: JSON.stringify({ reading_id: updateTarget.value.reading_id, progress, read_at: readAt }),
+          body: JSON.stringify({reading_id: updateTarget.value.reading_id, progress, read_at: readAt}),
         });
         if (res.ok) {
           updateTarget.value = null;
@@ -232,7 +233,7 @@ export default defineComponent({
     };
 
     const readingPercent = (r: ActiveReading) =>
-      r.total_pages > 0 ? Math.round((r.progress / r.total_pages) * 100) : 0;
+        r.total_pages > 0 ? Math.round((r.progress / r.total_pages) * 100) : 0;
 
     const formatGoalLabel = (goal: Goal): string => {
       const start = new Date(goal.period_start + 'T00:00:00');
@@ -252,7 +253,7 @@ export default defineComponent({
       auth, goals, goalsLoading, activeReadings, readingsLoading,
       updateTarget, toastMessage, toastType,
       openUpdateModal, submitProgress, readingPercent,
-      formatGoalLabel, getBookColor,
+      formatGoalLabel, coverUrl, daypart, today,
     };
   },
 });

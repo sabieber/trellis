@@ -1,63 +1,63 @@
 <template>
-  <div class="min-h-screen bg-base-300 flex flex-col">
+  <div class="min-h-screen flex flex-col">
     <div class="flex justify-between items-center px-4 pt-5 pb-2">
-      <h1 class="text-2xl font-bold">Reading Goals</h1>
-      <button @click="showCreateModal = true" class="btn btn-sm btn-neutral rounded-full gap-1">
-        <PlusIcon class="size-4" />
+      <h1 class="t-display text-2xl">Reading Goals</h1>
+      <Button variant="soft" class="px-3.5! py-2! text-[13px]!" @click="showCreateModal = true">
+        <PlusIcon class="size-4"/>
         New Goal
-      </button>
+      </Button>
     </div>
 
     <div v-if="loading" class="flex justify-center py-10">
       <span class="loading loading-spinner loading-lg"></span>
     </div>
 
-    <div v-else-if="goals.length === 0" class="text-center opacity-50 py-10">
+    <div v-else-if="goals.length === 0" class="t-meta text-center py-10">
       No goals yet. Create one to start tracking!
     </div>
 
-    <div v-else class="flex flex-col gap-6 pb-4">
+    <div v-else class="flex flex-col gap-7 pb-4 mt-3">
       <template v-for="section in sections" :key="section.key">
-      <div v-if="section.goals.length > 0">
-        <div class="flex items-baseline gap-2 px-4 mb-3">
-          <h2 class="font-bold text-lg leading-tight">{{ section.label }}</h2>
-          <span class="text-sm opacity-50">{{ section.goals.length }} {{ section.goals.length === 1 ? 'goal' : 'goals' }}</span>
-        </div>
+        <div v-if="section.goals.length > 0">
+          <div class="flex items-baseline gap-2 px-4 mb-3">
+            <h2 class="t-eyebrow">{{ section.label }}</h2>
+            <span class="t-meta">{{ section.goals.length }} {{ section.goals.length === 1 ? 'goal' : 'goals' }}</span>
+          </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4">
-          <div v-for="goal in section.goals" :key="goal.id" class="bg-base-200 rounded-xl p-4">
-            <div class="flex justify-between items-start mb-1">
-              <h3 class="font-semibold text-lg leading-tight">{{ formatGoalLabel(goal) }}</h3>
-              <button @click="confirmDelete(goal)" class="btn btn-ghost btn-sm btn-square flex-none ml-2">
-                <TrashIcon class="size-4 text-error" />
-              </button>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4">
+            <div v-for="goal in section.goals" :key="goal.id" class="bg-surface border border-line rounded-md p-4">
+              <div class="flex justify-between items-start mb-1">
+                <h3 class="t-title text-base leading-tight">{{ formatGoalLabel(goal) }}</h3>
+                <button
+                    @click="confirmDelete(goal)"
+                    class="flex items-center justify-center size-7 rounded-full flex-none ml-2 text-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+                >
+                  <TrashIcon class="size-4"/>
+                </button>
+              </div>
+              <p class="t-meta mb-3.5">{{ goal.period_start }} to {{ goal.period_end }}</p>
+              <div class="flex justify-between t-meta mb-1.5">
+                <span>{{ goal.progress }} / {{ goal.target }} {{
+                    goal.goal_type === 'books' ? 'books' : 'pages'
+                  }}</span>
+                <span class="text-green-soft">{{ goal.percentage }}%</span>
+              </div>
+              <PlainProgress :pct="goal.percentage"/>
             </div>
-            <p class="text-sm opacity-50 mb-3">{{ goal.period_start }} to {{ goal.period_end }}</p>
-            <div class="flex justify-between text-sm mb-1">
-              <span>{{ goal.progress }} / {{ goal.target }} {{ goal.goal_type === 'books' ? 'books' : 'pages' }}</span>
-              <span>{{ goal.percentage }}%</span>
-            </div>
-            <progress
-              class="progress w-full"
-              :class="goal.percentage >= 100 ? 'progress-success' : 'progress-primary'"
-              :value="goal.progress"
-              :max="goal.target"
-            ></progress>
           </div>
         </div>
-      </div>
       </template>
     </div>
 
-    <CreateGoalModal v-if="showCreateModal" @close="showCreateModal = false" @submit="createGoal" />
+    <CreateGoalModal v-if="showCreateModal" @close="showCreateModal = false" @submit="createGoal"/>
 
     <div v-if="deleteTarget" class="modal modal-open">
       <div class="modal-box">
-        <h3 class="font-bold text-lg">Delete Goal</h3>
-        <p class="py-4">Are you sure you want to delete this {{ deleteTarget.goal_type }} goal?</p>
+        <h3 class="t-title text-lg">Delete Goal</h3>
+        <p class="text-sm text-ink-dim py-4">Are you sure you want to delete this {{ deleteTarget.goal_type }} goal?</p>
         <div class="modal-action">
-          <button @click="doDelete" class="btn btn-error">Delete</button>
-          <button @click="deleteTarget = null" class="btn btn-ghost">Cancel</button>
+          <Button variant="ghost" class="text-[#c47556]!" @click="doDelete">Delete</Button>
+          <Button variant="ghost" @click="deleteTarget = null">Cancel</Button>
         </div>
       </div>
       <div class="modal-backdrop" @click="deleteTarget = null"></div>
@@ -72,10 +72,12 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted } from 'vue';
+import {defineComponent, ref, computed, onMounted} from 'vue';
 import CreateGoalModal from '@/components/CreateGoalModal.vue';
-import { PlusIcon, TrashIcon } from '@heroicons/vue/16/solid';
-import { apiFetch } from '@/api/client';
+import Button from '@/components/ui/Button.vue';
+import {PlusIcon, TrashIcon} from '@heroicons/vue/24/outline';
+import {apiFetch} from '@/api/client';
+import PlainProgress from "@/components/ui/PlainProgress.vue";
 
 interface Goal {
   id: string;
@@ -91,7 +93,7 @@ interface Goal {
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default defineComponent({
-  components: { CreateGoalModal, PlusIcon, TrashIcon },
+  components: {PlainProgress, CreateGoalModal, PlusIcon, TrashIcon, Button},
   setup() {
     const goals = ref<Goal[]>([]);
     const loading = ref(true);
@@ -103,19 +105,22 @@ export default defineComponent({
     const showToast = (message: string, type: string) => {
       toastMessage.value = message;
       toastType.value = type;
-      setTimeout(() => { toastMessage.value = ''; toastType.value = ''; }, 3000);
+      setTimeout(() => {
+        toastMessage.value = '';
+        toastType.value = '';
+      }, 3000);
     };
 
     const sections = computed(() => [
-      { key: 'year', label: 'Yearly', goals: goals.value.filter(g => g.timeframe === 'year') },
-      { key: 'month', label: 'Monthly', goals: goals.value.filter(g => g.timeframe === 'month') },
-      { key: 'week', label: 'Weekly', goals: goals.value.filter(g => g.timeframe === 'week') },
+      {key: 'year', label: 'Yearly', goals: goals.value.filter(g => g.timeframe === 'year')},
+      {key: 'month', label: 'Monthly', goals: goals.value.filter(g => g.timeframe === 'month')},
+      {key: 'week', label: 'Weekly', goals: goals.value.filter(g => g.timeframe === 'week')},
     ]);
 
     const fetchGoals = async () => {
       loading.value = true;
       try {
-        const response = await apiFetch('/api/goals/list', { method: 'POST' });
+        const response = await apiFetch('/api/goals/list', {method: 'POST'});
         if (response.ok) {
           const data = await response.json();
           goals.value = data.goals;
@@ -160,7 +165,7 @@ export default defineComponent({
       try {
         const response = await apiFetch('/api/goals/delete', {
           method: 'POST',
-          body: JSON.stringify({ goal_id: deleteTarget.value.id }),
+          body: JSON.stringify({goal_id: deleteTarget.value.id}),
         });
         if (response.ok) {
           deleteTarget.value = null;
@@ -192,7 +197,19 @@ export default defineComponent({
 
     onMounted(fetchGoals);
 
-    return { goals, loading, showCreateModal, deleteTarget, toastMessage, toastType, sections, createGoal, confirmDelete, doDelete, formatGoalLabel };
+    return {
+      goals,
+      loading,
+      showCreateModal,
+      deleteTarget,
+      toastMessage,
+      toastType,
+      sections,
+      createGoal,
+      confirmDelete,
+      doDelete,
+      formatGoalLabel
+    };
   },
 });
 </script>

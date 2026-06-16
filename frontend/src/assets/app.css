@@ -1,2 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Hanken+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
+@import "./theme.css";
 @plugin "daisyui";
+
+@plugin "daisyui/theme" {
+  name: "trellis";
+  default: true;
+  prefersdark: true;
+  color-scheme: dark;
+
+  --color-base-100: #17150f;       /* --bg */
+  --color-base-200: #221f17;       /* --surface */
+  --color-base-300: #2a2619;       /* --surface-2 */
+  --color-base-content: #ece2cc;   /* --ink */
+
+  --color-primary: #93c456;        /* --green */
+  --color-primary-content: #16170d;
+
+  --color-secondary: #a7d06e;      /* --green-soft */
+  --color-secondary-content: #16170d;
+
+  --color-accent: #93c456;         /* no second accent */
+  --color-accent-content: #16170d;
+
+  --color-neutral: #322d1e;        /* --surface-3 */
+  --color-neutral-content: #cabfa4;
+
+  --color-info: #b6ab8f;           /* --ink-dim, used sparingly */
+  --color-info-content: #17150f;
+  --color-success: #93c456;
+  --color-success-content: #16170d;
+  --color-warning: #d7b052;        /* --gold (ratings only) */
+  --color-warning-content: #17150f;
+  --color-error: #c47556;          /* derived warm clay-red, same chroma family */
+  --color-error-content: #17150f;
+
+  --radius-selector: 999px;        /* chips/pills */
+  --radius-field: 11px;            /* --r-sm: buttons, inputs */
+  --radius-box: 16px;              /* --r-md: cards, modals */
+
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;                      /* flat — trellis uses hairlines, not depth */
+  --noise: 0;
+}

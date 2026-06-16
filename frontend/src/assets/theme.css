@@ -1,0 +1,104 @@
+@theme {
+    /* --- surfaces (warm near-black, never cold gray) --- */
+    --color-bg: #17150f;
+    --color-bg-2: #1c1a13;
+    --color-surface: #221f17;
+    --color-surface-2: #2a2619;
+    --color-surface-3: #322d1e;
+
+    /* --- ink (parchment / cream) --- */
+    --color-ink: #ece2cc;
+    --color-ink-2: #cabfa4;
+    --color-ink-dim: #b6ab8f;
+    --color-muted: #8f866f;
+    --color-faint: #6a6353;
+
+    /* --- lattice lines (warm hairlines) --- */
+    --color-line: #38321f;
+    --color-line-soft: rgb(236 226 204 / 0.07);
+    --color-line-hair: rgb(236 226 204 / 0.12);
+
+    /* --- the single living accent --- */
+    --color-green: #93c456;
+    --color-green-soft: #a7d06e;
+    --color-green-deep: #6f9d3c;
+    --color-on-green: #16170d;   /* text on green fills */
+    /* --- functional warm gold (ratings ONLY) --- */
+    --color-gold: #d7b052;
+
+    /* --- type --- */
+    --font-serif: 'Spectral', Georgia, 'Times New Roman', serif;
+    --font-sans: 'Hanken Grotesk', system-ui, sans-serif;
+    --font-mono: 'Spline Sans Mono', ui-monospace, monospace;
+
+    /* --- radii (rounded-xs / -sm / -md / -lg / -cover) --- */
+    --radius-xs: 7px;
+    --radius-sm: 11px;
+    --radius-md: 16px;
+    --radius-lg: 22px;
+    --radius-cover: 5px;
+
+    /* --- shadows --- */
+    --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.28);
+    --shadow-pop: 0 12px 40px rgb(0 0 0 / 0.5);
+}
+
+/* Base */
+body {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans), sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* Faint lattice texture for app backgrounds */
+.lattice-bg {
+    background-color: var(--color-bg);
+    background-image: linear-gradient(var(--color-line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-line-soft) 1px, transparent 1px);
+    background-size: 34px 34px;
+    background-position: -1px -1px;
+}
+
+/* Type roles — keep as named classes so casing/tracking decisions
+   don't get lost when composing raw utilities. */
+.t-display {
+    font-family: var(--font-serif), serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.08;
+}
+
+.t-title {
+    font-family: var(--font-serif), serif;
+    font-weight: 600;
+    line-height: 1.12;
+}
+
+.t-italic {
+    font-family: var(--font-serif), serif;
+    font-style: italic;
+    font-weight: 500;
+}
+
+.t-eyebrow {
+    font-family: var(--font-sans), sans-serif;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+
+.t-meta {
+    font-size: 12px;
+    color: var(--color-muted);
+}
+
+.t-mono {
+    font-family: var(--font-mono), monospace;
+    font-size: 11px;
+    letter-spacing: 0.01em;
+    color: var(--color-muted);
+}

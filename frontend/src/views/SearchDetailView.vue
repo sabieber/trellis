@@ -1,81 +1,79 @@
 <template>
-  <div class="min-h-screen bg-gray-900">
-  <div class="flex flex-col">
-    <div class="px-4 pt-4 pb-2">
-      <button @click="$router.back()" class="flex items-center gap-0.5 text-primary text-sm font-medium">
-        <ChevronLeftIcon class="size-5" />
-        Back
-      </button>
-    </div>
+  <div class="min-h-screen">
+    <div class="flex flex-col">
+      <div class="px-4 pt-4 pb-2">
+        <button
+            @click="$router.back()"
+            class="flex items-center gap-1 t-meta text-ink-dim hover:text-ink transition-colors duration-150"
+        >
+          <ChevronLeftIcon class="size-4"/>
+          Back
+        </button>
+      </div>
 
-    <div v-if="loading" class="flex justify-center py-12">
-      <span class="loading loading-spinner loading-lg text-primary"></span>
-    </div>
+      <div v-if="loading" class="flex justify-center py-12">
+        <span class="loading loading-spinner loading-lg"></span>
+      </div>
 
-    <div v-else-if="book" class="px-4 pb-8">
-      <!-- Book header -->
-      <div class="flex gap-4 mb-6">
-        <img
-          :src="book.volumeInfo.imageLinks?.thumbnail"
-          alt="Book cover"
-          class="w-24 h-32 object-cover rounded flex-shrink-0 bg-gray-700"
-        />
-        <div class="flex flex-col justify-center min-w-0">
-          <h1 class="text-white font-bold text-lg leading-tight">{{ book.volumeInfo.title }}</h1>
-          <p class="text-gray-400 text-sm mt-1">By {{ book.volumeInfo.authors?.join(', ') }}</p>
-          <p class="text-gray-500 text-xs mt-1">
+      <div v-else-if="book" class="px-4 pb-8">
+        <!-- Centered hero -->
+        <div class="flex flex-col items-center text-center mt-2 mb-6">
+          <BookCover
+              :title="book.volumeInfo.title || 'Untitled'"
+              :author="book.volumeInfo.authors?.join(', ') || ''"
+              :width="128"
+              :cover-url="book.volumeInfo.imageLinks?.thumbnail"
+          />
+          <h1 class="t-display text-[22px] mt-4 max-w-75">{{ book.volumeInfo.title }}</h1>
+          <p class="t-meta text-sm mt-1.5">{{ book.volumeInfo.authors?.join(', ') }}</p>
+          <div v-if="book.volumeInfo.averageRating" class="flex items-center gap-2 mt-2.5">
+            <Stars :rating="book.volumeInfo.averageRating"/>
+            <span class="t-meta">{{ book.volumeInfo.averageRating }} avg</span>
+          </div>
+          <p class="t-meta mt-2">
             {{ book.volumeInfo.publishedDate?.slice(0, 4) }}
-            <span v-if="book.volumeInfo.pageCount"> · {{ book.volumeInfo.pageCount }} pages</span>
+            <span v-if="book.volumeInfo.pageCount"> · {{ book.volumeInfo.pageCount }} pp</span>
             <span v-if="book.volumeInfo.categories?.[0]"> · {{ book.volumeInfo.categories[0] }}</span>
           </p>
-          <div v-if="book.volumeInfo.averageRating" class="flex items-center gap-1.5 mt-2">
-            <template v-for="i in 5" :key="i">
-              <StarIcon
-                class="size-4"
-                :class="i <= Math.round(book.volumeInfo.averageRating) ? 'text-yellow-400' : 'text-gray-600'"
-              />
-            </template>
-            <span class="text-gray-400 text-xs">{{ book.volumeInfo.averageRating }} avg</span>
+        </div>
+
+        <!-- Add to Library CTA -->
+        <Button block class="mb-6" @click="scrollToShelfSection">
+          <PlusIcon class="size-4"/>
+          Add to Library
+        </Button>
+
+        <!-- Add to Shelf -->
+        <div ref="shelfSection" class="mb-6">
+          <h2 class="t-eyebrow mb-2">Add to shelf</h2>
+          <div v-if="loadingShelves" class="flex justify-center py-4">
+            <span class="loading loading-spinner loading-md"></span>
           </div>
-        </div>
-      </div>
-
-      <!-- Add to Library CTA -->
-      <button @click="scrollToShelfSection" class="btn btn-outline btn-primary w-full mb-6">
-        <PlusIcon class="size-5" />
-        Add to Library
-      </button>
-
-      <!-- Add to Shelf -->
-      <div ref="shelfSection" class="mb-6">
-        <h2 class="text-xs text-gray-400 font-semibold tracking-widest uppercase mb-3">Add to Shelf</h2>
-        <div v-if="loadingShelves" class="flex justify-center py-4">
-          <span class="loading loading-spinner loading-md"></span>
-        </div>
-        <div v-else-if="shelves.length" class="flex flex-col">
-          <template v-for="(shelf, index) in shelves" :key="shelf.id">
+          <div v-else-if="shelves.length" class="flex flex-col">
             <div
-              @click="addBookToShelf(shelf.id)"
-              class="flex items-center justify-between py-3 cursor-pointer"
+                v-for="shelf in shelves"
+                :key="shelf.id"
+                @click="addBookToShelf(shelf.id)"
+                class="flex items-center justify-between py-3 border-b border-line-soft cursor-pointer group"
             >
-              <span class="text-white">{{ shelf.name }}</span>
-              <div class="size-7 rounded-full bg-gray-700"></div>
+              <span class="text-sm text-ink group-hover:text-green-soft transition-colors duration-150">{{
+                  shelf.name
+                }}</span>
+              <PlusIcon class="size-4 text-muted group-hover:text-green-soft transition-colors duration-150"/>
             </div>
-            <div v-if="index < shelves.length - 1" class="border-t border-gray-800"></div>
-          </template>
+          </div>
+          <div v-else class="t-meta py-2">No shelves found.</div>
         </div>
-        <div v-else class="text-gray-500 text-sm py-2">No shelves found.</div>
+
+        <!-- Description -->
+        <div v-if="book.volumeInfo.description">
+          <h2 class="t-eyebrow mb-2">Description</h2>
+          <p class="text-ink-dim text-sm leading-relaxed" v-html="book.volumeInfo.description"></p>
+        </div>
       </div>
 
-      <!-- Description -->
-      <div v-if="book.volumeInfo.description">
-        <h2 class="text-xs text-gray-400 font-semibold tracking-widest uppercase mb-3">Description</h2>
-        <p class="text-gray-400 text-sm leading-relaxed" v-html="book.volumeInfo.description"></p>
-      </div>
+      <div v-else class="t-meta text-center py-8 px-4">Book not found.</div>
     </div>
-
-    <div v-else class="text-gray-500 text-center py-8 px-4">Book not found.</div>
-  </div>
 
     <!-- Toast -->
     <div v-if="toastMessage" class="toast toast-top toast-center pt-4 z-50">
@@ -87,17 +85,20 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
-import { ChevronLeftIcon, PlusIcon, StarIcon } from "@heroicons/vue/24/solid";
-import { fetchBookDetails } from '@/api/googleBooksApi';
-import { apiFetch } from '@/api/client';
+import {defineComponent, ref, onMounted} from 'vue';
+import {useRoute} from 'vue-router';
+import {ChevronLeftIcon, PlusIcon} from "@heroicons/vue/24/outline";
+import {fetchBookDetails} from '@/api/googleBooksApi';
+import {apiFetch} from '@/api/client';
+import BookCover from '@/components/ui/BookCover.vue';
+import Button from '@/components/ui/Button.vue';
+import Stars from '@/components/ui/Stars.vue';
 
 export default defineComponent({
-  components: { ChevronLeftIcon, PlusIcon, StarIcon },
+  components: {ChevronLeftIcon, PlusIcon, BookCover, Button, Stars},
   setup() {
     const route = useRoute();
-    const book = ref(null);
+    const book = ref<any>(null);
     const loading = ref(true);
     const shelves = ref<Array<{ id: string; name: string; description: string }>>([]);
     const loadingShelves = ref(false);
@@ -117,7 +118,7 @@ export default defineComponent({
     const fetchShelves = async () => {
       loadingShelves.value = true;
       try {
-        const response = await apiFetch('/api/shelves', { method: 'POST' });
+        const response = await apiFetch('/api/shelves', {method: 'POST'});
         if (response.ok) {
           const data = await response.json();
           shelves.value = data.shelves;
@@ -130,6 +131,7 @@ export default defineComponent({
     };
 
     const addBookToShelf = async (shelfId: string) => {
+      if (!book.value) return;
       try {
         const response = await apiFetch('/api/shelves/add-book', {
           method: 'POST',
@@ -153,7 +155,7 @@ export default defineComponent({
     };
 
     const scrollToShelfSection = () => {
-      shelfSection.value?.scrollIntoView({ behavior: 'smooth' });
+      shelfSection.value?.scrollIntoView({behavior: 'smooth'});
     };
 
     onMounted(async () => {

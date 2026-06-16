@@ -1,7 +1,7 @@
 <template>
   <div class="modal modal-open">
     <div class="modal-box flex flex-col gap-4">
-      <h3 class="font-bold text-lg">Add to Shelf</h3>
+      <h3 class="t-title text-lg">Add to Shelf</h3>
       <div v-if="loadingShelves" class="flex justify-center py-4">
         <span class="loading loading-spinner loading-md"></span>
       </div>
@@ -10,15 +10,15 @@
           v-for="shelf in shelves"
           :key="shelf.id"
           @click="addBookToShelf(shelf.id)"
-          class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-base-200 transition-colors"
+          class="flex items-center gap-3 px-3 py-2 rounded-sm cursor-pointer hover:bg-surface-2 transition-colors duration-150"
         >
-          <span class="font-medium">{{ shelf.name }}</span>
-          <span v-if="shelf.description" class="text-sm opacity-50 truncate">{{ shelf.description }}</span>
+          <span class="text-sm font-medium text-ink">{{ shelf.name }}</span>
+          <span v-if="shelf.description" class="t-meta truncate">{{ shelf.description }}</span>
         </li>
       </ul>
-      <div v-else class="text-center opacity-50 py-4">No shelves found.</div>
+      <div v-else class="t-meta text-center py-4">No shelves found.</div>
       <div class="modal-action mt-0">
-        <button @click="$emit('close')" class="btn btn-ghost w-full">Cancel</button>
+        <Button variant="ghost" block @click="$emit('close')">Cancel</Button>
       </div>
     </div>
     <div class="modal-backdrop" @click="$emit('close')"></div>
@@ -28,9 +28,11 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted } from 'vue';
 import type { PropType } from 'vue';
+import Button from '@/components/ui/Button.vue';
 import { apiFetch } from '@/api/client';
 
 export default defineComponent({
+  components: { Button },
   props: {
     book: {
       type: Object as PropType<any>,

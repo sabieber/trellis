@@ -1,19 +1,19 @@
 <template>
   <div class="modal modal-open">
     <div class="modal-box flex flex-col gap-4">
-      <h3 class="font-bold text-lg">Track Progress</h3>
+      <h3 class="t-title text-lg">Track Progress</h3>
       <form @submit.prevent.stop="submitForm" class="contents">
-        <fieldset class="flex flex-col gap-1">
-          <label class="text-sm font-medium opacity-70">Page Number</label>
-          <input type="number" v-model="progress" class="input input-bordered w-full" ref="progressInput" required />
+        <fieldset class="flex flex-col gap-1.5">
+          <label class="t-meta">Page Number</label>
+          <input type="number" v-model="progress" class="input w-full" ref="progressInput" required />
         </fieldset>
-        <fieldset class="flex flex-col gap-1">
-          <label class="text-sm font-medium opacity-70">Date</label>
-          <input type="date" v-model="readAt" class="input input-bordered w-full" required />
+        <fieldset class="flex flex-col gap-1.5">
+          <label class="t-meta">Date</label>
+          <input type="date" v-model="readAt" class="input w-full" required />
         </fieldset>
-        <div class="modal-action mt-0">
-          <button type="submit" class="btn btn-primary flex-1">Submit</button>
-          <button type="button" @click="$emit('close')" class="btn btn-ghost">Cancel</button>
+        <div class="modal-action mt-0 gap-2">
+          <Button type="submit" class="flex-1">Submit</Button>
+          <Button variant="ghost" type="button" @click="$emit('close')">Cancel</Button>
         </div>
       </form>
     </div>
@@ -23,8 +23,10 @@
 
 <script lang="ts">
 import { defineComponent, ref, onMounted, watch } from 'vue';
+import Button from '@/components/ui/Button.vue';
 
 export default defineComponent({
+  components: { Button },
   props: {
     initialProgress: {
       type: Number,

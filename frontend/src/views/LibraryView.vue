@@ -1,28 +1,20 @@
 <template>
-  <div class="min-h-screen bg-base-300 flex flex-col">
+  <div class="min-h-screen flex flex-col">
     <!-- Header -->
     <div class="flex justify-between items-center px-4 pt-5 pb-2">
-      <h1 class="text-2xl font-bold">Library</h1>
+      <h1 class="t-display text-2xl">Library</h1>
       <div class="flex items-center gap-2">
-        <select v-model="sortBy" class="select select-sm select-bordered w-40">
+        <select v-model="sortBy" class="select select-sm w-36">
           <option value="name">Name</option>
           <option value="created_at">Created at</option>
           <option value="updated_at">Updated at</option>
         </select>
-        <CreateShelfModal @shelfCreated="fetchData" />
+        <CreateShelfModal @shelfCreated="fetchData"/>
       </div>
     </div>
 
-    <!-- User section -->
-    <div class="flex items-center gap-3 px-4 py-3">
-      <div class="avatar placeholder">
-        <div class="w-12 rounded-full bg-teal-600 flex items-center justify-center">
-          <UserIcon class="size-6 text-white" />
-        </div>
-      </div>
-      <div>
-        <p class="text-sm opacity-50">{{ totalBooks }} books total</p>
-      </div>
+    <div class="px-4 pb-3">
+      <p class="t-meta">{{ totalBooks }} books total</p>
     </div>
 
     <!-- Loading -->
@@ -31,61 +23,67 @@
     </div>
 
     <!-- Shelves -->
-    <div v-else ref="shelvesContainerRef" class="flex flex-col gap-6 pb-4">
+    <div v-else ref="shelvesContainerRef" class="flex flex-col gap-7 pb-4">
       <div v-for="shelf in sortedShelves" :key="shelf.id" class="px-4">
         <!-- Shelf header row -->
         <div class="flex justify-between items-center mb-3">
           <div class="flex items-baseline gap-2">
-            <h2 class="font-bold text-lg leading-tight">{{ shelf.name }}</h2>
-            <span class="text-sm opacity-50">{{ (shelfBooks[shelf.id] || []).length }} books</span>
+            <h2 class="t-title text-base leading-tight">{{ shelf.name }}</h2>
+            <span class="t-meta">{{ (shelfBooks[shelf.id] || []).length }} books</span>
           </div>
           <div class="flex items-center gap-1">
-            <button @click.stop="removeShelf(shelf.id)" class="btn btn-ghost btn-xs text-error opacity-60">
-              <MinusIcon class="size-4" />
+            <button
+                @click.stop="removeShelf(shelf.id)"
+                class="flex items-center justify-center size-7 rounded-full text-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+            >
+              <MinusIcon class="size-4"/>
             </button>
-            <button @click="goToShelf(shelf.id)" class="flex items-center text-sm opacity-50 hover:opacity-80 transition-opacity">
-              See all <ChevronRightIcon class="size-4 ml-0.5" />
+            <button
+                @click="goToShelf(shelf.id)"
+                class="flex items-center t-meta hover:text-ink transition-colors duration-150"
+            >
+              See all
+              <ChevronRightIcon class="size-4 ml-0.5"/>
             </button>
           </div>
         </div>
 
         <!-- Book tile row -->
-        <div class="flex gap-2 pb-1 overflow-hidden">
+        <div class="flex gap-3 pb-1 overflow-hidden">
           <template v-if="(shelfBooks[shelf.id] || []).length > 0">
-             <div
-              v-for="book in (shelfBooks[shelf.id] || []).slice(0, visibleCount(shelfBooks[shelf.id] || []))"
-              :key="book.id"
-              class="flex-none w-20 sm:w-28 h-[7rem] sm:h-[9.8rem] rounded-xl flex items-end p-2 cursor-pointer overflow-hidden relative"
-              :style="{ backgroundColor: getBookColor(book.id) }"
-              @click="goToBook(book.id)"
-            >
-              <img
-                v-if="coverUrl(book.google_books_id)"
-                :src="coverUrl(book.google_books_id)"
-                class="absolute inset-0 w-full h-full object-cover rounded-xl"
-                loading="lazy"
-              />
-              <span class="relative text-xs text-white font-medium leading-tight drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">{{ book.title }}</span>
-            </div>
+            <BookCover
+                v-for="book in (shelfBooks[shelf.id] || []).slice(0, visibleCount(shelfBooks[shelf.id] || []))"
+                :key="book.id"
+                :title="book.title"
+                :author="book.author"
+                :width="tileWidth"
+                :cover-url="coverUrl(book.google_books_id)"
+                class="cursor-pointer"
+                @click="goToBook(book.id)"
+            />
             <div
-              v-if="(shelfBooks[shelf.id] || []).length > visibleCount(shelfBooks[shelf.id] || [])"
-              @click="goToShelf(shelf.id)"
-              class="flex-none w-20 sm:w-28 h-[7rem] sm:h-[9.8rem] rounded-xl bg-base-200 flex items-center justify-center cursor-pointer"
+                v-if="(shelfBooks[shelf.id] || []).length > visibleCount(shelfBooks[shelf.id] || [])"
+                @click="goToShelf(shelf.id)"
+                class="flex-none aspect-2/3 rounded-cover bg-surface border border-line flex items-center justify-center cursor-pointer hover:bg-surface-2 hover:border-line-hair transition-colors duration-150"
+                :style="{ width: tileWidth + 'px' }"
             >
-              <span class="font-bold text-sm opacity-70">+{{ (shelfBooks[shelf.id] || []).length - visibleCount(shelfBooks[shelf.id] || []) }}</span>
+              <span class="t-title text-sm text-ink-dim">+{{
+                  (shelfBooks[shelf.id] || []).length - visibleCount(shelfBooks[shelf.id] || [])
+                }}</span>
             </div>
           </template>
           <div
-            v-else
-            @click="goToShelf(shelf.id)"
-            class="flex-none w-20 sm:w-28 h-[7rem] sm:h-[9.8rem] rounded-xl bg-base-200 border-2 border-dashed border-base-content/20 flex items-center justify-center cursor-pointer"
+              v-else
+              @click="goToShelf(shelf.id)"
+              class="flex-none aspect-2/3 rounded-cover bg-surface border border-dashed border-line flex items-center justify-center cursor-pointer"
+              :style="{ width: tileWidth + 'px' }"
           >
-            <span class="text-xs opacity-30 text-center px-1">Empty</span>
+            <span class="t-meta text-faint text-center px-1">Empty</span>
           </div>
         </div>
       </div>
 
-      <div v-if="!shelves.length" class="text-center opacity-50 py-10">No shelves yet.</div>
+      <div v-if="!shelves.length" class="t-meta text-center py-10">No shelves yet.</div>
     </div>
 
     <!-- Toast -->
@@ -98,33 +96,12 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
-import { MinusIcon, ChevronRightIcon, UserIcon } from '@heroicons/vue/16/solid';
+import {defineComponent, ref, computed, onMounted, onUnmounted, watch, nextTick} from 'vue';
+import {useRouter} from 'vue-router';
+import {MinusIcon, ChevronRightIcon} from '@heroicons/vue/24/outline';
 import CreateShelfModal from '@/components/CreateShelfModal.vue';
-import { apiFetch } from '@/api/client';
-
-const BOOK_COLORS = [
-  '#1e3a5f',
-  '#4a2500',
-  '#2d1454',
-  '#3a0f0f',
-  '#0f3d2a',
-  '#1a1a4e',
-  '#3d2b00',
-  '#1f3a2a',
-  '#3a1a00',
-  '#0f2a3d',
-];
-
-function getBookColor(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = ((hash << 5) - hash) + id.charCodeAt(i);
-    hash |= 0;
-  }
-  return BOOK_COLORS[Math.abs(hash) % BOOK_COLORS.length];
-}
+import BookCover from '@/components/ui/BookCover.vue';
+import {apiFetch} from '@/api/client';
 
 function coverUrl(googleBooksId: string | null | undefined): string | undefined {
   if (!googleBooksId) return undefined;
@@ -132,10 +109,21 @@ function coverUrl(googleBooksId: string | null | undefined): string | undefined 
 }
 
 export default defineComponent({
-  components: { CreateShelfModal, MinusIcon, ChevronRightIcon, UserIcon },
+  components: {CreateShelfModal, MinusIcon, ChevronRightIcon, BookCover},
   setup() {
-    const shelves = ref<Array<{ id: string; name: string; description: string; created_at: string; updated_at: string }>>([]);
-        const shelfBooks = ref<Record<string, Array<{ id: string; title: string; author: string; google_books_id: string | null }>>>({});
+    const shelves = ref<Array<{
+      id: string;
+      name: string;
+      description: string;
+      created_at: string;
+      updated_at: string
+    }>>([]);
+    const shelfBooks = ref<Record<string, Array<{
+      id: string;
+      title: string;
+      author: string;
+      google_books_id: string | null
+    }>>>({});
     const loading = ref(true);
     const router = useRouter();
     const toastMessage = ref('');
@@ -147,14 +135,17 @@ export default defineComponent({
 
     const TILE_W_SM = 80;
     const TILE_W_LG = 112;
-    const GAP = 8;
+    const GAP = 12;
     const SM_BREAKPOINT = 640;
+
+    const tileWidth = computed(() =>
+        containerWidth.value >= SM_BREAKPOINT ? TILE_W_LG : TILE_W_SM
+    );
 
     const visibleCount = (books: Array<unknown>): number => {
       const w = containerWidth.value - 32;
       if (w <= 0) return 4;
-      const tileW = containerWidth.value >= SM_BREAKPOINT ? TILE_W_LG : TILE_W_SM;
-      const maxFit = Math.floor((w + GAP) / (tileW + GAP));
+      const maxFit = Math.floor((w + GAP) / (tileWidth.value + GAP));
       if (books.length <= maxFit) return books.length;
       return Math.max(0, maxFit - 1);
     };
@@ -188,33 +179,41 @@ export default defineComponent({
     });
 
     const totalBooks = computed(() =>
-      Object.values(shelfBooks.value).reduce((sum, books) => sum + books.length, 0)
+        Object.values(shelfBooks.value).reduce((sum, books) => sum + books.length, 0)
     );
 
     const showToast = (message: string, type: string) => {
       toastMessage.value = message;
       toastType.value = type;
-      setTimeout(() => { toastMessage.value = ''; toastType.value = ''; }, 3000);
+      setTimeout(() => {
+        toastMessage.value = '';
+        toastType.value = '';
+      }, 3000);
     };
 
     const fetchData = async () => {
       loading.value = true;
       try {
-        const res = await apiFetch('/api/shelves', { method: 'POST' });
+        const res = await apiFetch('/api/shelves', {method: 'POST'});
         if (!res.ok) return;
         const data = await res.json();
         shelves.value = data.shelves;
 
         const bookResults = await Promise.all(
-          data.shelves.map((shelf: { id: string }) =>
-            apiFetch('/api/shelves/books', {
-              method: 'POST',
-              body: JSON.stringify({ shelf_id: shelf.id }),
-            }).then(r => r.ok ? r.json() : { books: [] })
-          )
+            data.shelves.map((shelf: { id: string }) =>
+                apiFetch('/api/shelves/books', {
+                  method: 'POST',
+                  body: JSON.stringify({shelf_id: shelf.id}),
+                }).then(r => r.ok ? r.json() : {books: []})
+            )
         );
 
-        const map: Record<string, Array<{ id: string; title: string; author: string; google_books_id: string | null }>> = {};
+        const map: Record<string, Array<{
+          id: string;
+          title: string;
+          author: string;
+          google_books_id: string | null
+        }>> = {};
         data.shelves.forEach((shelf: { id: string }, i: number) => {
           map[shelf.id] = bookResults[i].books;
         });
@@ -227,22 +226,22 @@ export default defineComponent({
     };
 
     const goToShelf = (shelfId: string) => {
-      router.push({ name: 'shelf-detail', params: { id: shelfId } });
+      router.push({name: 'shelf-detail', params: {id: shelfId}});
     };
 
     const goToBook = (bookId: string) => {
-      router.push({ name: 'book-detail', params: { id: bookId } });
+      router.push({name: 'book-detail', params: {id: bookId}});
     };
 
     const removeShelf = async (shelfId: string) => {
       try {
         const res = await apiFetch('/api/shelves/remove', {
           method: 'POST',
-          body: JSON.stringify({ shelf_id: shelfId }),
+          body: JSON.stringify({shelf_id: shelfId}),
         });
         if (res.ok) {
           shelves.value = shelves.value.filter(s => s.id !== shelfId);
-          const map = { ...shelfBooks.value };
+          const map = {...shelfBooks.value};
           delete map[shelfId];
           shelfBooks.value = map;
           showToast('Shelf removed.', 'alert-success');
@@ -260,7 +259,24 @@ export default defineComponent({
       resizeObserver?.disconnect();
     });
 
-    return { shelves, sortedShelves, sortBy, shelfBooks, loading, totalBooks, shelvesContainerRef, visibleCount, fetchData, goToShelf, goToBook, removeShelf, getBookColor, coverUrl, toastMessage, toastType };
+    return {
+      shelves,
+      sortedShelves,
+      sortBy,
+      shelfBooks,
+      loading,
+      totalBooks,
+      shelvesContainerRef,
+      tileWidth,
+      visibleCount,
+      fetchData,
+      goToShelf,
+      goToBook,
+      removeShelf,
+      coverUrl,
+      toastMessage,
+      toastType
+    };
   },
 });
 </script>

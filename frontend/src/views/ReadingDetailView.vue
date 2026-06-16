@@ -1,34 +1,37 @@
 <template>
-  <PageContainer title="Reading Entries" ref="pageContainer">
+  <PageContainer title="Reading journal" ref="pageContainer">
     <div v-if="loading" class="flex justify-center">
       <span class="loading loading-spinner loading-lg"></span>
     </div>
-    <div v-else-if="entries.length" class="text-white">
-      <ul class="space-y-4">
-        <li v-for="entry in entries" :key="entry.id" class="p-4 bg-gray-700 rounded-lg">
+    <div v-else-if="entries.length">
+      <h2 class="t-eyebrow mb-3">Activity</h2>
+      <ul class="flex flex-col gap-2.5">
+        <li v-for="entry in entries" :key="entry.id" class="bg-surface border border-line rounded-md p-4">
           <div class="flex justify-between items-center">
-            <span>{{ entry.read_at }}</span>
-            <span>{{ entry.progress }} pages</span>
+            <span class="text-sm text-ink">{{ entry.read_at }}</span>
+            <span class="t-meta">page {{ entry.progress }}</span>
           </div>
-          <p class="text-sm text-gray-400">{{ entry.mode }}</p>
+          <p class="t-meta mt-1">{{ entry.mode }}</p>
         </li>
       </ul>
     </div>
-    <div v-else class="text-white text-center">No entries found.</div>
-    <button @click="showModal = true" class="btn btn-primary mt-4">Track Progress</button>
-    <TrackProgressModal v-if="showModal" @close="showModal = false" @submit="trackProgress" :initialProgress="latestProgress" />
+    <div v-else class="t-meta text-center py-8">No entries found.</div>
+    <Button block class="mt-5" @click="showModal = true">Track Progress</Button>
+    <TrackProgressModal v-if="showModal" @close="showModal = false" @submit="trackProgress"
+                        :initialProgress="latestProgress"/>
   </PageContainer>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import {defineComponent, ref, onMounted} from 'vue';
+import {useRoute} from 'vue-router';
 import TrackProgressModal from '@/components/TrackProgressModal.vue';
 import PageContainer from '@/components/PageContainer.vue';
-import { apiFetch } from '@/api/client';
+import Button from '@/components/ui/Button.vue';
+import {apiFetch} from '@/api/client';
 
 export default defineComponent({
-  components: { TrackProgressModal, PageContainer },
+  components: {TrackProgressModal, PageContainer, Button},
   setup() {
     const route = useRoute();
     const bookId = ref('');
@@ -42,7 +45,7 @@ export default defineComponent({
       try {
         const response = await apiFetch('/api/books/reading', {
           method: 'POST',
-          body: JSON.stringify({ reading_id: readingId }),
+          body: JSON.stringify({reading_id: readingId}),
         });
         if (response.ok) {
           const data = await response.json();
@@ -65,17 +68,17 @@ export default defineComponent({
       try {
         const response = await apiFetch('/api/books/track-progress', {
           method: 'POST',
-          body: JSON.stringify({ reading_id: route.params.id, progress, read_at: readAt }),
+          body: JSON.stringify({reading_id: route.params.id, progress, read_at: readAt}),
         });
         if (response.ok) {
           fetchReadingEntries(route.params.id as string);
           showModal.value = false;
         } else {
           const errorData = await response.json();
-          pageContainer.value?.showToast({ message: errorData.error, type: 'alert-error' });
+          pageContainer.value?.showToast({message: errorData.error, type: 'alert-error'});
         }
       } catch (error) {
-        pageContainer.value?.showToast({ message: 'Failed to track progress.', type: 'alert-error' });
+        pageContainer.value?.showToast({message: 'Failed to track progress.', type: 'alert-error'});
       }
     };
 
