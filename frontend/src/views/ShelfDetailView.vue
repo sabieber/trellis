@@ -10,7 +10,8 @@
         <SegmentedControl v-model="layoutMode" :options="layoutOptions">
           <template #option="{ option }">
             <QueueListIcon v-if="option.value === 'list'" class="size-4"/>
-            <Squares2X2Icon v-else class="size-4"/>
+            <Squares2X2Icon v-else-if="option.value === 'grid'" class="size-4"/>
+            <BookOpenIcon v-else class="size-4"/>
           </template>
         </SegmentedControl>
       </div>
@@ -22,45 +23,26 @@
       </div>
 
       <template v-else-if="books.length">
-        <ul v-if="layoutMode === 'list'" class="flex flex-col">
-          <li
-              v-for="book in sortedBooks"
-              :key="book.id"
-              class="flex items-center gap-4 py-3 md:py-4 border-b border-line-soft cursor-pointer group"
-              @click="viewBookDetail(book.id)"
-          >
-            <BookCover
-                :title="book.title"
-                :author="book.author"
-                :width="listCoverWidth"
-                :cover-url="coverUrl(book.google_books_id)"
-            />
-            <div class="flex-1 min-w-0 flex flex-col justify-center">
-              <h3 class="t-title text-[15px] md:text-base truncate">{{ book.title }}</h3>
-              <p class="t-meta mt-0.5">{{ book.author }}</p>
-              <p class="t-mono mt-1 hidden md:block">Added {{ formatAddedAt(book.added_at) }}</p>
-            </div>
-            <button
-                @click.stop="removeBookFromShelf(book.id)"
-                class="self-center flex-none flex items-center justify-center size-8 md:size-9 rounded-full text-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
-            >
-              <MinusIcon class="size-4 md:size-5"/>
-            </button>
-          </li>
-        </ul>
-
-        <div v-else class="flex flex-wrap gap-3">
-          <BookCover
-              v-for="book in sortedBooks"
-              :key="book.id"
-              :title="book.title"
-              :author="book.author"
-              :width="gridTileWidth"
-              :cover-url="coverUrl(book.google_books_id)"
-              class="cursor-pointer"
-              @click="viewBookDetail(book.id)"
-          />
-        </div>
+        <ShelfListView
+            v-if="layoutMode === 'list'"
+            :books="sortedBooks"
+            :cover-width="listCoverWidth"
+            @view-book="viewBookDetail"
+            @remove-book="removeBookFromShelf"
+        />
+        <ShelfGridView
+            v-else-if="layoutMode === 'grid'"
+            :books="sortedBooks"
+            :tile-width="gridTileWidth"
+            @view-book="viewBookDetail"
+        />
+        <ShelfBoardView
+            v-else
+            :books="sortedBooks"
+            :spine-height="spineHeight"
+            :container-width="containerWidth"
+            @view-book="viewBookDetail"
+        />
       </template>
 
       <div v-else class="t-meta text-center py-12">No books found.</div>
@@ -71,32 +53,33 @@
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted, watch} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
-import {MinusIcon, QueueListIcon, Squares2X2Icon} from "@heroicons/vue/24/outline";
+import {QueueListIcon, Squares2X2Icon, BookOpenIcon} from "@heroicons/vue/24/outline";
 import PageContainer from '@/components/PageContainer.vue';
-import BookCover from '@/components/ui/BookCover.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import ShelfListView from '@/components/shelf/ShelfListView.vue';
+import ShelfGridView from '@/components/shelf/ShelfGridView.vue';
+import ShelfBoardView from '@/components/shelf/ShelfBoardView.vue';
 import {apiFetch} from '@/api/client';
-import {coverUrl} from '@/utils/coverUrl';
 import {useContainerWidth} from '@/composables/useContainerWidth';
-import moment from 'moment';
+import type {ShelfBook} from '@/types/shelf';
 
 const LAYOUT_STORAGE_KEY = 'shelf-layout-mode';
 const MD_BREAKPOINT = 768;
 const GRID_TILE_SM = 80;
 const GRID_TILE_LG = 112;
+const SPINE_HEIGHT_SM = 160;
+const SPINE_HEIGHT_LG = 200;
 
 export default defineComponent({
-  components: {MinusIcon, QueueListIcon, Squares2X2Icon, PageContainer, BookCover, SegmentedControl},
+  components: {
+    QueueListIcon, Squares2X2Icon, BookOpenIcon,
+    PageContainer, SegmentedControl,
+    ShelfListView, ShelfGridView, ShelfBoardView,
+  },
   setup() {
     const route = useRoute();
     const router = useRouter();
-    const books = ref<Array<{
-      id: string,
-      title: string,
-      author: string,
-      google_books_id: string | null,
-      added_at: string
-    }>>([]);
+    const books = ref<ShelfBook[]>([]);
     const loading = ref(true);
     const shelf = ref({name: '', description: ''});
     const sortBy = ref<'added_at' | 'title' | 'author'>('added_at');
@@ -106,13 +89,16 @@ export default defineComponent({
     const layoutOptions = [
       {value: 'list'},
       {value: 'grid'},
+      {value: 'shelf'},
     ];
 
-    const layoutMode = ref(localStorage.getItem(LAYOUT_STORAGE_KEY) === 'grid' ? 'grid' : 'list');
+    const validLayouts = ['list', 'grid', 'shelf'];
+    const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
+    const layoutMode = ref(validLayouts.includes(saved || '') ? saved! : 'list');
     watch(layoutMode, (val) => localStorage.setItem(LAYOUT_STORAGE_KEY, val));
 
     const isReady = computed(() => !loading.value);
-    const {containerWidth, setupObserver} = useContainerWidth(contentRef, isReady);
+    const {containerWidth} = useContainerWidth(contentRef, isReady);
 
     const listCoverWidth = computed(() =>
         containerWidth.value >= MD_BREAKPOINT ? 72 : 56
@@ -122,7 +108,9 @@ export default defineComponent({
         containerWidth.value >= MD_BREAKPOINT ? GRID_TILE_LG : GRID_TILE_SM
     );
 
-    const formatAddedAt = (dateStr: string) => moment(dateStr).format('MMM D, YYYY');
+    const spineHeight = computed(() =>
+        containerWidth.value >= MD_BREAKPOINT ? SPINE_HEIGHT_LG : SPINE_HEIGHT_SM
+    );
 
     const sortedBooks = computed(() => {
       const arr = [...books.value];
@@ -164,7 +152,7 @@ export default defineComponent({
         });
         if (response.ok) {
           pageContainer.value?.showToast({message: 'Book removed from shelf successfully.', type: 'alert-success'});
-          books.value = books.value.filter((book: { id: string }) => book.id !== bookId);
+          books.value = books.value.filter((book) => book.id !== bookId);
         } else {
           const data = await response.json();
           console.error('Failed to remove book:', data);
@@ -188,9 +176,8 @@ export default defineComponent({
     return {
       books, sortedBooks, loading, shelf, sortBy,
       layoutMode, layoutOptions,
-      listCoverWidth, gridTileWidth,
-      pageContainer, contentRef, formatAddedAt, removeBookFromShelf,
-      viewBookDetail, coverUrl,
+      listCoverWidth, gridTileWidth, spineHeight, containerWidth,
+      pageContainer, contentRef, removeBookFromShelf, viewBookDetail,
     };
   },
 });
