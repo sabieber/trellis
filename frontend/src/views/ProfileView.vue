@@ -21,6 +21,11 @@
             <span v-else>Upload</span>
           </Button>
         </div>
+        <div v-if="importResult" :class="['mt-4 p-3 rounded-md border', importResult.success ? 'bg-success/10 border-success/30' : 'bg-error/10 border-error/30']">
+          <div class="flex items-center gap-2">
+            <span :class="importResult.success ? 'text-success' : 'text-error'">{{ importResult.message }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </PageContainer>
@@ -42,6 +47,7 @@ export default defineComponent({
     const pageContainer = ref<any>(null);
     const selectedFile = ref<File | null>(null);
     const isUploading = ref(false);
+    const importResult = ref<{ success: boolean; message: string } | null>(null);
     const auth = useAuthStore();
 
     const logout = () => {
@@ -63,6 +69,7 @@ export default defineComponent({
       }
 
       isUploading.value = true;
+      importResult.value = null;
       const formData = new FormData();
       formData.append('file', selectedFile.value);
 
@@ -74,20 +81,20 @@ export default defineComponent({
 
         if (response.ok) {
           const data = await response.json();
-          pageContainer.value.showToast({message: data.message, type: 'alert-success'});
+          importResult.value = { success: true, message: data.message };
         } else {
           console.error('Failed to import file:', await response.json());
-          pageContainer.value.showToast({message: 'Failed to import file.', type: 'alert-error'});
+          importResult.value = { success: false, message: 'Failed to import file.' };
         }
       } catch (error) {
         console.error('Failed to import file:', error);
-        pageContainer.value.showToast({message: 'Failed to import file.', type: 'alert-error'});
+        importResult.value = { success: false, message: 'Failed to import file.' };
       } finally {
         isUploading.value = false;
       }
     };
 
-    return {logout, pageContainer, handleFileChange, uploadFile, isUploading};
+    return {logout, pageContainer, handleFileChange, uploadFile, isUploading, importResult};
   }
 });
 </script>
