@@ -1,8 +1,11 @@
 <template>
-  <div class="min-h-screen flex flex-col items-center">
-    <div class="w-full max-w-lg p-6 flex flex-col grow">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="t-display text-2xl">{{ title }}</h2>
+  <div :class="['min-h-screen flex flex-col', { 'items-center': !wide }]">
+    <div :class="['w-full flex flex-col grow', wide ? 'px-4 pt-5 pb-4' : 'max-w-lg p-6']">
+      <div class="flex justify-between items-start mb-4 gap-4">
+        <div class="min-w-0">
+          <h2 class="t-display text-2xl truncate">{{ title }}</h2>
+          <p v-if="description" class="t-meta mt-1">{{ description }}</p>
+        </div>
         <slot name="title-button"></slot>
       </div>
       <slot></slot>
@@ -16,20 +19,28 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import {defineComponent, ref} from 'vue';
 
 export default defineComponent({
   props: {
     title: {
       type: String,
       required: true
+    },
+    description: {
+      type: String,
+      default: ''
+    },
+    wide: {
+      type: Boolean,
+      default: false
     }
   },
-  setup(_, { expose }) {
+  setup(_, {expose}) {
     const toastMessage = ref('');
     const toastType = ref('');
 
-    const showToast = ({ message, type }: { message: string; type: string }) => {
+    const showToast = ({message, type}: { message: string; type: string }) => {
       toastMessage.value = message;
       toastType.value = type;
       setTimeout(() => {
@@ -38,7 +49,7 @@ export default defineComponent({
       }, 3000);
     };
 
-    expose({ showToast });
+    expose({showToast});
 
     return {
       toastMessage,
