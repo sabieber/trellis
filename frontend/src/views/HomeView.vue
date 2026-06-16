@@ -58,25 +58,30 @@
               :key="reading.reading_id"
               class="bg-surface border border-line rounded-md p-3.5 flex gap-3.5"
           >
-            <BookCover
-                :title="reading.title || 'Untitled'"
-                :author="reading.author || ''"
-                :width="64"
-                :cover-url="coverUrl(reading.google_books_id)"
-            />
-            <div class="flex-1 min-w-0 flex flex-col justify-between">
-              <div>
-                <p class="t-title text-base leading-tight truncate">{{ reading.title || 'Untitled' }}</p>
-                <p class="t-meta truncate mt-0.5">{{ reading.author || 'Unknown author' }}</p>
+            <RouterLink
+                :to="{ name: 'book-detail', params: { id: reading.book_id }, query: { tab: 'Log' } }"
+                class="flex gap-3.5 flex-1 min-w-0"
+            >
+              <BookCover
+                  :title="reading.title || 'Untitled'"
+                  :author="reading.author || ''"
+                  :width="64"
+                  :cover-url="coverUrl(reading.google_books_id)"
+              />
+              <div class="flex-1 min-w-0 flex flex-col justify-between">
+                <div>
+                  <p class="t-title text-base leading-tight truncate">{{ reading.title || 'Untitled' }}</p>
+                  <p class="t-meta truncate mt-0.5">{{ reading.author || 'Unknown author' }}</p>
+                </div>
+                <div>
+                  <VineProgress :pct="readingPercent(reading)" :height="18"/>
+                  <p class="t-meta mt-1.5">
+                    page {{ reading.progress }} of {{ reading.total_pages }} ·
+                    <span class="text-green-soft">{{ readingPercent(reading) }}%</span>
+                  </p>
+                </div>
               </div>
-              <div>
-                <VineProgress :pct="readingPercent(reading)" :height="18"/>
-                <p class="t-meta mt-1.5">
-                  page {{ reading.progress }} of {{ reading.total_pages }} ·
-                  <span class="text-green-soft">{{ readingPercent(reading) }}%</span>
-                </p>
-              </div>
-            </div>
+            </RouterLink>
             <Button variant="soft" class="self-center flex-none px-3.5! py-2! text-[13px]!"
                     @click="openUpdateModal(reading)">
               Update

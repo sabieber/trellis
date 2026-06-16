@@ -165,7 +165,7 @@ export default defineComponent({
     }>>([]);
     const loading = ref(true);
     const showStartReadingModal = ref(false);
-    const activeTab = ref('Info');
+    const activeTab = ref((route.query.tab as string) || 'Info');
     const tabs = ['Info', 'Log', 'Shelves'];
     const shelves = ref<Array<{ id: string; name: string; description: string }>>([]);
     const shelfIds = ref<string[]>([]);
