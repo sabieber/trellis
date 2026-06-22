@@ -1,4 +1,4 @@
-name: PR build
+name: CI
 
 on:
   pull_request:
@@ -6,6 +6,22 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: trellis
+          POSTGRES_PASSWORD: trellis
+          POSTGRES_DB: trellis
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U trellis"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgres://trellis:trellis@localhost:5432/trellis
     steps:
       - uses: actions/checkout@v6.0.3
 
@@ -14,6 +30,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend
+
+      - run: cargo install diesel_cli --no-default-features --features postgres
+        working-directory: backend
+
+      - run: diesel migration run
+        working-directory: backend
 
       - run: cargo build
         working-directory: backend
