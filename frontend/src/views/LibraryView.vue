@@ -34,7 +34,7 @@
           <div class="flex items-center gap-1">
             <button
                 @click.stop="confirmRemoveShelf(shelf.id)"
-                class="flex items-center justify-center size-7 rounded-full text-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+                class="flex items-center justify-center size-7 rounded-full text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
             >
               <MinusIcon class="size-4"/>
             </button>

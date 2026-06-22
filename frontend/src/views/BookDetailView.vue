@@ -70,13 +70,23 @@
             <div
                 v-for="reading in readings"
                 :key="reading.id"
-                @click="viewReadingDetail(reading.id)"
-                class="flex justify-between items-center py-3 border-b border-line-soft cursor-pointer group"
+                class="flex justify-between items-center py-3 border-b border-line-soft group"
             >
-              <span class="text-sm text-ink group-hover:text-green-soft transition-colors duration-150">{{
-                  formatDate(reading.started_at)
-                }}</span>
-              <span class="t-meta">{{ reading.progress }} / {{ reading.total_pages }} pages</span>
+              <div
+                  @click="viewReadingDetail(reading.id)"
+                  class="flex justify-between items-center flex-1 min-w-0 cursor-pointer"
+              >
+                <span class="text-sm text-ink group-hover:text-green-soft transition-colors duration-150">{{
+                    formatDate(reading.started_at)
+                  }}</span>
+                <span class="t-meta">{{ reading.progress }} / {{ reading.total_pages }} pages</span>
+              </div>
+              <button
+                  @click.stop="confirmDeleteReading(reading.id)"
+                  class="flex items-center justify-center size-7 rounded-full flex-none ml-2 text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+              >
+                <TrashIcon class="size-4"/>
+              </button>
             </div>
           </div>
           <p v-else class="t-meta text-center py-4">No reading sessions yet.</p>
@@ -130,6 +140,15 @@
         @cancel="pendingRemoveShelfId = null"
     />
 
+    <ConfirmDialog
+        v-if="pendingDeleteReadingId"
+        title="Delete Reading"
+        message="Are you sure you want to delete this reading session and all its entries? This cannot be undone."
+        confirmLabel="Delete"
+        @confirm="deleteReading"
+        @cancel="pendingDeleteReadingId = null"
+    />
+
     <!-- Toast -->
     <div v-if="toastMessage" class="toast toast-top toast-center pt-4 z-50">
       <div :class="`alert ${toastType}`">
@@ -142,7 +161,7 @@
 <script lang="ts">
 import {defineComponent, ref, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
-import {ChevronLeftIcon, BookOpenIcon, CheckIcon} from "@heroicons/vue/24/outline";
+import {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon} from "@heroicons/vue/24/outline";
 import {fetchBookDetails, searchBooks, resolveGoogleId} from '@/api/googleBooksApi';
 import StartReadingModal from '@/components/StartReadingModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
@@ -153,7 +172,7 @@ import {apiFetch} from '@/api/client';
 import moment from 'moment';
 
 export default defineComponent({
-  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, StartReadingModal, ConfirmDialog, BookCover, Button, SegmentedControl},
+  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, StartReadingModal, ConfirmDialog, BookCover, Button, SegmentedControl},
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -179,6 +198,7 @@ export default defineComponent({
     const toastMessage = ref('');
     const toastType = ref('');
     const pendingRemoveShelfId = ref<string | null>(null);
+    const pendingDeleteReadingId = ref<string | null>(null);
 
     const showToast = (message: string, type: string) => {
       toastMessage.value = message;
@@ -292,6 +312,31 @@ export default defineComponent({
     const toggleShelf = (shelfId: string) =>
         isOnShelf(shelfId) ? confirmRemoveFromShelf(shelfId) : addBookToShelf(shelfId);
 
+    const confirmDeleteReading = (readingId: string) => {
+      pendingDeleteReadingId.value = readingId;
+    };
+
+    const deleteReading = async () => {
+      const readingId = pendingDeleteReadingId.value;
+      if (!readingId) return;
+      pendingDeleteReadingId.value = null;
+      try {
+        const response = await apiFetch('/api/readings/delete', {
+          method: 'POST',
+          body: JSON.stringify({reading_id: readingId}),
+        });
+        if (response.ok) {
+          readings.value = readings.value.filter((r) => r.id !== readingId);
+          showToast('Reading deleted.', 'alert-success');
+        } else {
+          const data = await response.json();
+          showToast(data.error || 'Failed to delete reading.', 'alert-error');
+        }
+      } catch {
+        showToast('Failed to delete reading.', 'alert-error');
+      }
+    };
+
     const viewReadingDetail = (readingId: string) => {
       router.push({name: 'reading-detail', params: {id: readingId}});
     };
@@ -332,6 +377,7 @@ export default defineComponent({
       shelves,
       loadingShelves,
       pendingRemoveShelfId,
+      pendingDeleteReadingId,
       toastMessage,
       toastType,
       viewReadingDetail,
@@ -339,6 +385,8 @@ export default defineComponent({
       isOnShelf,
       toggleShelf,
       removeBookFromShelf,
+      confirmDeleteReading,
+      deleteReading,
       formatDate,
     };
   },

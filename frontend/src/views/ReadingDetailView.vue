@@ -17,27 +17,44 @@
     </div>
     <div v-else class="t-meta text-center py-8">No entries found.</div>
     <Button block class="mt-5" @click="showModal = true">Track Progress</Button>
+    <button
+        @click="showDeleteConfirm = true"
+        class="w-full mt-2 py-2.5 text-sm text-[#c47556] cursor-pointer hover:underline transition-colors duration-150"
+    >
+      Delete reading
+    </button>
     <TrackProgressModal v-if="showModal" @close="showModal = false" @submit="trackProgress"
                         :initialProgress="latestProgress"/>
+    <ConfirmDialog
+        v-if="showDeleteConfirm"
+        title="Delete Reading"
+        message="Are you sure you want to delete this reading session and all its entries? This cannot be undone."
+        confirmLabel="Delete"
+        @confirm="deleteReading"
+        @cancel="showDeleteConfirm = false"
+    />
   </PageContainer>
 </template>
 
 <script lang="ts">
 import {defineComponent, ref, onMounted} from 'vue';
-import {useRoute} from 'vue-router';
+import {useRoute, useRouter} from 'vue-router';
 import TrackProgressModal from '@/components/TrackProgressModal.vue';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import PageContainer from '@/components/PageContainer.vue';
 import Button from '@/components/ui/Button.vue';
 import {apiFetch} from '@/api/client';
 
 export default defineComponent({
-  components: {TrackProgressModal, PageContainer, Button},
+  components: {TrackProgressModal, ConfirmDialog, PageContainer, Button},
   setup() {
     const route = useRoute();
+    const router = useRouter();
     const bookId = ref('');
     const entries = ref<Array<{ id: string, read_at: string, progress: number, mode: string }>>([]);
     const loading = ref(true);
     const showModal = ref(false);
+    const showDeleteConfirm = ref(false);
     const latestProgress = ref(0);
     const pageContainer = ref<any>(null);
 
@@ -82,6 +99,24 @@ export default defineComponent({
       }
     };
 
+    const deleteReading = async () => {
+      showDeleteConfirm.value = false;
+      try {
+        const response = await apiFetch('/api/readings/delete', {
+          method: 'POST',
+          body: JSON.stringify({reading_id: route.params.id}),
+        });
+        if (response.ok) {
+          router.replace({name: 'book-detail', params: {id: bookId.value}});
+        } else {
+          const errorData = await response.json();
+          pageContainer.value?.showToast({message: errorData.error || 'Failed to delete reading.', type: 'alert-error'});
+        }
+      } catch {
+        pageContainer.value?.showToast({message: 'Failed to delete reading.', type: 'alert-error'});
+      }
+    };
+
     onMounted(() => {
       const readingId = route.params.id as string;
       fetchReadingEntries(readingId);
@@ -91,7 +126,9 @@ export default defineComponent({
       entries,
       loading,
       showModal,
+      showDeleteConfirm,
       trackProgress,
+      deleteReading,
       latestProgress,
       pageContainer,
     };

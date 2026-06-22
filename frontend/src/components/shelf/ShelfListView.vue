@@ -19,7 +19,7 @@
       </div>
       <button
           @click.stop="$emit('removeBook', book.id)"
-          class="self-center flex-none flex items-center justify-center size-8 md:size-9 rounded-full text-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+          class="self-center flex-none flex items-center justify-center size-8 md:size-9 rounded-full text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
       >
         <MinusIcon class="size-4 md:size-5"/>
       </button>

@@ -30,7 +30,7 @@
                 <h3 class="t-title text-base leading-tight">{{ formatGoalLabel(goal) }}</h3>
                 <button
                     @click="confirmDelete(goal)"
-                    class="flex items-center justify-center size-7 rounded-full flex-none ml-2 text-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+                    class="flex items-center justify-center size-7 rounded-full flex-none ml-2 text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
                 >
                   <TrashIcon class="size-4"/>
                 </button>
