@@ -121,6 +121,15 @@
         :initialPages="book?.volumeInfo?.pageCount || 0"
     />
 
+    <ConfirmDialog
+        v-if="pendingRemoveShelfId"
+        title="Remove from Shelf"
+        message="Are you sure you want to remove this book from the shelf?"
+        confirmLabel="Remove"
+        @confirm="removeBookFromShelf"
+        @cancel="pendingRemoveShelfId = null"
+    />
+
     <!-- Toast -->
     <div v-if="toastMessage" class="toast toast-top toast-center pt-4 z-50">
       <div :class="`alert ${toastType}`">
@@ -136,6 +145,7 @@ import {useRoute, useRouter} from 'vue-router';
 import {ChevronLeftIcon, BookOpenIcon, CheckIcon} from "@heroicons/vue/24/outline";
 import {fetchBookDetails, searchBooks, resolveGoogleId} from '@/api/googleBooksApi';
 import StartReadingModal from '@/components/StartReadingModal.vue';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
@@ -143,7 +153,7 @@ import {apiFetch} from '@/api/client';
 import moment from 'moment';
 
 export default defineComponent({
-  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, StartReadingModal, BookCover, Button, SegmentedControl},
+  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, StartReadingModal, ConfirmDialog, BookCover, Button, SegmentedControl},
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -168,6 +178,7 @@ export default defineComponent({
     const loadingShelves = ref(false);
     const toastMessage = ref('');
     const toastType = ref('');
+    const pendingRemoveShelfId = ref<string | null>(null);
 
     const showToast = (message: string, type: string) => {
       toastMessage.value = message;
@@ -253,7 +264,14 @@ export default defineComponent({
       }
     };
 
-    const removeBookFromShelf = async (shelfId: string) => {
+    const confirmRemoveFromShelf = (shelfId: string) => {
+      pendingRemoveShelfId.value = shelfId;
+    };
+
+    const removeBookFromShelf = async () => {
+      const shelfId = pendingRemoveShelfId.value;
+      if (!shelfId) return;
+      pendingRemoveShelfId.value = null;
       try {
         const response = await apiFetch('/api/shelves/remove-book', {
           method: 'POST',
@@ -272,7 +290,7 @@ export default defineComponent({
     };
 
     const toggleShelf = (shelfId: string) =>
-        isOnShelf(shelfId) ? removeBookFromShelf(shelfId) : addBookToShelf(shelfId);
+        isOnShelf(shelfId) ? confirmRemoveFromShelf(shelfId) : addBookToShelf(shelfId);
 
     const viewReadingDetail = (readingId: string) => {
       router.push({name: 'reading-detail', params: {id: readingId}});
@@ -313,12 +331,14 @@ export default defineComponent({
       tabs,
       shelves,
       loadingShelves,
+      pendingRemoveShelfId,
       toastMessage,
       toastType,
       viewReadingDetail,
       startReadingSession,
       isOnShelf,
       toggleShelf,
+      removeBookFromShelf,
       formatDate,
     };
   },

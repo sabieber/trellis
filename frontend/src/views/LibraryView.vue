@@ -33,7 +33,7 @@
           </div>
           <div class="flex items-center gap-1">
             <button
-                @click.stop="removeShelf(shelf.id)"
+                @click.stop="confirmRemoveShelf(shelf.id)"
                 class="flex items-center justify-center size-7 rounded-full text-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
             >
               <MinusIcon class="size-4"/>
@@ -86,6 +86,15 @@
       <div v-if="!shelves.length" class="t-meta text-center py-10">No shelves yet.</div>
     </div>
 
+    <ConfirmDialog
+        v-if="pendingDeleteShelfId"
+        title="Remove Shelf"
+        message="Are you sure you want to remove this shelf? Books only on this shelf may be deleted."
+        confirmLabel="Remove"
+        @confirm="removeShelf"
+        @cancel="pendingDeleteShelfId = null"
+    />
+
     <!-- Toast -->
     <div v-if="toastMessage" class="toast toast-top toast-center pt-16">
       <div :class="`alert ${toastType}`">
@@ -100,6 +109,7 @@ import {defineComponent, ref, computed, onMounted, onUnmounted, watch, nextTick}
 import {useRouter} from 'vue-router';
 import {MinusIcon, ChevronRightIcon} from '@heroicons/vue/24/outline';
 import CreateShelfModal from '@/components/CreateShelfModal.vue';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import {apiFetch} from '@/api/client';
 
@@ -109,7 +119,7 @@ function coverUrl(googleBooksId: string | null | undefined): string | undefined 
 }
 
 export default defineComponent({
-  components: {CreateShelfModal, MinusIcon, ChevronRightIcon, BookCover},
+  components: {CreateShelfModal, ConfirmDialog, MinusIcon, ChevronRightIcon, BookCover},
   setup() {
     const shelves = ref<Array<{
       id: string;
@@ -131,6 +141,7 @@ export default defineComponent({
     const sortBy = ref<'name' | 'created_at' | 'updated_at'>('name');
     const shelvesContainerRef = ref<HTMLElement | null>(null);
     const containerWidth = ref(0);
+    const pendingDeleteShelfId = ref<string | null>(null);
     let resizeObserver: ResizeObserver | null = null;
 
     const TILE_W_SM = 80;
@@ -233,7 +244,14 @@ export default defineComponent({
       router.push({name: 'book-detail', params: {id: bookId}});
     };
 
-    const removeShelf = async (shelfId: string) => {
+    const confirmRemoveShelf = (shelfId: string) => {
+      pendingDeleteShelfId.value = shelfId;
+    };
+
+    const removeShelf = async () => {
+      const shelfId = pendingDeleteShelfId.value;
+      if (!shelfId) return;
+      pendingDeleteShelfId.value = null;
       try {
         const res = await apiFetch('/api/shelves/remove', {
           method: 'POST',
@@ -269,9 +287,11 @@ export default defineComponent({
       shelvesContainerRef,
       tileWidth,
       visibleCount,
+      pendingDeleteShelfId,
       fetchData,
       goToShelf,
       goToBook,
+      confirmRemoveShelf,
       removeShelf,
       coverUrl,
       toastMessage,

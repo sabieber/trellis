@@ -28,7 +28,7 @@
             :books="sortedBooks"
             :cover-width="listCoverWidth"
             @view-book="viewBookDetail"
-            @remove-book="removeBookFromShelf"
+            @remove-book="confirmRemoveBook"
         />
         <ShelfGridView
             v-else-if="layoutMode === 'grid'"
@@ -47,6 +47,15 @@
 
       <div v-else class="t-meta text-center py-12">No books found.</div>
     </div>
+
+    <ConfirmDialog
+        v-if="pendingRemoveBookId"
+        title="Remove Book"
+        message="Are you sure you want to remove this book from the shelf?"
+        confirmLabel="Remove"
+        @confirm="removeBookFromShelf"
+        @cancel="pendingRemoveBookId = null"
+    />
   </PageContainer>
 </template>
 
@@ -56,6 +65,7 @@ import {useRoute, useRouter} from 'vue-router';
 import {QueueListIcon, Squares2X2Icon, BookOpenIcon} from "@heroicons/vue/24/outline";
 import PageContainer from '@/components/PageContainer.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import ShelfListView from '@/components/shelf/ShelfListView.vue';
 import ShelfGridView from '@/components/shelf/ShelfGridView.vue';
 import ShelfBoardView from '@/components/shelf/ShelfBoardView.vue';
@@ -73,7 +83,7 @@ const SPINE_HEIGHT_LG = 200;
 export default defineComponent({
   components: {
     QueueListIcon, Squares2X2Icon, BookOpenIcon,
-    PageContainer, SegmentedControl,
+    PageContainer, SegmentedControl, ConfirmDialog,
     ShelfListView, ShelfGridView, ShelfBoardView,
   },
   setup() {
@@ -85,6 +95,7 @@ export default defineComponent({
     const sortBy = ref<'added_at' | 'title' | 'author'>('added_at');
     const pageContainer = ref<any>(null);
     const contentRef = ref<HTMLElement | null>(null);
+    const pendingRemoveBookId = ref<string | null>(null);
 
     const layoutOptions = [
       {value: 'list'},
@@ -144,7 +155,14 @@ export default defineComponent({
       }
     };
 
-    const removeBookFromShelf = async (bookId: string) => {
+    const confirmRemoveBook = (bookId: string) => {
+      pendingRemoveBookId.value = bookId;
+    };
+
+    const removeBookFromShelf = async () => {
+      const bookId = pendingRemoveBookId.value;
+      if (!bookId) return;
+      pendingRemoveBookId.value = null;
       try {
         const response = await apiFetch('/api/shelves/remove-book', {
           method: 'POST',
@@ -177,7 +195,8 @@ export default defineComponent({
       books, sortedBooks, loading, shelf, sortBy,
       layoutMode, layoutOptions,
       listCoverWidth, gridTileWidth, spineHeight, containerWidth,
-      pageContainer, contentRef, removeBookFromShelf, viewBookDetail,
+      pageContainer, contentRef, pendingRemoveBookId,
+      confirmRemoveBook, removeBookFromShelf, viewBookDetail,
     };
   },
 });

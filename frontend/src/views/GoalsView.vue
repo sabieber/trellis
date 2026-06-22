@@ -51,17 +51,14 @@
 
     <CreateGoalModal v-if="showCreateModal" @close="showCreateModal = false" @submit="createGoal"/>
 
-    <div v-if="deleteTarget" class="modal modal-open">
-      <div class="modal-box">
-        <h3 class="t-title text-lg">Delete Goal</h3>
-        <p class="text-sm text-ink-dim py-4">Are you sure you want to delete this {{ deleteTarget.goal_type }} goal?</p>
-        <div class="modal-action">
-          <Button variant="ghost" class="text-[#c47556]!" @click="doDelete">Delete</Button>
-          <Button variant="ghost" @click="deleteTarget = null">Cancel</Button>
-        </div>
-      </div>
-      <div class="modal-backdrop" @click="deleteTarget = null"></div>
-    </div>
+    <ConfirmDialog
+        v-if="deleteTarget"
+        title="Delete Goal"
+        :message="`Are you sure you want to delete this ${deleteTarget.goal_type} goal?`"
+        confirmLabel="Delete"
+        @confirm="doDelete"
+        @cancel="deleteTarget = null"
+    />
 
     <div v-if="toastMessage" class="toast toast-top toast-center pt-16">
       <div :class="`alert ${toastType}`">
@@ -74,6 +71,7 @@
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted} from 'vue';
 import CreateGoalModal from '@/components/CreateGoalModal.vue';
+import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import Button from '@/components/ui/Button.vue';
 import {PlusIcon, TrashIcon} from '@heroicons/vue/24/outline';
 import {apiFetch} from '@/api/client';
@@ -93,7 +91,7 @@ interface Goal {
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default defineComponent({
-  components: {PlainProgress, CreateGoalModal, PlusIcon, TrashIcon, Button},
+  components: {PlainProgress, CreateGoalModal, ConfirmDialog, PlusIcon, TrashIcon, Button},
   setup() {
     const goals = ref<Goal[]>([]);
     const loading = ref(true);
