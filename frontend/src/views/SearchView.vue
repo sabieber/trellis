@@ -14,7 +14,20 @@
             placeholder="Title, author, or ISBN"
             @keyup.enter="searchBooks"
         />
+        <button
+            class="text-muted hover:text-ink transition-colors flex-none"
+            title="Scan barcode"
+            @click="showScanner = true"
+        >
+          <QrCodeIcon class="size-5"/>
+        </button>
       </div>
+
+      <BarcodeScanner
+          v-if="showScanner"
+          @detected="onBarcodeDetected"
+          @close="showScanner = false"
+      />
 
       <div v-if="loading" class="flex justify-center py-8">
         <span class="loading loading-spinner loading-lg"></span>
@@ -56,16 +69,18 @@
 <script lang="ts">
 import {defineComponent, ref, onMounted} from 'vue';
 import {useRouter, useRoute} from 'vue-router';
-import {MagnifyingGlassIcon} from "@heroicons/vue/24/outline";
+import {MagnifyingGlassIcon, QrCodeIcon} from '@heroicons/vue/24/outline';
 import BookCover from '@/components/ui/BookCover.vue';
+import BarcodeScanner from '@/components/BarcodeScanner.vue';
 import {searchBooks} from '@/api/googleBooksApi';
 
 export default defineComponent({
-  components: {MagnifyingGlassIcon, BookCover},
+  components: {MagnifyingGlassIcon, QrCodeIcon, BookCover, BarcodeScanner},
   setup() {
     const query = ref('');
     const books = ref<Array<any>>([]);
     const loading = ref(false);
+    const showScanner = ref(false);
     const router = useRouter();
     const route = useRoute();
 
@@ -81,6 +96,12 @@ export default defineComponent({
       router.push({name: 'search-detail', params: {id}});
     };
 
+    const onBarcodeDetected = (code: string) => {
+      query.value = code;
+      showScanner.value = false;
+      searchBooksWrapper();
+    };
+
     onMounted(() => {
       const savedQuery = route.query.q as string;
       if (savedQuery) {
@@ -93,8 +114,10 @@ export default defineComponent({
       query,
       books,
       loading,
+      showScanner,
       searchBooks: searchBooksWrapper,
       viewBookDetail,
+      onBarcodeDetected,
     };
   },
 });

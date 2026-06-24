@@ -14,6 +14,7 @@
     "@heroicons/vue": "^2.2.0",
     "@tailwindcss/postcss": "^4.3.0",
     "@tailwindcss/vite": "^4.3.0",
+    "barcode-detector": "^3.2.0",
     "moment": "^2.30.1",
     "pinia": "^3.0.4",
     "vue": "^3.5.38",
