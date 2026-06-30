@@ -372,7 +372,7 @@ mod tests {
             .oneshot(
                 axum::http::Request::builder()
                     .method("GET")
-                    .uri("/api/books/search?q=test")
+                    .uri("/api/books/search?query=test")
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )

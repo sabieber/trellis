@@ -4,7 +4,7 @@ import type { BookSearchResult } from '@/types/book'
 export const searchBooks = async (query: string): Promise<BookSearchResult[]> => {
   try {
     const response = await apiFetch(
-      `/api/books/search?q=${encodeURIComponent(query)}`
+      `/api/books/search?query=${encodeURIComponent(query)}`
     )
     if (response.ok) {
       return await response.json()
