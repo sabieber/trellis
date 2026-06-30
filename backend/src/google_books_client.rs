@@ -13,8 +13,11 @@ pub async fn lookup_id_by_isbn(client: &Client, isbn: &str) -> Option<String> {
         }
         let mut req = client
             .get("https://www.googleapis.com/books/v1/volumes")
-            .query(&[("q", &format!("isbn:{}", isbn)), ("maxResults", &"1".to_string())]);
-        if let Some(key) = std::env::var("GOOGLE_BOOKS_API_KEY").ok() {
+            .query(&[
+                ("q", &format!("isbn:{}", isbn)),
+                ("maxResults", &"1".to_string()),
+            ]);
+        if let Ok(key) = std::env::var("GOOGLE_BOOKS_API_KEY") {
             req = req.query(&[("key", key)]);
         }
         let resp = match req.send().await {
