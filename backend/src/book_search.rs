@@ -193,26 +193,24 @@ fn isbn_key(book: &NormalizedBook) -> Option<String> {
 }
 
 fn merge_results(google: Vec<NormalizedBook>, ol: Vec<NormalizedBook>) -> Vec<NormalizedBook> {
-    let mut seen: HashMap<String, usize> = HashMap::new();
-    let mut results: Vec<NormalizedBook> = Vec::new();
+    let mut results: Vec<NormalizedBook> = google;
 
-    for book in google {
-        if let Some(key) = isbn_key(&book) {
-            if seen.contains_key(&key) {
-                continue;
-            }
-            seen.insert(key, results.len());
+    let mut google_isbn_to_idx: HashMap<String, usize> = HashMap::new();
+    for (i, book) in results.iter().enumerate() {
+        if let Some(key) = isbn_key(book) {
+            google_isbn_to_idx.entry(key).or_insert(i);
         }
-        results.push(book);
     }
+    let mut enriched: std::collections::HashSet<usize> = std::collections::HashSet::new();
 
     for book in ol {
         if let Some(key) = isbn_key(&book) {
-            if let Some(&idx) = seen.get(&key) {
-                enrich_from_ol(&mut results[idx], &book);
-                continue;
+            if let Some(&idx) = google_isbn_to_idx.get(&key) {
+                if enriched.insert(idx) {
+                    enrich_from_ol(&mut results[idx], &book);
+                    continue;
+                }
             }
-            seen.insert(key, results.len());
         }
         results.push(book);
     }
@@ -323,6 +321,122 @@ mod tests {
 
         let merged = merge_results(google, ol);
         assert_eq!(merged.len(), 2);
+    }
+
+    #[test]
+    fn merge_keeps_same_source_books_with_shared_isbn() {
+        let google = vec![];
+        let ol = vec![
+            NormalizedBook {
+                id: "openlibrary:/works/OL111W".into(),
+                source: "openlibrary".into(),
+                source_id: "/works/OL111W".into(),
+                title: "Book Part 1".into(),
+                authors: vec!["Author".into()],
+                cover_url: None,
+                published_year: None,
+                page_count: None,
+                category: None,
+                description: None,
+                average_rating: None,
+                isbn13: Some("9781234567890".into()),
+                isbn10: None,
+            },
+            NormalizedBook {
+                id: "openlibrary:/works/OL222W".into(),
+                source: "openlibrary".into(),
+                source_id: "/works/OL222W".into(),
+                title: "Book Part 2".into(),
+                authors: vec!["Author".into()],
+                cover_url: None,
+                published_year: None,
+                page_count: None,
+                category: None,
+                description: None,
+                average_rating: None,
+                isbn13: Some("9781234567890".into()),
+                isbn10: None,
+            },
+            NormalizedBook {
+                id: "openlibrary:/works/OL333W".into(),
+                source: "openlibrary".into(),
+                source_id: "/works/OL333W".into(),
+                title: "Book Part 3".into(),
+                authors: vec!["Author".into()],
+                cover_url: None,
+                published_year: None,
+                page_count: None,
+                category: None,
+                description: None,
+                average_rating: None,
+                isbn13: Some("9781234567890".into()),
+                isbn10: None,
+            },
+        ];
+
+        let merged = merge_results(google, ol);
+        assert_eq!(merged.len(), 3);
+        assert_eq!(merged[0].title, "Book Part 1");
+        assert_eq!(merged[1].title, "Book Part 2");
+        assert_eq!(merged[2].title, "Book Part 3");
+    }
+
+    #[test]
+    fn merge_enriches_first_same_source_book_only() {
+        let google = vec![NormalizedBook {
+            id: "google:abc".into(),
+            source: "google".into(),
+            source_id: "abc".into(),
+            title: "Book Part 1".into(),
+            authors: vec!["Author".into()],
+            cover_url: None,
+            published_year: None,
+            page_count: None,
+            category: None,
+            description: None,
+            average_rating: None,
+            isbn13: Some("9781234567890".into()),
+            isbn10: None,
+        }];
+
+        let ol = vec![
+            NormalizedBook {
+                id: "openlibrary:/works/OL111W".into(),
+                source: "openlibrary".into(),
+                source_id: "/works/OL111W".into(),
+                title: "Book Part 1".into(),
+                authors: vec![],
+                cover_url: Some("http://ol.com/cover.jpg".into()),
+                published_year: None,
+                page_count: None,
+                category: None,
+                description: None,
+                average_rating: None,
+                isbn13: Some("9781234567890".into()),
+                isbn10: None,
+            },
+            NormalizedBook {
+                id: "openlibrary:/works/OL222W".into(),
+                source: "openlibrary".into(),
+                source_id: "/works/OL222W".into(),
+                title: "Book Part 2".into(),
+                authors: vec!["Author".into()],
+                cover_url: None,
+                published_year: None,
+                page_count: None,
+                category: None,
+                description: None,
+                average_rating: None,
+                isbn13: Some("9781234567890".into()),
+                isbn10: None,
+            },
+        ];
+
+        let merged = merge_results(google, ol);
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].source, "google");
+        assert_eq!(merged[0].cover_url, Some("http://ol.com/cover.jpg".into()));
+        assert_eq!(merged[1].title, "Book Part 2");
     }
 
     #[test]

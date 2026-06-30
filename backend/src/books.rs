@@ -20,9 +20,16 @@ fn normalize(value: Option<String>) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-/// Resolves the canonical book row for a user using the identity ladder
-/// (google_books_id → isbn13 → isbn10 → title+author). Returns the id of the
-/// first match, or inserts a new book and returns its id.
+/// Resolves the canonical book row for a user using the identity ladder.
+///
+/// Source-specific IDs (`google_books_id`, `open_library_id`) are authoritative:
+/// when present, they uniquely identify a book. If a source ID is provided but
+/// not found in the DB, a new book is created — we do NOT fall through to ISBN
+/// matching, because different editions can legitimately share the same ISBN
+/// (e.g. book collections sold as a bundle).
+///
+/// ISBN and title+author matching are only used as fallbacks when no source
+/// ID is present (e.g. when a book was added manually without a source link).
 ///
 /// All lookups and the insert run on the passed connection, so within a single
 /// transaction repeated calls for the same book converge on one row.
@@ -47,6 +54,7 @@ pub(crate) fn resolve_or_create_book(
     let open_library_id = normalize(open_library_id);
 
     let base = || b::books.filter(b::user.eq(user_id)).into_boxed();
+    let has_source_id = google_books_id.is_some() || open_library_id.is_some();
 
     if let Some(ref gid) = google_books_id {
         if let Some(id) = base()
@@ -68,35 +76,38 @@ pub(crate) fn resolve_or_create_book(
             return Ok(id);
         }
     }
-    if let Some(ref v) = isbn13 {
-        if let Some(id) = base()
-            .filter(b::isbn13.eq(v))
-            .select(b::id)
-            .first::<Uuid>(conn)
-            .optional()?
-        {
-            return Ok(id);
+
+    if !has_source_id {
+        if let Some(ref v) = isbn13 {
+            if let Some(id) = base()
+                .filter(b::isbn13.eq(v))
+                .select(b::id)
+                .first::<Uuid>(conn)
+                .optional()?
+            {
+                return Ok(id);
+            }
         }
-    }
-    if let Some(ref v) = isbn10 {
-        if let Some(id) = base()
-            .filter(b::isbn10.eq(v))
-            .select(b::id)
-            .first::<Uuid>(conn)
-            .optional()?
-        {
-            return Ok(id);
+        if let Some(ref v) = isbn10 {
+            if let Some(id) = base()
+                .filter(b::isbn10.eq(v))
+                .select(b::id)
+                .first::<Uuid>(conn)
+                .optional()?
+            {
+                return Ok(id);
+            }
         }
-    }
-    if let (Some(ref t), Some(ref a)) = (&title, &author) {
-        if let Some(id) = base()
-            .filter(b::title.eq(t))
-            .filter(b::author.eq(a))
-            .select(b::id)
-            .first::<Uuid>(conn)
-            .optional()?
-        {
-            return Ok(id);
+        if let (Some(ref t), Some(ref a)) = (&title, &author) {
+            if let Some(id) = base()
+                .filter(b::title.eq(t))
+                .filter(b::author.eq(a))
+                .select(b::id)
+                .first::<Uuid>(conn)
+                .optional()?
+            {
+                return Ok(id);
+            }
         }
     }
 
