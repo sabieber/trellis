@@ -1,9 +1,11 @@
 mod books;
+mod book_search;
 mod db;
 mod goals;
 mod google_books_client;
 mod goodreads_importer;
 mod models;
+mod open_library_client;
 mod readings;
 mod schema;
 mod shelves;
@@ -43,7 +45,7 @@ pub fn build_router(static_dir: PathBuf) -> Router {
     router = books::register_routes(router);
     router = readings::register_routes(router);
     router = goals::register_routes(router);
-    router = google_books_client::register_routes(router);
+    router = book_search::register_routes(router);
 
     // Anything not matched by an `/api/*` route is served from the static dir.
     router.fallback_service(static_service)

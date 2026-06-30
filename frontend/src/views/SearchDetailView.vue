@@ -16,34 +16,31 @@
       </div>
 
       <div v-else-if="book" class="px-4 pb-8">
-        <!-- Centered hero -->
         <div class="flex flex-col items-center text-center mt-2 mb-6">
           <BookCover
-              :title="book.volumeInfo.title || 'Untitled'"
-              :author="book.volumeInfo.authors?.join(', ') || ''"
+              :title="book.title || 'Untitled'"
+              :author="book.authors?.join(', ') || ''"
               :width="128"
-              :cover-url="book.volumeInfo.imageLinks?.thumbnail"
+              :cover-url="book.cover_url"
           />
-          <h1 class="t-display text-[22px] mt-4 max-w-75">{{ book.volumeInfo.title }}</h1>
-          <p class="t-meta text-sm mt-1.5">{{ book.volumeInfo.authors?.join(', ') }}</p>
-          <div v-if="book.volumeInfo.averageRating" class="flex items-center gap-2 mt-2.5">
-            <Stars :rating="book.volumeInfo.averageRating"/>
-            <span class="t-meta">{{ book.volumeInfo.averageRating }} avg</span>
+          <h1 class="t-display text-[22px] mt-4 max-w-75">{{ book.title }}</h1>
+          <p class="t-meta text-sm mt-1.5">{{ book.authors?.join(', ') }}</p>
+          <div v-if="book.average_rating" class="flex items-center gap-2 mt-2.5">
+            <Stars :rating="book.average_rating"/>
+            <span class="t-meta">{{ book.average_rating }} avg</span>
           </div>
           <p class="t-meta mt-2">
-            {{ book.volumeInfo.publishedDate?.slice(0, 4) }}
-            <span v-if="book.volumeInfo.pageCount"> · {{ book.volumeInfo.pageCount }} pp</span>
-            <span v-if="book.volumeInfo.categories?.[0]"> · {{ book.volumeInfo.categories[0] }}</span>
+            {{ book.published_year }}
+            <span v-if="book.page_count"> · {{ book.page_count }} pp</span>
+            <span v-if="book.category"> · {{ book.category }}</span>
           </p>
         </div>
 
-        <!-- Add to Library CTA -->
         <Button block class="mb-6" @click="scrollToShelfSection">
           <PlusIcon class="size-4"/>
           Add to Library
         </Button>
 
-        <!-- Add to Shelf -->
         <div ref="shelfSection" class="mb-6">
           <h2 class="t-eyebrow mb-2">Add to shelf</h2>
           <div v-if="loadingShelves" class="flex justify-center py-4">
@@ -65,17 +62,15 @@
           <div v-else class="t-meta py-2">No shelves found.</div>
         </div>
 
-        <!-- Description -->
-        <div v-if="book.volumeInfo.description">
+        <div v-if="book.description">
           <h2 class="t-eyebrow mb-2">Description</h2>
-          <p class="text-ink-dim text-sm leading-relaxed" v-html="book.volumeInfo.description"></p>
+          <p class="text-ink-dim text-sm leading-relaxed" v-html="book.description"></p>
         </div>
       </div>
 
       <div v-else class="t-meta text-center py-8 px-4">Book not found.</div>
     </div>
 
-    <!-- Toast -->
     <div v-if="toastMessage" class="toast toast-top toast-center pt-4 z-50">
       <div :class="`alert ${toastType}`">
         <span>{{ toastMessage }}</span>
@@ -88,17 +83,18 @@
 import {defineComponent, ref, onMounted} from 'vue';
 import {useRoute} from 'vue-router';
 import {ChevronLeftIcon, PlusIcon} from "@heroicons/vue/24/outline";
-import {fetchBookDetails} from '@/api/googleBooksApi';
+import {fetchBookDetail} from '@/api/bookApi';
 import {apiFetch} from '@/api/client';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
 import Stars from '@/components/ui/Stars.vue';
+import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
   components: {ChevronLeftIcon, PlusIcon, BookCover, Button, Stars},
   setup() {
     const route = useRoute();
-    const book = ref<any>(null);
+    const book = ref<BookSearchResult | null>(null);
     const loading = ref(true);
     const shelves = ref<Array<{ id: string; name: string; description: string }>>([]);
     const loadingShelves = ref(false);
@@ -137,11 +133,12 @@ export default defineComponent({
           method: 'POST',
           body: JSON.stringify({
             shelf_id: shelfId,
-            title: book.value.volumeInfo.title,
-            author: book.value.volumeInfo.authors?.join(', '),
-            isbn13: book.value.volumeInfo.industryIdentifiers?.find((id: any) => id.type === 'ISBN_13')?.identifier,
-            isbn10: book.value.volumeInfo.industryIdentifiers?.find((id: any) => id.type === 'ISBN_10')?.identifier,
-            google_books_id: book.value.id,
+            title: book.value.title,
+            author: book.value.authors?.join(', '),
+            isbn13: book.value.isbn13,
+            isbn10: book.value.isbn10,
+            google_books_id: book.value.source === 'google' ? book.value.source_id : null,
+            open_library_id: book.value.source === 'openlibrary' ? book.value.source_id : null,
           }),
         });
         if (response.ok) {
@@ -159,8 +156,11 @@ export default defineComponent({
     };
 
     onMounted(async () => {
-      const bookId = route.params.id as string;
-      book.value = await fetchBookDetails(bookId);
+      const compositeId = route.params.id as string;
+      const colonIndex = compositeId.indexOf(':');
+      const source = compositeId.substring(0, colonIndex);
+      const sourceId = compositeId.substring(colonIndex + 1);
+      book.value = await fetchBookDetail(source, sourceId);
       loading.value = false;
       fetchShelves();
     });

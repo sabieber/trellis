@@ -279,6 +279,8 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
         Option<String>,
         Option<String>,
         Option<String>,
+        Option<String>,
+        Option<String>,
     );
 
     let rows = readings
@@ -294,6 +296,8 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
             schema::books::dsl::title,
             schema::books::dsl::author,
             schema::books::dsl::google_books_id,
+            schema::books::dsl::isbn13,
+            schema::books::dsl::isbn10,
         ))
         .load::<Row>(connection);
 
@@ -310,6 +314,8 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
                         title,
                         author,
                         google_books_id,
+                        isbn13,
+                        isbn10,
                     )| {
                         json!({
                             "reading_id": reading_id.to_string(),
@@ -317,6 +323,8 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
                             "title": title,
                             "author": author,
                             "google_books_id": google_books_id,
+                            "isbn13": isbn13,
+                            "isbn10": isbn10,
                             "progress": progress,
                             "total_pages": total_pages,
                         })

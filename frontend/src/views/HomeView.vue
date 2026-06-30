@@ -66,7 +66,7 @@
                   :title="reading.title || 'Untitled'"
                   :author="reading.author || ''"
                   :width="64"
-                  :cover-url="coverUrl(reading.google_books_id)"
+                  :cover-url="bookCoverUrl(reading)"
               />
               <div class="flex-1 min-w-0 flex flex-col justify-between">
                 <div>
@@ -144,16 +144,15 @@ interface ActiveReading {
   title: string | null;
   author: string | null;
   google_books_id: string | null;
+  isbn13: string | null;
+  isbn10: string | null;
   progress: number;
   total_pages: number;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function coverUrl(googleBooksId: string | null | undefined): string | undefined {
-  if (!googleBooksId) return undefined;
-  return `https://books.google.com/books/content?id=${googleBooksId}&printsec=frontcover&img=1&zoom=1&source=gbs_api`;
-}
+import {bookCoverUrl} from '@/utils/coverUrl';
 
 export default defineComponent({
   components: {RouterLink, ChevronRightIcon, TrackProgressModal, Button, PlainProgress, BookCover, VineProgress},
@@ -258,7 +257,7 @@ export default defineComponent({
       auth, goals, goalsLoading, activeReadings, readingsLoading,
       updateTarget, toastMessage, toastType,
       openUpdateModal, submitProgress, readingPercent,
-      formatGoalLabel, coverUrl, daypart, today,
+      formatGoalLabel, bookCoverUrl, daypart, today,
     };
   },
 });

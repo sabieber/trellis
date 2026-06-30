@@ -53,7 +53,7 @@ watch(() => props.coverUrl, () => {
 });
 const onImgLoad = (e: Event) => {
   const img = e.target as HTMLImageElement;
-  if (img.naturalWidth === 128 && img.naturalHeight === 170) imgFailed.value = true;
+  if ((img.naturalWidth === 128 && img.naturalHeight === 170) || img.naturalWidth <= 1 || img.naturalHeight <= 1) imgFailed.value = true;
 };
 
 const cw = computed(() => {

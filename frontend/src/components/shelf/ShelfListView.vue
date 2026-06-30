@@ -10,7 +10,7 @@
           :title="book.title"
           :author="book.author"
           :width="coverWidth"
-          :cover-url="coverUrl(book.google_books_id)"
+          :cover-url="bookCoverUrl(book)"
       />
       <div class="flex-1 min-w-0 flex flex-col justify-center">
         <h3 class="t-title text-[15px] md:text-base truncate">{{ book.title }}</h3>
@@ -30,7 +30,7 @@
 <script setup lang="ts">
 import {MinusIcon} from '@heroicons/vue/24/outline';
 import BookCover from '@/components/ui/BookCover.vue';
-import {coverUrl} from '@/utils/coverUrl';
+import {bookCoverUrl} from '@/utils/coverUrl';
 import moment from 'moment';
 import type {ShelfBook} from '@/types/shelf';
 

@@ -30,12 +30,13 @@ import { defineComponent, ref, onMounted } from 'vue';
 import type { PropType } from 'vue';
 import Button from '@/components/ui/Button.vue';
 import { apiFetch } from '@/api/client';
+import type { BookSearchResult } from '@/types/book';
 
 export default defineComponent({
   components: { Button },
   props: {
     book: {
-      type: Object as PropType<any>,
+      type: Object as PropType<BookSearchResult>,
       required: true,
     },
   },
@@ -66,11 +67,12 @@ export default defineComponent({
           method: 'POST',
           body: JSON.stringify({
             shelf_id: shelfId,
-            title: props.book.volumeInfo.title,
-            author: props.book.volumeInfo.authors?.join(', '),
-            isbn13: props.book.volumeInfo.industryIdentifiers?.find((id: any) => id.type === 'ISBN_13')?.identifier,
-            isbn10: props.book.volumeInfo.industryIdentifiers?.find((id: any) => id.type === 'ISBN_10')?.identifier,
-            google_books_id: props.book.id,
+            title: props.book.title,
+            author: props.book.authors?.join(', '),
+            isbn13: props.book.isbn13,
+            isbn10: props.book.isbn10,
+            google_books_id: props.book.source === 'google' ? props.book.source_id : null,
+            open_library_id: props.book.source === 'openlibrary' ? props.book.source_id : null,
           }),
         });
         if (response.ok) {

@@ -34,6 +34,7 @@ pub(crate) fn resolve_or_create_book(
     isbn13: Option<String>,
     isbn10: Option<String>,
     google_books_id: Option<String>,
+    open_library_id: Option<String>,
     added_at: chrono::NaiveDateTime,
 ) -> QueryResult<Uuid> {
     use crate::schema::books::dsl as b;
@@ -43,12 +44,23 @@ pub(crate) fn resolve_or_create_book(
     let isbn13 = normalize(isbn13);
     let isbn10 = normalize(isbn10);
     let google_books_id = normalize(google_books_id);
+    let open_library_id = normalize(open_library_id);
 
     let base = || b::books.filter(b::user.eq(user_id)).into_boxed();
 
     if let Some(ref gid) = google_books_id {
         if let Some(id) = base()
             .filter(b::google_books_id.eq(gid))
+            .select(b::id)
+            .first::<Uuid>(conn)
+            .optional()?
+        {
+            return Ok(id);
+        }
+    }
+    if let Some(ref oid) = open_library_id {
+        if let Some(id) = base()
+            .filter(b::open_library_id.eq(oid))
             .select(b::id)
             .first::<Uuid>(conn)
             .optional()?
@@ -97,6 +109,7 @@ pub(crate) fn resolve_or_create_book(
         isbn13,
         isbn10,
         google_books_id,
+        open_library_id,
         added_at,
     };
     diesel::insert_into(b::books).values(&new_book).execute(conn)?;
@@ -141,6 +154,7 @@ pub struct BookInfoRequest {
 #[derive(Debug, Serialize)]
 pub struct BookInfoResponse {
     pub google_books_id: Option<String>,
+    pub open_library_id: Option<String>,
     pub isbn13: Option<String>,
     pub readings: Vec<serde_json::Value>,
     pub shelf_ids: Vec<String>,
@@ -202,6 +216,7 @@ pub(crate) async fn get_book_info(
             StatusCode::OK,
             Json(json!(BookInfoResponse {
                 google_books_id: book.google_books_id,
+                open_library_id: book.open_library_id,
                 isbn13: book.isbn13,
                 readings: json_readings,
                 shelf_ids,

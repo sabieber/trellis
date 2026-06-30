@@ -1,7 +1,6 @@
 <template>
   <div class="min-h-screen">
     <div class="flex flex-col">
-      <!-- Back -->
       <div class="px-4 pt-4 pb-2">
         <button
             @click="$router.back()"
@@ -17,54 +16,50 @@
       </div>
 
       <div v-else-if="book" class="px-4 pb-8">
-        <!-- Book header -->
         <div class="flex gap-4 mb-6">
           <BookCover
-              :title="book.volumeInfo.title || 'Untitled'"
-              :author="book.volumeInfo.authors?.join(', ') || ''"
+              :title="book.title || 'Untitled'"
+              :author="book.authors?.join(', ') || ''"
               :width="108"
-              :cover-url="book.volumeInfo.imageLinks?.thumbnail"
+              :cover-url="book.cover_url"
           />
           <div class="flex flex-col justify-end min-w-0">
-            <h1 class="t-display text-[21px]">{{ book.volumeInfo.title }}</h1>
-            <p class="t-meta text-sm mt-1">{{ book.volumeInfo.authors?.join(', ') }}</p>
+            <h1 class="t-display text-[21px]">{{ book.title }}</h1>
+            <p class="t-meta text-sm mt-1">{{ book.authors?.join(', ') }}</p>
             <p class="t-meta mt-2">
-              {{ book.volumeInfo.publishedDate?.slice(0, 4) }}
-              <span v-if="book.volumeInfo.pageCount"> · {{ book.volumeInfo.pageCount }} pp</span>
-              <span v-if="book.volumeInfo.categories?.[0]"> · {{ book.volumeInfo.categories[0] }}</span>
+              {{ book.published_year }}
+              <span v-if="book.page_count"> · {{ book.page_count }} pp</span>
+              <span v-if="book.category"> · {{ book.category }}</span>
             </p>
           </div>
         </div>
 
-        <!-- Tabs -->
         <div class="mb-5">
           <SegmentedControl v-model="activeTab" :options="tabs" class="w-full"/>
         </div>
 
-        <!-- Info tab -->
         <div v-if="activeTab === 'Info'">
-          <template v-if="book.volumeInfo.description">
+          <template v-if="book.description">
             <h2 class="t-eyebrow mb-2">About</h2>
-            <p class="text-ink-dim text-sm leading-relaxed mb-5" v-html="book.volumeInfo.description"></p>
+            <p class="text-ink-dim text-sm leading-relaxed mb-5" v-html="book.description"></p>
           </template>
           <h2 class="t-eyebrow mb-1">Details</h2>
           <div class="flex flex-col">
-            <div v-if="book.volumeInfo.categories?.[0]" class="flex justify-between py-3 border-b border-line-soft">
+            <div v-if="book.category" class="flex justify-between py-3 border-b border-line-soft">
               <span class="t-meta">Genre</span>
-              <span class="text-sm font-semibold text-green-soft">{{ book.volumeInfo.categories[0] }}</span>
+              <span class="text-sm font-semibold text-green-soft">{{ book.category }}</span>
             </div>
-            <div v-if="book.volumeInfo.publishedDate" class="flex justify-between py-3 border-b border-line-soft">
+            <div v-if="book.published_year" class="flex justify-between py-3 border-b border-line-soft">
               <span class="t-meta">Published</span>
-              <span class="text-sm font-semibold text-ink">{{ book.volumeInfo.publishedDate.slice(0, 4) }}</span>
+              <span class="text-sm font-semibold text-ink">{{ book.published_year }}</span>
             </div>
-            <div v-if="book.volumeInfo.pageCount" class="flex justify-between py-3 border-b border-line-soft">
+            <div v-if="book.page_count" class="flex justify-between py-3 border-b border-line-soft">
               <span class="t-meta">Pages</span>
-              <span class="t-mono text-ink!">{{ book.volumeInfo.pageCount }}</span>
+              <span class="t-mono text-ink!">{{ book.page_count }}</span>
             </div>
           </div>
         </div>
 
-        <!-- Log tab -->
         <div v-else-if="activeTab === 'Log'">
           <div v-if="readings.length" class="flex flex-col mb-4">
             <div
@@ -96,7 +91,6 @@
           </Button>
         </div>
 
-        <!-- Shelves tab -->
         <div v-else-if="activeTab === 'Shelves'">
           <div v-if="loadingShelves" class="flex justify-center py-4">
             <span class="loading loading-spinner loading-md"></span>
@@ -128,7 +122,7 @@
         v-if="showStartReadingModal"
         @close="showStartReadingModal = false"
         @submit="startReadingSession"
-        :initialPages="book?.volumeInfo?.pageCount || 0"
+        :initialPages="book?.page_count || 0"
     />
 
     <ConfirmDialog
@@ -149,7 +143,6 @@
         @cancel="pendingDeleteReadingId = null"
     />
 
-    <!-- Toast -->
     <div v-if="toastMessage" class="toast toast-top toast-center pt-4 z-50">
       <div :class="`alert ${toastType}`">
         <span>{{ toastMessage }}</span>
@@ -162,7 +155,7 @@
 import {defineComponent, ref, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon} from "@heroicons/vue/24/outline";
-import {fetchBookDetails, searchBooks, resolveGoogleId} from '@/api/googleBooksApi';
+import {fetchBookDetail, searchBooks, resolveGoogleId} from '@/api/bookApi';
 import StartReadingModal from '@/components/StartReadingModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
@@ -170,13 +163,14 @@ import Button from '@/components/ui/Button.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import {apiFetch} from '@/api/client';
 import moment from 'moment';
+import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
   components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, StartReadingModal, ConfirmDialog, BookCover, Button, SegmentedControl},
   setup() {
     const route = useRoute();
     const router = useRouter();
-    const book = ref<any>(null);
+    const book = ref<BookSearchResult | null>(null);
     const readings = ref<Array<{
       id: string;
       started_at: string;
@@ -219,7 +213,11 @@ export default defineComponent({
           const data = await response.json();
           readings.value = data.readings;
           shelfIds.value = data.shelf_ids ?? [];
-          return {googleBooksId: data.google_books_id as string | null, isbn13: data.isbn13 as string | null};
+          return {
+            googleBooksId: data.google_books_id as string | null,
+            openLibraryId: data.open_library_id as string | null,
+            isbn13: data.isbn13 as string | null,
+          };
         }
       } catch (error) {
         console.error('Failed to fetch book info:', error);
@@ -229,15 +227,18 @@ export default defineComponent({
 
     const fetchBookDetailsWrapper = async (bookId: string) => {
       const info = await fetchBookInfo(bookId);
-      let googleBooksId = info?.googleBooksId;
-      if (!googleBooksId) {
-        googleBooksId = await resolveGoogleId(bookId);
-      }
-      if (googleBooksId) {
-        book.value = await fetchBookDetails(googleBooksId);
-      } else if (info?.isbn13) {
-        const results = await searchBooks(`isbn:${info.isbn13}`);
-        if (results.length > 0) book.value = results[0];
+      if (info?.googleBooksId) {
+        book.value = await fetchBookDetail('google', info.googleBooksId);
+      } else if (info?.openLibraryId) {
+        book.value = await fetchBookDetail('openlibrary', info.openLibraryId);
+      } else {
+        let googleBooksId = await resolveGoogleId(bookId);
+        if (googleBooksId) {
+          book.value = await fetchBookDetail('google', googleBooksId);
+        } else if (info?.isbn13) {
+          const results = await searchBooks(`isbn:${info.isbn13}`);
+          if (results.length > 0) book.value = results[0];
+        }
       }
       loading.value = false;
     };
@@ -266,11 +267,12 @@ export default defineComponent({
           method: 'POST',
           body: JSON.stringify({
             shelf_id: shelfId,
-            title: book.value.volumeInfo.title,
-            author: book.value.volumeInfo.authors?.join(', '),
-            isbn13: book.value.volumeInfo.industryIdentifiers?.find((id: any) => id.type === 'ISBN_13')?.identifier,
-            isbn10: book.value.volumeInfo.industryIdentifiers?.find((id: any) => id.type === 'ISBN_10')?.identifier,
-            google_books_id: book.value.id,
+            title: book.value.title,
+            author: book.value.authors?.join(', '),
+            isbn13: book.value.isbn13,
+            isbn10: book.value.isbn10,
+            google_books_id: book.value.source === 'google' ? book.value.source_id : null,
+            open_library_id: book.value.source === 'openlibrary' ? book.value.source_id : null,
           }),
         });
         if (response.ok) {

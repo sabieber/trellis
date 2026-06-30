@@ -223,6 +223,7 @@ pub(crate) async fn list_shelf_books(
             "isbn13": book.isbn13,
             "isbn10": book.isbn10,
             "google_books_id": book.google_books_id,
+            "open_library_id": book.open_library_id,
             "added_at": book.added_at.to_string(),
         });
         json_books.push(json_book);
@@ -250,6 +251,7 @@ pub struct AddBookToShelfRequest {
     pub isbn13: Option<String>,
     pub isbn10: Option<String>,
     pub google_books_id: Option<String>,
+    pub open_library_id: Option<String>,
 }
 
 /// Adds a book to a shelf.
@@ -276,16 +278,30 @@ pub(crate) async fn add_book_to_shelf(
         return (StatusCode::FORBIDDEN, Json(json!(ErrorResponse { error: "Access denied.".to_string() })));
     }
 
+    let author = if let Some(ref a) = payload.author {
+        if crate::open_library_client::is_ol_author_key(a) {
+            let client = reqwest::Client::new();
+            let key = format!("/authors/{}", a);
+            let names = crate::open_library_client::fetch_author_names(&client, &[key]).await;
+            names.into_iter().next().or(payload.author)
+        } else {
+            payload.author
+        }
+    } else {
+        payload.author
+    };
+
     let now = chrono::Utc::now().naive_utc();
     let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
         let book_id = crate::books::resolve_or_create_book(
             conn,
             auth.0,
             payload.title,
-            payload.author,
+            author,
             payload.isbn13,
             payload.isbn10,
             payload.google_books_id,
+            payload.open_library_id,
             now,
         )?;
         crate::books::ensure_membership(conn, book_id, shelf_id, now)?;

@@ -387,6 +387,7 @@ pub(crate) async fn import_good_reads(
             Some(isbn13.clone()),
             Some(isbn10.clone()),
             google_books_id,
+            None,
             added_at,
         ) {
             Ok(id) => id,

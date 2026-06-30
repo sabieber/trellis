@@ -6,7 +6,7 @@
         :title="book.title"
         :author="book.author"
         :width="tileWidth"
-        :cover-url="coverUrl(book.google_books_id)"
+        :cover-url="bookCoverUrl(book)"
         class="cursor-pointer"
         @click="$emit('viewBook', book.id)"
     />
@@ -15,7 +15,7 @@
 
 <script setup lang="ts">
 import BookCover from '@/components/ui/BookCover.vue';
-import {coverUrl} from '@/utils/coverUrl';
+import {bookCoverUrl} from '@/utils/coverUrl';
 import type {ShelfBook} from '@/types/shelf';
 
 defineProps<{

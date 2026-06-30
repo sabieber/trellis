@@ -57,7 +57,7 @@
                 :title="book.title"
                 :author="book.author"
                 :width="tileWidth"
-                :cover-url="coverUrl(book.google_books_id)"
+                :cover-url="bookCoverUrl(book)"
                 class="cursor-pointer"
                 @click="goToBook(book.id)"
             />
@@ -113,10 +113,7 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import {apiFetch} from '@/api/client';
 
-function coverUrl(googleBooksId: string | null | undefined): string | undefined {
-  if (!googleBooksId) return undefined;
-  return `https://books.google.com/books/content?id=${googleBooksId}&printsec=frontcover&img=1&zoom=1&source=gbs_api`;
-}
+import {bookCoverUrl} from '@/utils/coverUrl';
 
 export default defineComponent({
   components: {CreateShelfModal, ConfirmDialog, MinusIcon, ChevronRightIcon, BookCover},
@@ -132,7 +129,10 @@ export default defineComponent({
       id: string;
       title: string;
       author: string;
-      google_books_id: string | null
+      isbn13: string | null;
+      isbn10: string | null;
+      google_books_id: string | null;
+      open_library_id: string | null;
     }>>>({});
     const loading = ref(true);
     const router = useRouter();
@@ -223,7 +223,10 @@ export default defineComponent({
           id: string;
           title: string;
           author: string;
-          google_books_id: string | null
+          isbn13: string | null;
+          isbn10: string | null;
+          google_books_id: string | null;
+          open_library_id: string | null;
         }>> = {};
         data.shelves.forEach((shelf: { id: string }, i: number) => {
           map[shelf.id] = bookResults[i].books;
@@ -293,7 +296,7 @@ export default defineComponent({
       goToBook,
       confirmRemoveShelf,
       removeShelf,
-      coverUrl,
+      bookCoverUrl,
       toastMessage,
       toastType
     };

@@ -1,32 +1,6 @@
-use crate::auth::AuthUser;
-use axum::{
-    extract::{Path, Query},
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    routing::get,
-    Json, Router,
-};
 use reqwest::Client;
-use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::Value;
 
-pub(crate) fn register_routes(router: Router) -> Router {
-    router
-        .route("/api/google-books/search", get(search_books))
-        .route("/api/google-books/volume/{id}", get(get_volume))
-}
-
-/// Query parameters for the Google Books search endpoint.
-#[derive(Deserialize)]
-pub struct SearchQuery {
-    pub q: String,
-}
-
-/// Looks up a Google Books volume ID by ISBN.
-///
-/// Queries the Google Books API with the given ISBN and returns the first
-/// matching volume ID. Retries up to 3 times with exponential backoff on
-/// transient failures and 429 rate-limit responses.
 pub async fn lookup_id_by_isbn(client: &Client, isbn: &str) -> Option<String> {
     if isbn.is_empty() {
         return None;
@@ -64,71 +38,9 @@ pub async fn lookup_id_by_isbn(client: &Client, isbn: &str) -> Option<String> {
     None
 }
 
-/// Searches for books via the Google Books API.
-///
-/// Accepts a query parameter `q` and proxies the request to the Google Books
-/// Volumes endpoint. Requires authentication.
-pub(crate) async fn search_books(
-    _auth: AuthUser,
-    Query(params): Query<SearchQuery>,
-) -> Response {
-    let client = Client::new();
-    let mut req = client
-        .get("https://www.googleapis.com/books/v1/volumes")
-        .query(&[("q", params.q.as_str())]);
-    if let Some(key) = std::env::var("GOOGLE_BOOKS_API_KEY").ok() {
-        req = req.query(&[("key", key.as_str())]);
-    }
-    proxy_request(req).await
-}
-
-/// Fetches a single volume by ID from the Google Books API.
-///
-/// Accepts a path parameter `id` (the Google Books volume ID) and proxies
-/// the request to the Google Books API. Requires authentication.
-pub(crate) async fn get_volume(
-    _auth: AuthUser,
-    Path(id): Path<String>,
-) -> Response {
-    let client = Client::new();
-    let mut req = client.get(format!(
-        "https://www.googleapis.com/books/v1/volumes/{}",
-        id
-    ));
-    if let Some(key) = std::env::var("GOOGLE_BOOKS_API_KEY").ok() {
-        req = req.query(&[("key", key.as_str())]);
-    }
-    proxy_request(req).await
-}
-
-async fn proxy_request(req: reqwest::RequestBuilder) -> Response {
-    match req.send().await {
-        Ok(resp) if resp.status().is_success() => match resp.json::<Value>().await {
-            Ok(body) => (StatusCode::OK, Json(body)).into_response(),
-            Err(_) => (
-                StatusCode::BAD_GATEWAY,
-                Json(json!({ "error": "Invalid response from Google Books" })),
-            )
-                .into_response(),
-        },
-        Ok(_) => (
-            StatusCode::BAD_GATEWAY,
-            Json(json!({ "error": "Google Books request failed" })),
-        )
-            .into_response(),
-        Err(_) => (
-            StatusCode::BAD_GATEWAY,
-            Json(json!({ "error": "Failed to reach Google Books" })),
-        )
-            .into_response(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{body::Body, http::Request, routing::get, Router};
-    use tower::ServiceExt;
 
     #[tokio::test]
     async fn empty_isbn_returns_none() {
@@ -144,37 +56,5 @@ mod tests {
         let result = lookup_id_by_isbn(&client, "9780135957059").await;
         assert!(result.is_some());
         assert!(!result.unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn search_requires_auth() {
-        let app = Router::new().route("/api/google-books/search", get(search_books));
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .method("GET")
-                    .uri("/api/google-books/search?q=test")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    }
-
-    #[tokio::test]
-    async fn volume_requires_auth() {
-        let app = Router::new().route("/api/google-books/volume/{id}", get(get_volume));
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .method("GET")
-                    .uri("/api/google-books/volume/some-id")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
 }

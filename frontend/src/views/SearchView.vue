@@ -38,21 +38,21 @@
             v-for="book in books"
             :key="book.id"
             class="flex gap-3 py-2.5 border-b border-line-soft cursor-pointer"
-            @click="viewBookDetail(book.id)"
+            @click="viewBookDetail(book)"
         >
           <BookCover
-              :title="book.volumeInfo.title || 'Untitled'"
-              :author="book.volumeInfo.authors?.join(', ') || ''"
+              :title="book.title || 'Untitled'"
+              :author="book.authors?.join(', ') || ''"
               :width="46"
-              :cover-url="book.volumeInfo.imageLinks?.thumbnail"
+              :cover-url="book.cover_url"
           />
           <div class="min-w-0 flex flex-col justify-center">
-            <h3 class="t-title text-[15px] truncate">{{ book.volumeInfo.title }}</h3>
-            <p class="t-meta mt-0.5 truncate">{{ book.volumeInfo.authors?.join(', ') }}</p>
+            <h3 class="t-title text-[15px] truncate">{{ book.title }}</h3>
+            <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
             <p class="t-meta mt-1">
-              {{ book.volumeInfo.publishedDate?.slice(0, 4) }}
-              <span v-if="book.volumeInfo.pageCount"> · {{ book.volumeInfo.pageCount }} pp</span>
-              <span v-if="book.volumeInfo.categories?.[0]"> · {{ book.volumeInfo.categories[0] }}</span>
+              {{ book.published_year }}
+              <span v-if="book.page_count"> · {{ book.page_count }} pp</span>
+              <span v-if="book.category"> · {{ book.category }}</span>
             </p>
           </div>
         </div>
@@ -72,13 +72,14 @@ import {useRouter, useRoute} from 'vue-router';
 import {MagnifyingGlassIcon, QrCodeIcon} from '@heroicons/vue/24/outline';
 import BookCover from '@/components/ui/BookCover.vue';
 import BarcodeScanner from '@/components/BarcodeScanner.vue';
-import {searchBooks} from '@/api/googleBooksApi';
+import {searchBooks} from '@/api/bookApi';
+import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
   components: {MagnifyingGlassIcon, QrCodeIcon, BookCover, BarcodeScanner},
   setup() {
     const query = ref('');
-    const books = ref<Array<any>>([]);
+    const books = ref<BookSearchResult[]>([]);
     const loading = ref(false);
     const showScanner = ref(false);
     const router = useRouter();
@@ -92,8 +93,8 @@ export default defineComponent({
       router.replace({query: {q: query.value}});
     };
 
-    const viewBookDetail = (id: string) => {
-      router.push({name: 'search-detail', params: {id}});
+    const viewBookDetail = (book: BookSearchResult) => {
+      router.push({name: 'search-detail', params: {id: book.id}});
     };
 
     const onBarcodeDetected = (code: string) => {
