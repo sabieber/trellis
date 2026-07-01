@@ -11,19 +11,17 @@
           :author="book.author"
           :width="coverWidth"
           :cover-url="bookCoverUrl(book)"
+          hoverable
       />
       <div class="flex-1 min-w-0 flex flex-col justify-center">
-        <h3 class="t-title text-[15px] md:text-base truncate">{{ book.title }}</h3>
+        <h3 class="t-title text-[15px] md:text-base truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
         <p class="t-meta mt-0.5">{{ book.author }}</p>
         <p class="t-mono mt-1 hidden md:block">{{ dateLabel }} {{ formatDate(book) }}</p>
         <Stars v-if="book.rating" :rating="book.rating" :size="12" class="mt-0.5"/>
       </div>
-      <button
-          @click.stop="$emit('removeBook', book.id)"
-          class="self-center flex-none flex items-center justify-center size-8 md:size-9 rounded-full text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
-      >
-        <MinusIcon class="size-4 md:size-5"/>
-      </button>
+      <Button variant="ghost" class="px-2! py-2! text-[13px]!" @click="$emit('removeBook', book.id)">
+        <MinusIcon class="size-4"/>
+      </Button>
     </li>
   </ul>
 </template>
@@ -35,6 +33,7 @@ import Stars from '@/components/ui/Stars.vue';
 import {bookCoverUrl} from '@/utils/coverUrl';
 import moment from 'moment';
 import type {ShelfBook} from '@/types/shelf';
+import Button from "@/components/ui/Button.vue";
 
 const props = withDefaults(defineProps<{
   books: ShelfBook[];

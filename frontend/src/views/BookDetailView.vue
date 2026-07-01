@@ -2,13 +2,10 @@
   <div class="min-h-screen">
     <div class="flex flex-col">
       <div class="px-4 pt-4 pb-2">
-        <button
-            @click="$router.back()"
-            class="flex items-center gap-1 t-meta text-ink-dim hover:text-ink transition-colors duration-150"
-        >
+        <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="$router.back()">
           <ChevronLeftIcon class="size-4"/>
           Back
-        </button>
+        </Button>
       </div>
 
       <div v-if="loading" class="flex justify-center py-12">
@@ -77,7 +74,7 @@
                 <span class="text-sm text-ink group-hover:text-green-soft transition-colors duration-150">{{
                     formatDate(reading.started_at)
                   }}</span>
-                <span class="t-meta">{{ reading.progress }} / {{ reading.total_pages }} pages</span>
+                <span class="t-meta group-hover:text-green-soft transition-colors duration-150">{{ reading.progress }} / {{ reading.total_pages }} pages</span>
               </div>
               <button
                   @click.stop="confirmDeleteReading(reading.id)"
@@ -103,9 +100,9 @@
                 v-for="shelf in shelves"
                 :key="shelf.id"
                 @click="toggleShelf(shelf.id)"
-                class="flex items-center justify-between py-3 border-b border-line-soft cursor-pointer"
+                class="flex items-center justify-between py-3 border-b border-line-soft cursor-pointer group"
             >
-              <span class="text-sm" :class="isOnShelf(shelf.id) ? 'text-ink' : 'text-ink-dim'">{{ shelf.name }}</span>
+              <span class="text-sm group-hover:text-green-soft transition-colors duration-150" :class="isOnShelf(shelf.id) ? 'text-ink' : 'text-ink-dim'">{{ shelf.name }}</span>
               <div
                   class="size-7 rounded-full flex items-center justify-center border transition-colors duration-150"
                   :class="isOnShelf(shelf.id) ? 'bg-green/13 border-green/32' : 'bg-surface border-line'"

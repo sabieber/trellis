@@ -2,13 +2,10 @@
   <div class="min-h-screen">
     <div class="flex flex-col">
       <div class="px-4 pt-4 pb-2">
-        <button
-            @click="$router.back()"
-            class="flex items-center gap-1 t-meta text-ink-dim hover:text-ink transition-colors duration-150"
-        >
+        <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="$router.back()">
           <ChevronLeftIcon class="size-4"/>
           Back
-        </button>
+        </Button>
       </div>
 
       <div v-if="loading" class="flex justify-center py-12">

@@ -37,7 +37,7 @@
         <div
             v-for="book in books"
             :key="book.id"
-            class="flex gap-3 py-2.5 border-b border-line-soft cursor-pointer"
+            class="flex gap-3 py-2.5 border-b border-line-soft cursor-pointer group"
             @click="viewBookDetail(book)"
         >
           <BookCover
@@ -45,9 +45,10 @@
               :author="book.authors?.join(', ') || ''"
               :width="46"
               :cover-url="book.cover_url"
+              hoverable
           />
           <div class="min-w-0 flex flex-col justify-center">
-            <h3 class="t-title text-[15px] truncate">{{ book.title }}</h3>
+            <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
             <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
             <p class="t-meta mt-1">
               {{ book.published_year }}

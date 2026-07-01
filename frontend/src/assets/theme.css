@@ -102,3 +102,14 @@ body {
     letter-spacing: 0.01em;
     color: var(--color-muted);
 }
+
+/* Hoverable outline ring for clickable cards and covers */
+.hoverable-card {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    transition: outline-color 150ms ease;
+}
+
+.hoverable-card:hover {
+    outline-color: #7a9e7e;
+}

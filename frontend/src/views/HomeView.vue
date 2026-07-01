@@ -10,10 +10,10 @@
       <div>
         <div class="flex justify-between items-center mb-3">
           <h2 class="t-eyebrow">Reading goals</h2>
-          <RouterLink to="/goals" class="t-meta text-green-soft flex items-center gap-0.5">
+          <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="navigateTo('/goals')">
             See all
             <ChevronRightIcon class="size-4"/>
-          </RouterLink>
+          </Button>
         </div>
 
         <div v-if="goalsLoading" class="flex justify-center py-4">
@@ -21,14 +21,14 @@
         </div>
         <div v-else-if="goals.length === 0" class="t-meta text-center py-4">
           No goals yet.
-          <RouterLink to="/goals" class="text-green-soft ml-1">Create one</RouterLink>
+          <RouterLink to="/goals" class="text-green-soft ml-1 hover:text-green transition-colors duration-150">Create one</RouterLink>
         </div>
         <div v-else class="flex flex-col gap-2.5">
           <RouterLink
               v-for="goal in goals.slice(0, 3)"
               :key="goal.id"
               :to="goal.goal_type === 'books' ? { name: 'goal-detail', params: { id: goal.id } } : '/goals'"
-              class="bg-surface border border-line rounded-md p-4 block hover:border-[#7a9e7e] transition-colors duration-150"
+              class="bg-surface border border-line rounded-md p-4 block hoverable-card"
           >
             <div class="flex justify-between items-center mb-2">
               <span class="font-semibold text-sm">{{ formatGoalLabel(goal) }}</span>
@@ -45,10 +45,10 @@
       <div>
         <div class="flex justify-between items-center mb-3">
           <h2 class="t-eyebrow">Currently reading</h2>
-          <RouterLink to="/library" class="t-meta text-green-soft flex items-center gap-0.5">
+          <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="navigateTo('/library')">
             See all
             <ChevronRightIcon class="size-4"/>
-          </RouterLink>
+          </Button>
         </div>
 
         <div v-if="readingsLoading" class="flex justify-center py-4">
@@ -61,7 +61,7 @@
           <div
               v-for="reading in activeReadings"
               :key="reading.reading_id"
-              class="bg-surface border border-line rounded-md p-3.5 flex gap-3.5"
+              class="bg-surface border border-line rounded-md p-3.5 flex gap-3.5 hoverable-card"
           >
             <RouterLink
                 :to="{ name: 'book-detail', params: { id: reading.book_id }, query: { tab: 'Log' } }"
@@ -122,7 +122,7 @@
 
 <script lang="ts">
 import {defineComponent, ref, onMounted} from 'vue';
-import {RouterLink} from 'vue-router';
+import {RouterLink, useRouter} from 'vue-router';
 import {ChevronRightIcon} from '@heroicons/vue/24/outline';
 import {useAuthStore} from '@/stores/auth';
 import TrackProgressModal from '@/components/TrackProgressModal.vue';
@@ -163,6 +163,7 @@ export default defineComponent({
   components: {RouterLink, ChevronRightIcon, TrackProgressModal, Button, PlainProgress, BookCover, VineProgress},
   setup() {
     const auth = useAuthStore();
+    const router = useRouter();
     const goals = ref<Goal[]>([]);
     const goalsLoading = ref(false);
     const activeReadings = ref<ActiveReading[]>([]);
@@ -253,6 +254,8 @@ export default defineComponent({
       return `${typeLabel} in ${MONTHS[start.getMonth()]} ${start.getDate()}–${end.getDate()}`;
     };
 
+    const navigateTo = (path: string) => router.push(path);
+
     onMounted(() => {
       fetchGoals();
       fetchActiveReadings();
@@ -262,7 +265,7 @@ export default defineComponent({
       auth, goals, goalsLoading, activeReadings, readingsLoading,
       updateTarget, toastMessage, toastType,
       openUpdateModal, submitProgress, readingPercent,
-      formatGoalLabel, bookCoverUrl, daypart, today,
+      formatGoalLabel, bookCoverUrl, daypart, today, navigateTo,
     };
   },
 });

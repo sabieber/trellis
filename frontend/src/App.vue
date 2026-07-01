@@ -35,7 +35,7 @@
       <RouterLink
           v-if="yearGoal"
           to="/goals"
-          class="mt-auto flex items-center gap-3.5 bg-surface border border-line rounded-md p-3.5 hover:bg-surface-2 hover:border-line-hair transition-colors duration-150"
+          class="mt-auto flex items-center gap-3.5 bg-surface border border-line rounded-md p-3.5 hoverable-card"
       >
         <svg width="42" height="42" viewBox="0 0 62 62" class="flex-none">
           <circle cx="31" cy="31" r="26" fill="none" stroke="#322d1e" stroke-width="6"/>

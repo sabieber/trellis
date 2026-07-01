@@ -8,6 +8,7 @@
         :width="tileWidth"
         :cover-url="bookCoverUrl(book)"
         :rating="book.rating"
+        hoverable
         class="cursor-pointer"
         @click="$emit('viewBook', book.id)"
     />

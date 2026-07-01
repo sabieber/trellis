@@ -7,7 +7,7 @@
 <template>
   <div
       class="cover"
-      :class="[cw, { sm: isSm, tiny: isTiny }]"
+      :class="[cw, { sm: isSm, tiny: isTiny, 'hoverable-card': hoverable }]"
       :style="{ width: width + 'px' }"
   >
     <img
@@ -44,8 +44,9 @@ const props = withDefaults(
       colorway?: '' | 'moss' | 'clay' | 'ink' | 'plum' | 'gold' | 'char' | 'sage' | 'rust' | 'teal' | 'navy';
       coverUrl?: string | null;
       rating?: number | null;
+      hoverable?: boolean;
     }>(),
-    {author: '', width: 108, colorway: '', coverUrl: null, rating: null},
+    {author: '', width: 108, colorway: '', coverUrl: null, rating: null, hoverable: false},
 );
 
 const WAYS = ['moss', 'clay', 'ink', 'plum', 'gold', 'char', 'sage', 'rust', 'teal', 'navy'];

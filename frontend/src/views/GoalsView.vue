@@ -25,7 +25,7 @@
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4">
-            <div v-for="goal in section.goals" :key="goal.id" class="bg-surface border border-line rounded-md p-4">
+            <div v-for="goal in section.goals" :key="goal.id" class="bg-surface border border-line rounded-md p-4 hoverable-card">
               <div class="flex justify-between items-start mb-1">
                 <button
                     v-if="goal.goal_type === 'books'"

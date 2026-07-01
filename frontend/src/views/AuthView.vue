@@ -31,7 +31,7 @@
       <div class="flex flex-col gap-1">
         <div class="flex justify-between items-center">
           <label class="t-meta">Password</label>
-          <a v-if="activeTab === 'signin'" class="t-meta text-green-soft cursor-pointer">Forgot password?</a>
+          <a v-if="activeTab === 'signin'" class="t-meta text-green-soft hover:text-green transition-colors duration-150 cursor-pointer">Forgot password?</a>
         </div>
         <input
             type="password"
@@ -50,7 +50,7 @@
       <p class="t-meta text-center mt-4">
         {{ activeTab === 'signin' ? 'New to trellis?' : 'Already growing a library?' }}
         <button
-            class="text-green-soft font-semibold cursor-pointer ml-1"
+            class="text-green-soft font-semibold hover:text-green transition-colors duration-150 cursor-pointer ml-1"
             @click="switchTab(activeTab === 'signin' ? 'signup' : 'signin')"
         >
           {{ activeTab === 'signin' ? 'Create an account' : 'Log in' }}

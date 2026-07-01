@@ -32,24 +32,18 @@
             <span class="t-meta">{{ (shelfBooks[shelf.id] || []).length }} books</span>
           </div>
           <div class="flex items-center gap-1">
-            <button
-                @click.stop="confirmRemoveShelf(shelf.id)"
-                class="flex items-center justify-center size-7 rounded-full text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
-            >
+            <Button variant="ghost" class="px-2! py-2! text-[13px]!" @click="confirmRemoveShelf(shelf.id)">
               <MinusIcon class="size-4"/>
-            </button>
-            <button
-                @click="goToShelf(shelf.id)"
-                class="flex items-center t-meta hover:text-ink transition-colors duration-150"
-            >
+            </Button>
+            <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="goToShelf(shelf.id)">
               See all
-              <ChevronRightIcon class="size-4 ml-0.5"/>
-            </button>
+              <ChevronRightIcon class="size-4"/>
+            </Button>
           </div>
         </div>
 
         <!-- Book tile row -->
-        <div class="flex gap-3 pb-1 overflow-hidden">
+        <div class="flex gap-3 -m-1 p-2 overflow-hidden">
           <template v-if="(shelfBooks[shelf.id] || []).length > 0">
             <BookCover
                 v-for="book in (shelfBooks[shelf.id] || []).slice(0, visibleCount(shelfBooks[shelf.id] || []))"
@@ -59,13 +53,14 @@
                 :width="tileWidth"
                 :cover-url="bookCoverUrl(book)"
                 :rating="book.rating"
+                hoverable
                 class="cursor-pointer"
                 @click="goToBook(book.id)"
             />
             <div
                 v-if="(shelfBooks[shelf.id] || []).length > visibleCount(shelfBooks[shelf.id] || [])"
                 @click="goToShelf(shelf.id)"
-                class="flex-none aspect-2/3 rounded-cover bg-surface border border-line flex items-center justify-center cursor-pointer hover:bg-surface-2 hover:border-line-hair transition-colors duration-150"
+                class="flex-none aspect-2/3 rounded-cover bg-surface border border-line flex items-center justify-center cursor-pointer hoverable-card"
                 :style="{ width: tileWidth + 'px' }"
             >
               <span class="t-title text-sm text-ink-dim">+{{
@@ -76,7 +71,7 @@
           <div
               v-else
               @click="goToShelf(shelf.id)"
-              class="flex-none aspect-2/3 rounded-cover bg-surface border border-dashed border-line flex items-center justify-center cursor-pointer"
+              class="flex-none aspect-2/3 rounded-cover bg-surface border border-dashed border-line flex items-center justify-center cursor-pointer hoverable-card"
               :style="{ width: tileWidth + 'px' }"
           >
             <span class="t-meta text-faint text-center px-1">Empty</span>
@@ -112,12 +107,13 @@ import {MinusIcon, ChevronRightIcon} from '@heroicons/vue/24/outline';
 import CreateShelfModal from '@/components/CreateShelfModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
+import Button from '@/components/ui/Button.vue';
 import {apiFetch} from '@/api/client';
 
 import {bookCoverUrl} from '@/utils/coverUrl';
 
 export default defineComponent({
-  components: {CreateShelfModal, ConfirmDialog, MinusIcon, ChevronRightIcon, BookCover},
+  components: {CreateShelfModal, ConfirmDialog, MinusIcon, ChevronRightIcon, BookCover, Button},
   setup() {
     const shelves = ref<Array<{
       id: string;
