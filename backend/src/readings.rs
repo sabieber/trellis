@@ -21,6 +21,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/books/track-progress", post(track_progress))
         .route("/api/readings/active", post(list_active_readings))
         .route("/api/readings/delete", post(delete_reading))
+        .route("/api/readings/update-started-at", post(update_started_at))
 }
 
 #[derive(Debug, Deserialize)]
@@ -32,6 +33,7 @@ pub struct ReadingRequest {
 pub struct StartReadingRequest {
     pub book_id: String,
     pub total_pages: i32,
+    pub started_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,6 +41,12 @@ pub struct TrackProgressRequest {
     pub reading_id: String,
     pub progress: i32,
     pub read_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateStartedAtRequest {
+    pub reading_id: String,
+    pub started_at: String,
 }
 
 fn parse_uuid(id_str: &str, kind: &str) -> Result<Uuid, ApiResponse> {
@@ -128,6 +136,7 @@ pub(crate) async fn get_reading_info(
         StatusCode::OK,
         Json(json!({
             "book_id": reading.book.to_string(),
+            "started_at": reading.started_at.to_string(),
             "entries": json_entries,
         })),
     )
@@ -167,6 +176,21 @@ pub(crate) async fn start_reading_session(
         );
     }
 
+    let started_at = match payload.started_at {
+        Some(ref s) => match chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+            Ok(d) => d,
+            Err(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!(ErrorResponse {
+                        error: "Invalid date format. Use YYYY-MM-DD.".to_string()
+                    })),
+                )
+            }
+        },
+        None => chrono::Utc::now().date_naive(),
+    };
+
     let new_reading = Reading {
         id: Uuid::new_v4(),
         book: book_id,
@@ -174,7 +198,7 @@ pub(crate) async fn start_reading_session(
         total_pages: payload.total_pages,
         progress: 0,
         mode: ReadingMode::Pages,
-        started_at: chrono::Utc::now().date_naive(),
+        started_at,
         finished_at: None,
         cancelled_at: None,
         updated_at: chrono::Utc::now().naive_utc(),
@@ -337,6 +361,53 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!(ErrorResponse {
                 error: format!("Error loading active readings: {}", e)
+            })),
+        ),
+    }
+}
+
+pub(crate) async fn update_started_at(
+    auth: AuthUser,
+    Json(payload): Json<UpdateStartedAtRequest>,
+) -> impl IntoResponse {
+    let connection = &mut connect();
+
+    let reading_id = match parse_uuid(&payload.reading_id, "reading ID") {
+        Ok(id) => id,
+        Err(e) => return e,
+    };
+
+    let started_at = match chrono::NaiveDate::parse_from_str(&payload.started_at, "%Y-%m-%d") {
+        Ok(d) => d,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Invalid date format. Use YYYY-MM-DD.".to_string()
+                })),
+            )
+        }
+    };
+
+    if let Err(e) = find_reading_for_user(reading_id, &auth, connection) {
+        return e;
+    }
+
+    match diesel::update(readings.filter(schema::readings::dsl::id.eq(reading_id)))
+        .set((
+            schema::readings::dsl::started_at.eq(started_at),
+            schema::readings::dsl::updated_at.eq(chrono::Utc::now().naive_utc()),
+        ))
+        .execute(connection)
+    {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({ "message": "Start date updated successfully." })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Error updating start date: {}", e)
             })),
         ),
     }

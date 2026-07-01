@@ -3,26 +3,42 @@
     <div v-if="loading" class="flex justify-center">
       <span class="loading loading-spinner loading-lg"></span>
     </div>
-    <div v-else-if="entries.length">
-      <h2 class="t-eyebrow mb-3">Activity</h2>
-      <ul class="flex flex-col gap-2.5">
-        <li v-for="entry in entries" :key="entry.id" class="bg-surface border border-line rounded-md p-4">
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-ink">{{ entry.read_at }}</span>
-            <span class="t-meta">page {{ entry.progress }}</span>
+    <div v-else>
+      <div class="bg-surface border border-line rounded-md p-4 mb-5">
+        <div class="flex justify-between items-center">
+          <span class="t-meta">Started</span>
+          <div v-if="editingStartDate" class="flex items-center gap-2">
+            <input type="date" v-model="startDateDraft" class="input input-sm" />
+            <button @click="saveStartDate" class="text-sm text-[#7a9e7e] hover:underline">Save</button>
+            <button @click="editingStartDate = false" class="text-sm text-[#c47556] hover:underline">Cancel</button>
           </div>
-          <p class="t-meta mt-1">{{ entry.mode }}</p>
-        </li>
-      </ul>
+          <div v-else class="flex items-center gap-2">
+            <span class="text-sm text-ink">{{ startedAt }}</span>
+            <button @click="beginEditStartDate" class="text-sm text-[#7a9e7e] hover:underline">Edit</button>
+          </div>
+        </div>
+      </div>
+      <div v-if="entries.length">
+        <h2 class="t-eyebrow mb-3">Activity</h2>
+        <ul class="flex flex-col gap-2.5">
+          <li v-for="entry in entries" :key="entry.id" class="bg-surface border border-line rounded-md p-4">
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-ink">{{ entry.read_at }}</span>
+              <span class="t-meta">page {{ entry.progress }}</span>
+            </div>
+            <p class="t-meta mt-1">{{ entry.mode }}</p>
+          </li>
+        </ul>
+      </div>
+      <div v-else class="t-meta text-center py-8">No entries found.</div>
+      <Button block class="mt-5" @click="showModal = true">Track Progress</Button>
+      <button
+          @click="showDeleteConfirm = true"
+          class="w-full mt-2 py-2.5 text-sm text-[#c47556] cursor-pointer hover:underline transition-colors duration-150"
+      >
+        Delete reading
+      </button>
     </div>
-    <div v-else class="t-meta text-center py-8">No entries found.</div>
-    <Button block class="mt-5" @click="showModal = true">Track Progress</Button>
-    <button
-        @click="showDeleteConfirm = true"
-        class="w-full mt-2 py-2.5 text-sm text-[#c47556] cursor-pointer hover:underline transition-colors duration-150"
-    >
-      Delete reading
-    </button>
     <TrackProgressModal v-if="showModal" @close="showModal = false" @submit="trackProgress"
                         :initialProgress="latestProgress"/>
     <ConfirmDialog
@@ -57,6 +73,9 @@ export default defineComponent({
     const showDeleteConfirm = ref(false);
     const latestProgress = ref(0);
     const pageContainer = ref<any>(null);
+    const startedAt = ref('');
+    const editingStartDate = ref(false);
+    const startDateDraft = ref('');
 
     const fetchReadingEntries = async (readingId: string) => {
       try {
@@ -68,6 +87,7 @@ export default defineComponent({
           const data = await response.json();
           entries.value = data.entries;
           bookId.value = data.book_id;
+          startedAt.value = data.started_at;
           if (entries.value.length > 0) {
             latestProgress.value = entries.value[entries.value.length - 1].progress;
           }
@@ -117,6 +137,29 @@ export default defineComponent({
       }
     };
 
+    const beginEditStartDate = () => {
+      startDateDraft.value = startedAt.value;
+      editingStartDate.value = true;
+    };
+
+    const saveStartDate = async () => {
+      try {
+        const response = await apiFetch('/api/readings/update-started-at', {
+          method: 'POST',
+          body: JSON.stringify({reading_id: route.params.id, started_at: startDateDraft.value}),
+        });
+        if (response.ok) {
+          startedAt.value = startDateDraft.value;
+          editingStartDate.value = false;
+        } else {
+          const errorData = await response.json();
+          pageContainer.value?.showToast({message: errorData.error || 'Failed to update start date.', type: 'alert-error'});
+        }
+      } catch {
+        pageContainer.value?.showToast({message: 'Failed to update start date.', type: 'alert-error'});
+      }
+    };
+
     onMounted(() => {
       const readingId = route.params.id as string;
       fetchReadingEntries(readingId);
@@ -131,6 +174,11 @@ export default defineComponent({
       deleteReading,
       latestProgress,
       pageContainer,
+      startedAt,
+      editingStartDate,
+      startDateDraft,
+      beginEditStartDate,
+      saveStartDate,
     };
   },
 });

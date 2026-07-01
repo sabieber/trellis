@@ -349,11 +349,11 @@ export default defineComponent({
       router.push({name: 'reading-detail', params: {id: readingId}});
     };
 
-    const startReadingSession = async (totalPages: number) => {
+    const startReadingSession = async (totalPages: number, startedAt: string) => {
       try {
         const response = await apiFetch('/api/books/start-reading', {
           method: 'POST',
-          body: JSON.stringify({book_id: route.params.id, total_pages: totalPages}),
+          body: JSON.stringify({book_id: route.params.id, total_pages: totalPages, started_at: startedAt}),
         });
         if (response.ok) {
           await fetchBookDetailsWrapper(route.params.id as string);
