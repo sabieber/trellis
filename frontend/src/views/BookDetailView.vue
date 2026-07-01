@@ -26,6 +26,9 @@
           <div class="flex flex-col justify-end min-w-0">
             <h1 class="t-display text-[21px]">{{ book.title }}</h1>
             <p class="t-meta text-sm mt-1">{{ book.authors?.join(', ') }}</p>
+            <div class="mt-2">
+              <Stars :rating="rating" :size="18" interactive @update="rateBook"/>
+            </div>
             <p class="t-meta mt-2">
               {{ book.published_year }}
               <span v-if="book.page_count"> · {{ book.page_count }} pp</span>
@@ -161,12 +164,13 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import Stars from '@/components/ui/Stars.vue';
 import {apiFetch} from '@/api/client';
 import moment from 'moment';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
-  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, StartReadingModal, ConfirmDialog, BookCover, Button, SegmentedControl},
+  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, StartReadingModal, ConfirmDialog, BookCover, Button, SegmentedControl, Stars},
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -191,6 +195,7 @@ export default defineComponent({
     const loadingShelves = ref(false);
     const toastMessage = ref('');
     const toastType = ref('');
+    const rating = ref<number>(0);
     const pendingRemoveShelfId = ref<string | null>(null);
     const pendingDeleteReadingId = ref<string | null>(null);
 
@@ -213,6 +218,7 @@ export default defineComponent({
           const data = await response.json();
           readings.value = data.readings;
           shelfIds.value = data.shelf_ids ?? [];
+          rating.value = data.rating ?? 0;
           return {
             googleBooksId: data.google_books_id as string | null,
             openLibraryId: data.open_library_id as string | null,
@@ -361,6 +367,21 @@ export default defineComponent({
       }
     };
 
+    const rateBook = async (val: number | null) => {
+      const bookId = route.params.id as string;
+      try {
+        const response = await apiFetch('/api/books/rate', {
+          method: 'POST',
+          body: JSON.stringify({book_id: bookId, rating: val}),
+        });
+        if (response.ok) {
+          rating.value = val ?? 0;
+        }
+      } catch {
+        showToast('Failed to update rating.', 'alert-error');
+      }
+    };
+
     const formatDate = (date: string) => moment(date).format('LL');
 
     onMounted(() => {
@@ -378,6 +399,7 @@ export default defineComponent({
       tabs,
       shelves,
       loadingShelves,
+      rating,
       pendingRemoveShelfId,
       pendingDeleteReadingId,
       toastMessage,
@@ -389,6 +411,7 @@ export default defineComponent({
       removeBookFromShelf,
       confirmDeleteReading,
       deleteReading,
+      rateBook,
       formatDate,
     };
   },

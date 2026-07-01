@@ -58,6 +58,7 @@
                 :author="book.author"
                 :width="tileWidth"
                 :cover-url="bookCoverUrl(book)"
+                :rating="book.rating"
                 class="cursor-pointer"
                 @click="goToBook(book.id)"
             />
@@ -133,6 +134,7 @@ export default defineComponent({
       isbn10: string | null;
       google_books_id: string | null;
       open_library_id: string | null;
+      rating: number | null;
     }>>>({});
     const loading = ref(true);
     const router = useRouter();
@@ -227,6 +229,7 @@ export default defineComponent({
           isbn10: string | null;
           google_books_id: string | null;
           open_library_id: string | null;
+          rating: number | null;
         }>> = {};
         data.shelves.forEach((shelf: { id: string }, i: number) => {
           map[shelf.id] = bookResults[i].books;

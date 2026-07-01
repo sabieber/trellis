@@ -7,4 +7,5 @@ export interface ShelfBook {
   google_books_id: string | null;
   open_library_id: string | null;
   added_at: string;
+  rating: number | null;
 }

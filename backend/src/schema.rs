@@ -33,6 +33,7 @@ diesel::table! {
         google_books_id -> Nullable<Text>,
         open_library_id -> Nullable<Text>,
         added_at -> Timestamptz,
+        rating -> Nullable<Int2>,
     }
 }
 

@@ -7,6 +7,7 @@
         :author="book.author"
         :width="tileWidth"
         :cover-url="bookCoverUrl(book)"
+        :rating="book.rating"
         class="cursor-pointer"
         @click="$emit('viewBook', book.id)"
     />

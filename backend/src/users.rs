@@ -377,8 +377,8 @@ pub(crate) async fn import_good_reads(
             enrichment_map.get(isbn).cloned()
         };
 
-        // Resolve (or create) the single canonical book row for this record,
-        // then attach it to each target shelf.
+        let gr_rating = record.my_rating.filter(|r| *r >= 1.0 && *r <= 5.0).map(|r| r as i16);
+
         let book_id = match crate::books::resolve_or_create_book(
             connection,
             user_uuid,
@@ -389,6 +389,7 @@ pub(crate) async fn import_good_reads(
             google_books_id,
             None,
             added_at,
+            gr_rating,
         ) {
             Ok(id) => id,
             Err(e) => {
@@ -397,6 +398,14 @@ pub(crate) async fn import_good_reads(
                 continue;
             }
         };
+
+        if let Some(r) = gr_rating {
+            let _ = diesel::update(
+                crate::schema::books::dsl::books.filter(crate::schema::books::dsl::id.eq(book_id)),
+            )
+            .set(crate::schema::books::dsl::rating.eq(r))
+            .execute(connection);
+        }
 
         for shelf_name in &target_shelves {
             if shelf_name.is_empty() {

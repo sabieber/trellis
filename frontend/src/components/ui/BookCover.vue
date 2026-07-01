@@ -26,6 +26,10 @@
       <div v-if="!isSm" class="cv-author">{{ shortAuthor }}</div>
       <div class="cv-title">{{ title }}</div>
     </template>
+    <div v-if="rating" class="cv-rating">
+      <span class="cv-rating-star">★</span>
+      <span class="cv-rating-num">{{ rating }}</span>
+    </div>
   </div>
 </template>
 
@@ -39,8 +43,9 @@ const props = withDefaults(
       width?: number;
       colorway?: '' | 'moss' | 'clay' | 'ink' | 'plum' | 'gold' | 'char' | 'sage' | 'rust' | 'teal' | 'navy';
       coverUrl?: string | null;
+      rating?: number | null;
     }>(),
-    {author: '', width: 108, colorway: '', coverUrl: null},
+    {author: '', width: 108, colorway: '', coverUrl: null, rating: null},
 );
 
 const WAYS = ['moss', 'clay', 'ink', 'plum', 'gold', 'char', 'sage', 'rust', 'teal', 'navy'];
@@ -199,5 +204,32 @@ const shortAuthor = computed(() => {
 .cv--navy {
   background: #1d2740;
   color: #dfe3ee;
+}
+
+.cv-rating {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-family: var(--font-sans), sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  z-index: 2;
+}
+
+.cv-rating-star {
+  color: #d7b052;
+  font-size: 9px;
+}
+
+.cv-rating-num {
+  color: #f2ead8;
 }
 </style>

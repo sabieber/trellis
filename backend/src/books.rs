@@ -42,6 +42,7 @@ pub(crate) fn resolve_or_create_book(
     google_books_id: Option<String>,
     open_library_id: Option<String>,
     added_at: chrono::NaiveDateTime,
+    rating: Option<i16>,
 ) -> QueryResult<Uuid> {
     use crate::schema::books::dsl as b;
 
@@ -134,6 +135,7 @@ pub(crate) fn resolve_or_create_book(
         google_books_id,
         open_library_id,
         added_at,
+        rating,
     };
     diesel::insert_into(b::books).values(&new_book).execute(conn)?;
     Ok(new_id)
@@ -165,6 +167,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
     router
         .route("/api/books/info", post(get_book_info))
         .route("/api/books/resolve-google-id", post(resolve_google_id))
+        .route("/api/books/rate", post(rate_book))
 }
 
 /// Request type for getting information about a book.
@@ -179,6 +182,7 @@ pub struct BookInfoResponse {
     pub google_books_id: Option<String>,
     pub open_library_id: Option<String>,
     pub isbn13: Option<String>,
+    pub rating: Option<i16>,
     pub readings: Vec<serde_json::Value>,
     pub shelf_ids: Vec<String>,
 }
@@ -241,6 +245,7 @@ pub(crate) async fn get_book_info(
                 google_books_id: book.google_books_id,
                 open_library_id: book.open_library_id,
                 isbn13: book.isbn13,
+                rating: book.rating,
                 readings: json_readings,
                 shelf_ids,
             })),
@@ -333,6 +338,53 @@ pub(crate) async fn resolve_google_id(
     )
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RateBookRequest {
+    pub book_id: String,
+    pub rating: Option<i16>,
+}
+
+pub(crate) async fn rate_book(
+    auth: AuthUser,
+    Json(payload): Json<RateBookRequest>,
+) -> impl IntoResponse {
+    let book_id = match Uuid::parse_str(&payload.book_id) {
+        Ok(id) => id,
+        Err(_) => return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Invalid book ID.".to_string() }))),
+    };
+
+    if let Some(r) = payload.rating {
+        if !(1..=5).contains(&r) {
+            return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Rating must be between 1 and 5.".to_string() })));
+        }
+    }
+
+    let connection = &mut connect();
+
+    let book: Book = match books
+        .filter(schema::books::dsl::id.eq(book_id))
+        .filter(schema::books::dsl::user.eq(auth.0))
+        .first(connection)
+    {
+        Ok(b) => b,
+        Err(_) => return (StatusCode::NOT_FOUND, Json(json!(ErrorResponse { error: "Book not found.".to_string() }))),
+    };
+
+    if book.user != auth.0 {
+        return (StatusCode::FORBIDDEN, Json(json!(ErrorResponse { error: "Access denied.".to_string() })));
+    }
+
+    match diesel::update(
+        books.filter(schema::books::dsl::id.eq(book_id)),
+    )
+    .set(schema::books::dsl::rating.eq(payload.rating))
+    .execute(connection)
+    {
+        Ok(_) => (StatusCode::OK, Json(json!({ "rating": payload.rating }))),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(ErrorResponse { error: format!("Failed to update rating: {}", e) }))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use axum::{body::Body, http::Request, routing::post, Router};
@@ -353,6 +405,15 @@ mod tests {
         let app = Router::new().route("/api/books/resolve-google-id", post(resolve_google_id));
         let response = app
             .oneshot(Request::builder().method("POST").uri("/api/books/resolve-google-id").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_rate_book_requires_auth() {
+        let app = Router::new().route("/api/books/rate", post(rate_book));
+        let response = app
+            .oneshot(Request::builder().method("POST").uri("/api/books/rate").body(Body::empty()).unwrap())
             .await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }

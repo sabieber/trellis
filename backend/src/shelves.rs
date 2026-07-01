@@ -204,6 +204,7 @@ pub(crate) async fn list_shelf_books(
     let results = match crate::schema::book_shelves::dsl::book_shelves
         .inner_join(books)
         .filter(crate::schema::book_shelves::dsl::shelf.eq(shelf_id))
+        .order(crate::schema::book_shelves::dsl::added_at.desc())
         .select(Book::as_select())
         .load::<Book>(connection)
     {
@@ -225,6 +226,7 @@ pub(crate) async fn list_shelf_books(
             "google_books_id": book.google_books_id,
             "open_library_id": book.open_library_id,
             "added_at": book.added_at.to_string(),
+            "rating": book.rating,
         });
         json_books.push(json_book);
     }
@@ -303,6 +305,7 @@ pub(crate) async fn add_book_to_shelf(
             payload.google_books_id,
             payload.open_library_id,
             now,
+            None,
         )?;
         crate::books::ensure_membership(conn, book_id, shelf_id, now)?;
         Ok(())

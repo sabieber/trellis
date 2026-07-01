@@ -16,6 +16,7 @@
         <h3 class="t-title text-[15px] md:text-base truncate">{{ book.title }}</h3>
         <p class="t-meta mt-0.5">{{ book.author }}</p>
         <p class="t-mono mt-1 hidden md:block">Added {{ formatAddedAt(book.added_at) }}</p>
+        <Stars v-if="book.rating" :rating="book.rating" :size="12" class="mt-0.5"/>
       </div>
       <button
           @click.stop="$emit('removeBook', book.id)"
@@ -30,6 +31,7 @@
 <script setup lang="ts">
 import {MinusIcon} from '@heroicons/vue/24/outline';
 import BookCover from '@/components/ui/BookCover.vue';
+import Stars from '@/components/ui/Stars.vue';
 import {bookCoverUrl} from '@/utils/coverUrl';
 import moment from 'moment';
 import type {ShelfBook} from '@/types/shelf';

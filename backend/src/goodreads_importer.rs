@@ -22,9 +22,8 @@ pub struct BookRecord {
     pub isbn: String,
     #[serde(rename = "ISBN13")]
     pub isbn13: String,
-    #[allow(dead_code)]
     #[serde(rename = "My Rating")]
-    pub my_rating: Option<u8>,
+    pub my_rating: Option<f64>,
     #[allow(dead_code)]
     pub publisher: String,
     #[allow(dead_code)]
