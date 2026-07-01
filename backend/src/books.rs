@@ -22,14 +22,13 @@ fn normalize(value: Option<String>) -> Option<String> {
 
 /// Resolves the canonical book row for a user using the identity ladder.
 ///
-/// Source-specific IDs (`google_books_id`, `open_library_id`) are authoritative:
-/// when present, they uniquely identify a book. If a source ID is provided but
-/// not found in the DB, a new book is created — we do NOT fall through to ISBN
-/// matching, because different editions can legitimately share the same ISBN
-/// (e.g. book collections sold as a bundle).
-///
-/// ISBN and title+author matching are only used as fallbacks when no source
-/// ID is present (e.g. when a book was added manually without a source link).
+/// The ladder is: source id (`google_books_id`/`open_library_id`) → isbn13 →
+/// isbn10 → title+author. A source id match is authoritative. When it misses,
+/// we still fall back to ISBN/title matching, but a matched row is only reused
+/// if it does NOT already carry a *different* source id of the same kind. That
+/// distinguishes "the same book re-added" (the existing row has no or an equal
+/// source id — merge onto it) from "two distinct books that legitimately share
+/// an ISBN" (each carries its own source id, e.g. bundle editions — keep apart).
 ///
 /// All lookups and the insert run on the passed connection, so within a single
 /// transaction repeated calls for the same book converge on one row.
@@ -54,7 +53,6 @@ pub(crate) fn resolve_or_create_book(
     let open_library_id = normalize(open_library_id);
 
     let base = || b::books.filter(b::user.eq(user_id)).into_boxed();
-    let has_source_id = google_books_id.is_some() || open_library_id.is_some();
 
     if let Some(ref gid) = google_books_id {
         if let Some(id) = base()
@@ -77,35 +75,49 @@ pub(crate) fn resolve_or_create_book(
         }
     }
 
-    if !has_source_id {
+    // Fallback matching when no source id matched above. Reuse a row found by
+    // ISBN/title only if it does not already assert a *different* source id of
+    // the same kind (a NULL or equal source id on the existing row means "same
+    // book"; a differing one means a distinct edition that shares the ISBN).
+    {
+        let reusable = |rows: Vec<(Uuid, Option<String>, Option<String>)>| {
+            rows.into_iter().find_map(|(id, ex_gid, ex_olid)| {
+                let gid_conflict =
+                    matches!((&ex_gid, &google_books_id), (Some(a), Some(b)) if a != b);
+                let olid_conflict =
+                    matches!((&ex_olid, &open_library_id), (Some(a), Some(b)) if a != b);
+                (!gid_conflict && !olid_conflict).then_some(id)
+            })
+        };
+
         if let Some(ref v) = isbn13 {
-            if let Some(id) = base()
-                .filter(b::isbn13.eq(v))
-                .select(b::id)
-                .first::<Uuid>(conn)
-                .optional()?
-            {
+            if let Some(id) = reusable(
+                base()
+                    .filter(b::isbn13.eq(v))
+                    .select((b::id, b::google_books_id, b::open_library_id))
+                    .load(conn)?,
+            ) {
                 return Ok(id);
             }
         }
         if let Some(ref v) = isbn10 {
-            if let Some(id) = base()
-                .filter(b::isbn10.eq(v))
-                .select(b::id)
-                .first::<Uuid>(conn)
-                .optional()?
-            {
+            if let Some(id) = reusable(
+                base()
+                    .filter(b::isbn10.eq(v))
+                    .select((b::id, b::google_books_id, b::open_library_id))
+                    .load(conn)?,
+            ) {
                 return Ok(id);
             }
         }
         if let (Some(ref t), Some(ref a)) = (&title, &author) {
-            if let Some(id) = base()
-                .filter(b::title.eq(t))
-                .filter(b::author.eq(a))
-                .select(b::id)
-                .first::<Uuid>(conn)
-                .optional()?
-            {
+            if let Some(id) = reusable(
+                base()
+                    .filter(b::title.eq(t))
+                    .filter(b::author.eq(a))
+                    .select((b::id, b::google_books_id, b::open_library_id))
+                    .load(conn)?,
+            ) {
                 return Ok(id);
             }
         }
