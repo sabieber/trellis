@@ -31,6 +31,7 @@ pub struct NormalizedBook {
 pub(crate) fn register_routes(router: Router) -> Router {
     router
         .route("/api/books/search", get(unified_search))
+        .route("/api/books/trending", get(trending))
         .route("/api/books/external/{source}/{id}", get(external_detail))
 }
 
@@ -54,6 +55,12 @@ pub(crate) async fn unified_search(
     let merged = merge_results(google_results, ol_results);
 
     (StatusCode::OK, Json(json!(merged)))
+}
+
+pub(crate) async fn trending(_auth: AuthUser) -> impl IntoResponse {
+    let client = Client::new();
+    let books = crate::open_library_client::trending(&client, 10).await;
+    (StatusCode::OK, Json(json!(books)))
 }
 
 pub(crate) async fn external_detail(

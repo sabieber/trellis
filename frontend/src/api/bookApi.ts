@@ -15,6 +15,18 @@ export const searchBooks = async (query: string): Promise<BookSearchResult[]> =>
   }
 }
 
+export const fetchTrendingBooks = async (): Promise<BookSearchResult[]> => {
+  try {
+    const response = await apiFetch('/api/books/trending')
+    if (response.ok) {
+      return await response.json()
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
 export const fetchBookDetail = async (
   source: string,
   sourceId: string

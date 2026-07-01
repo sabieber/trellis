@@ -59,9 +59,36 @@
         </div>
       </div>
 
-      <div v-else class="flex flex-col items-center text-center pt-12">
+      <div v-else-if="hasSearched" class="flex flex-col items-center text-center pt-12">
         <h3 class="t-title text-[17px]">Nothing's grown here yet</h3>
         <p class="t-meta mt-1.5 max-w-58">Search by title, author, or ISBN to find books.</p>
+      </div>
+
+      <div v-else-if="trendingBooks.length">
+        <h2 class="t-title text-sm text-muted uppercase tracking-wide mb-3">Trending now</h2>
+        <div
+            v-for="book in trendingBooks"
+            :key="book.id"
+            class="flex gap-3 py-2.5 border-b border-line-soft cursor-pointer group"
+            @click="viewBookDetail(book)"
+        >
+          <BookCover
+              :title="book.title || 'Untitled'"
+              :author="book.authors?.join(', ') || ''"
+              :width="46"
+              :cover-url="book.cover_url"
+              hoverable
+          />
+          <div class="min-w-0 flex flex-col justify-center">
+            <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
+            <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
+            <p class="t-meta mt-1">
+              {{ book.published_year }}
+              <span v-if="book.page_count"> · {{ book.page_count }} pp</span>
+              <span v-if="book.category"> · {{ book.category }}</span>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -73,7 +100,7 @@ import {useRouter, useRoute} from 'vue-router';
 import {MagnifyingGlassIcon, QrCodeIcon} from '@heroicons/vue/24/outline';
 import BookCover from '@/components/ui/BookCover.vue';
 import BarcodeScanner from '@/components/BarcodeScanner.vue';
-import {searchBooks} from '@/api/bookApi';
+import {searchBooks, fetchTrendingBooks} from '@/api/bookApi';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
@@ -81,7 +108,9 @@ export default defineComponent({
   setup() {
     const query = ref('');
     const books = ref<BookSearchResult[]>([]);
+    const trendingBooks = ref<BookSearchResult[]>([]);
     const loading = ref(false);
+    const hasSearched = ref(false);
     const showScanner = ref(false);
     const router = useRouter();
     const route = useRoute();
@@ -89,6 +118,7 @@ export default defineComponent({
     const searchBooksWrapper = async () => {
       if (!query.value.trim()) return;
       loading.value = true;
+      hasSearched.value = true;
       books.value = await searchBooks(query.value);
       loading.value = false;
       router.replace({query: {q: query.value}});
@@ -104,18 +134,22 @@ export default defineComponent({
       searchBooksWrapper();
     };
 
-    onMounted(() => {
+    onMounted(async () => {
       const savedQuery = route.query.q as string;
       if (savedQuery) {
         query.value = savedQuery;
-        searchBooksWrapper();
+        await searchBooksWrapper();
+      } else {
+        trendingBooks.value = await fetchTrendingBooks();
       }
     });
 
     return {
       query,
       books,
+      trendingBooks,
       loading,
+      hasSearched,
       showScanner,
       searchBooks: searchBooksWrapper,
       viewBookDetail,

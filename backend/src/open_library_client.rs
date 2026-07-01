@@ -29,6 +29,31 @@ pub async fn search(client: &Client, query: &str) -> Vec<NormalizedBook> {
     docs.iter().filter_map(normalize_search_doc).collect()
 }
 
+pub async fn trending(client: &Client, limit: u32) -> Vec<NormalizedBook> {
+    let url = format!("{}/trending/now.json", OL_BASE);
+    let resp = match client
+        .get(&url)
+        .query(&[("limit", limit.to_string())])
+        .send()
+        .await
+    {
+        Ok(r) if r.status().is_success() => r,
+        _ => return vec![],
+    };
+
+    let body: Value = match resp.json().await {
+        Ok(b) => b,
+        Err(_) => return vec![],
+    };
+
+    let works = match body["works"].as_array() {
+        Some(w) => w,
+        None => return vec![],
+    };
+
+    works.iter().filter_map(normalize_search_doc).collect()
+}
+
 pub async fn get_work(client: &Client, work_key: &str) -> Option<NormalizedBook> {
     let key = work_key.trim_start_matches('/');
     let url = format!("{}/{}.json", OL_BASE, key);
