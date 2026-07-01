@@ -27,7 +27,14 @@
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4">
             <div v-for="goal in section.goals" :key="goal.id" class="bg-surface border border-line rounded-md p-4">
               <div class="flex justify-between items-start mb-1">
-                <h3 class="t-title text-base leading-tight">{{ formatGoalLabel(goal) }}</h3>
+                <button
+                    v-if="goal.goal_type === 'books'"
+                    @click="viewGoalDetail(goal)"
+                    class="t-title text-base leading-tight cursor-pointer hover:text-[#7a9e7e] transition-colors duration-150 text-left"
+                >
+                  {{ formatGoalLabel(goal) }}
+                </button>
+                <h3 v-else class="t-title text-base leading-tight">{{ formatGoalLabel(goal) }}</h3>
                 <button
                     @click="confirmDelete(goal)"
                     class="flex items-center justify-center size-7 rounded-full flex-none ml-2 text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
@@ -35,7 +42,7 @@
                   <TrashIcon class="size-4"/>
                 </button>
               </div>
-              <p class="t-meta mb-3.5">{{ goal.period_start }} to {{ goal.period_end }}</p>
+              <p class="t-meta mb-3.5">{{ formatPeriod(goal.period_start, goal.period_end) }}</p>
               <div class="flex justify-between t-meta mb-1.5">
                 <span>{{ goal.progress }} / {{ goal.target }} {{
                     goal.goal_type === 'books' ? 'books' : 'pages'
@@ -70,12 +77,14 @@
 
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted} from 'vue';
+import {useRouter} from 'vue-router';
 import CreateGoalModal from '@/components/CreateGoalModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import Button from '@/components/ui/Button.vue';
 import {PlusIcon, TrashIcon} from '@heroicons/vue/24/outline';
 import {apiFetch} from '@/api/client';
 import PlainProgress from "@/components/ui/PlainProgress.vue";
+import moment from 'moment';
 
 interface Goal {
   id: string;
@@ -93,6 +102,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 export default defineComponent({
   components: {PlainProgress, CreateGoalModal, ConfirmDialog, PlusIcon, TrashIcon, Button},
   setup() {
+    const router = useRouter();
     const goals = ref<Goal[]>([]);
     const loading = ref(true);
     const showCreateModal = ref(false);
@@ -179,6 +189,15 @@ export default defineComponent({
       }
     };
 
+    const viewGoalDetail = (goal: Goal) => {
+      if (goal.goal_type === 'books') {
+        router.push({name: 'goal-detail', params: {id: goal.id}});
+      }
+    };
+
+    const formatPeriod = (start: string, end: string) =>
+        `${moment(start).format('MMM D')} to ${moment(end).format('MMM D, YYYY')}`;
+
     const formatGoalLabel = (goal: Goal): string => {
       const start = new Date(goal.period_start + 'T00:00:00');
       const end = new Date(goal.period_end + 'T00:00:00');
@@ -206,7 +225,9 @@ export default defineComponent({
       createGoal,
       confirmDelete,
       doDelete,
-      formatGoalLabel
+      formatGoalLabel,
+      formatPeriod,
+      viewGoalDetail,
     };
   },
 });

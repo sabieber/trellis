@@ -15,7 +15,7 @@
       <div class="flex-1 min-w-0 flex flex-col justify-center">
         <h3 class="t-title text-[15px] md:text-base truncate">{{ book.title }}</h3>
         <p class="t-meta mt-0.5">{{ book.author }}</p>
-        <p class="t-mono mt-1 hidden md:block">Added {{ formatAddedAt(book.added_at) }}</p>
+        <p class="t-mono mt-1 hidden md:block">{{ dateLabel }} {{ formatDate(book) }}</p>
         <Stars v-if="book.rating" :rating="book.rating" :size="12" class="mt-0.5"/>
       </div>
       <button
@@ -36,15 +36,24 @@ import {bookCoverUrl} from '@/utils/coverUrl';
 import moment from 'moment';
 import type {ShelfBook} from '@/types/shelf';
 
-defineProps<{
+const props = withDefaults(defineProps<{
   books: ShelfBook[];
   coverWidth: number;
-}>();
+  dateLabel?: string;
+  dateField?: 'added_at' | 'finished_at';
+}>(), {
+  dateLabel: 'Added',
+  dateField: 'added_at',
+});
 
 defineEmits<{
   viewBook: [id: string];
   removeBook: [id: string];
 }>();
 
-const formatAddedAt = (dateStr: string) => moment(dateStr).format('MMM D, YYYY');
+const formatDate = (book: ShelfBook) => {
+  const val = (book as any)[props.dateField];
+  if (!val) return '';
+  return moment(val).format('MMM D, YYYY');
+};
 </script>

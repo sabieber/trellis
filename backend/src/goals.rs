@@ -1,6 +1,7 @@
 use crate::auth::AuthUser;
 use crate::db::connect;
 use crate::models::{ReadingEntry, ReadingGoal, ReadingGoalTimeframe, ReadingGoalType};
+use crate::schema::books::dsl::books;
 use crate::schema::reading_entries::dsl::reading_entries;
 use crate::schema::reading_goals::dsl::reading_goals;
 use crate::schema::readings::dsl::readings;
@@ -17,6 +18,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
     router
         .route("/api/goals/create", post(create_goal))
         .route("/api/goals/list", post(list_goals))
+        .route("/api/goals/detail", post(goal_detail))
         .route("/api/goals/delete", post(delete_goal))
 }
 
@@ -296,6 +298,152 @@ pub(crate) async fn list_goals(auth: AuthUser) -> impl IntoResponse {
     }
 
     (StatusCode::OK, Json(json!({ "goals": json_goals })))
+}
+
+/// Request type for fetching goal detail.
+#[derive(Debug, Deserialize)]
+pub struct GoalDetailRequest {
+    pub goal_id: String,
+}
+
+/// Returns the detail of a single reading goal, including the list of
+/// contributing books (for books goals).
+pub(crate) async fn goal_detail(
+    auth: AuthUser,
+    Json(payload): Json<GoalDetailRequest>,
+) -> impl IntoResponse {
+    let connection = &mut connect();
+
+    let goal_id = match Uuid::parse_str(&payload.goal_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Invalid goal ID.".to_string()
+                })),
+            )
+        }
+    };
+
+    let goal: ReadingGoal = match reading_goals
+        .filter(schema::reading_goals::dsl::id.eq(goal_id))
+        .first(connection)
+    {
+        Ok(g) => g,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!(ErrorResponse {
+                    error: "Goal not found.".to_string()
+                })),
+            )
+        }
+    };
+
+    if goal.user_id != auth.0 {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!(ErrorResponse {
+                error: "Access denied.".to_string()
+            })),
+        );
+    }
+
+    let (period_start, period_end) = get_period(&goal.timeframe);
+
+    let progress = match goal.goal_type {
+        ReadingGoalType::Books => {
+            calculate_books_progress(connection, auth.0, period_start, period_end)
+        }
+        ReadingGoalType::Pages => {
+            calculate_pages_progress(connection, auth.0, period_start, period_end)
+        }
+    };
+
+    let percentage = if goal.target > 0 {
+        ((progress as f64 / goal.target as f64) * 100.0).round() as i64
+    } else {
+        0
+    };
+
+    let contributing_books = match goal.goal_type {
+        ReadingGoalType::Books => {
+            type Row = (
+                Uuid,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+                chrono::NaiveDateTime,
+                Option<i16>,
+                Option<NaiveDate>,
+                i32,
+            );
+
+            let rows: Vec<Row> = match readings
+                .inner_join(books)
+                .filter(schema::readings::dsl::user.eq(auth.0))
+                .filter(schema::readings::dsl::finished_at.is_not_null())
+                .filter(schema::readings::dsl::finished_at.ge(period_start))
+                .filter(schema::readings::dsl::finished_at.le(period_end))
+                .order(schema::readings::dsl::finished_at.desc())
+                .select((
+                    schema::books::dsl::id,
+                    schema::books::dsl::title,
+                    schema::books::dsl::author,
+                    schema::books::dsl::isbn13,
+                    schema::books::dsl::isbn10,
+                    schema::books::dsl::google_books_id,
+                    schema::books::dsl::open_library_id,
+                    schema::books::dsl::added_at,
+                    schema::books::dsl::rating,
+                    schema::readings::dsl::finished_at,
+                    schema::readings::dsl::total_pages,
+                ))
+                .load::<Row>(connection)
+            {
+                Ok(r) => r,
+                Err(_) => vec![],
+            };
+
+            rows.into_iter()
+                .map(|(book_id, title, author, isbn13, isbn10, google_books_id, open_library_id, added_at, rating, finished_at, total_pages)| {
+                    json!({
+                        "id": book_id.to_string(),
+                        "title": title,
+                        "author": author,
+                        "isbn13": isbn13,
+                        "isbn10": isbn10,
+                        "google_books_id": google_books_id,
+                        "open_library_id": open_library_id,
+                        "added_at": added_at.to_string(),
+                        "rating": rating,
+                        "finished_at": finished_at.map(|d| d.to_string()),
+                        "total_pages": total_pages,
+                    })
+                })
+                .collect::<Vec<_>>()
+        }
+        ReadingGoalType::Pages => vec![],
+    };
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "id": goal.id.to_string(),
+            "goal_type": goal.goal_type.to_string(),
+            "timeframe": goal.timeframe.to_string(),
+            "target": goal.target,
+            "progress": progress,
+            "percentage": percentage,
+            "period_start": period_start.to_string(),
+            "period_end": period_end.to_string(),
+            "contributing_books": contributing_books,
+        })),
+    )
 }
 
 /// Request type for deleting a reading goal.

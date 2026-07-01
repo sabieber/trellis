@@ -24,7 +24,12 @@
           <RouterLink to="/goals" class="text-green-soft ml-1">Create one</RouterLink>
         </div>
         <div v-else class="flex flex-col gap-2.5">
-          <div v-for="goal in goals.slice(0, 3)" :key="goal.id" class="bg-surface border border-line rounded-md p-4">
+          <RouterLink
+              v-for="goal in goals.slice(0, 3)"
+              :key="goal.id"
+              :to="goal.goal_type === 'books' ? { name: 'goal-detail', params: { id: goal.id } } : '/goals'"
+              class="bg-surface border border-line rounded-md p-4 block hover:border-[#7a9e7e] transition-colors duration-150"
+          >
             <div class="flex justify-between items-center mb-2">
               <span class="font-semibold text-sm">{{ formatGoalLabel(goal) }}</span>
               <span class="t-meta" :class="{ 'text-green-soft': goal.percentage >= 100 }">
@@ -32,7 +37,7 @@
               </span>
             </div>
             <PlainProgress :pct="goal.percentage"/>
-          </div>
+          </RouterLink>
         </div>
       </div>
 
