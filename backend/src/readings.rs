@@ -312,6 +312,7 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
         .filter(schema::readings::dsl::user.eq(auth.0))
         .filter(schema::readings::dsl::finished_at.is_null())
         .filter(schema::readings::dsl::cancelled_at.is_null())
+        .order(schema::readings::dsl::updated_at.desc())
         .select((
             schema::readings::dsl::id,
             schema::readings::dsl::progress,
