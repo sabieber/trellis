@@ -11,7 +11,8 @@
           <template #option="{ option }">
             <QueueListIcon v-if="option.value === 'list'" class="size-4"/>
             <Squares2X2Icon v-else-if="option.value === 'grid'" class="size-4"/>
-            <BookOpenIcon v-else class="size-4"/>
+            <BookOpenIcon v-else-if="option.value === 'shelf'" class="size-4"/>
+            <RectangleStackIcon v-else class="size-4"/>
           </template>
         </SegmentedControl>
       </div>
@@ -37,10 +38,15 @@
             @view-book="viewBookDetail"
         />
         <ShelfBoardView
-            v-else
+            v-else-if="layoutMode === 'shelf'"
             :books="sortedBooks"
             :spine-height="spineHeight"
             :container-width="containerWidth"
+            @view-book="viewBookDetail"
+        />
+        <ShelfPileView
+            v-else
+            :books="sortedBooks"
             @view-book="viewBookDetail"
         />
       </template>
@@ -62,13 +68,14 @@
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted, watch} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
-import {QueueListIcon, Squares2X2Icon, BookOpenIcon} from "@heroicons/vue/24/outline";
+import {QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon} from "@heroicons/vue/24/outline";
 import PageContainer from '@/components/PageContainer.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import ShelfListView from '@/components/shelf/ShelfListView.vue';
 import ShelfGridView from '@/components/shelf/ShelfGridView.vue';
 import ShelfBoardView from '@/components/shelf/ShelfBoardView.vue';
+import ShelfPileView from '@/components/shelf/ShelfPileView.vue';
 import {apiFetch} from '@/api/client';
 import {useContainerWidth} from '@/composables/useContainerWidth';
 import type {ShelfBook} from '@/types/shelf';
@@ -82,9 +89,9 @@ const SPINE_HEIGHT_LG = 200;
 
 export default defineComponent({
   components: {
-    QueueListIcon, Squares2X2Icon, BookOpenIcon,
+    QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon,
     PageContainer, SegmentedControl, ConfirmDialog,
-    ShelfListView, ShelfGridView, ShelfBoardView,
+    ShelfListView, ShelfGridView, ShelfBoardView, ShelfPileView,
   },
   setup() {
     const route = useRoute();
@@ -101,9 +108,10 @@ export default defineComponent({
       {value: 'list'},
       {value: 'grid'},
       {value: 'shelf'},
+      {value: 'pile'},
     ];
 
-    const validLayouts = ['list', 'grid', 'shelf'];
+    const validLayouts = ['list', 'grid', 'shelf', 'pile'];
     const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
     const layoutMode = ref(validLayouts.includes(saved || '') ? saved! : 'list');
     watch(layoutMode, (val) => localStorage.setItem(LAYOUT_STORAGE_KEY, val));
