@@ -16,7 +16,7 @@
         :src="coverUrl"
         :alt="title"
         loading="lazy"
-        @error="imgFailed = true"
+        @error="onImgError"
         @load="onImgLoad"
     />
     <template v-else-if="isTiny">
@@ -45,21 +45,39 @@ const props = withDefaults(
       coverUrl?: string | null;
       rating?: number | null;
       hoverable?: boolean;
+      /** Internal book UUID; when set, emit `resolve-cover` on image failure so parent can look up the real cover. */
+      bookId?: string | null;
     }>(),
-    {author: '', width: 108, colorway: '', coverUrl: null, rating: null, hoverable: false},
+    {author: '', width: 108, colorway: '', coverUrl: null, rating: null, hoverable: false, bookId: null},
 );
+
+const emit = defineEmits<{
+  /** Emitted when the cover image fails to load and we have a bookId to resolve. */
+  'resolve-cover': [bookId: string];
+}>();
 
 const WAYS = ['moss', 'clay', 'ink', 'plum', 'gold', 'char', 'sage', 'rust', 'teal', 'navy'];
 
 // Google Books serves a fixed 128×170 "image not available" placeholder for
 // books without cover art; treat it as missing so the typographic cover shows.
+// OpenLibrary returns a 1×1 GIF when a cover does not exist.
 const imgFailed = ref(false);
 watch(() => props.coverUrl, () => {
   imgFailed.value = false;
 });
+
+const markFailed = () => {
+  imgFailed.value = true;
+  if (props.bookId) emit('resolve-cover', props.bookId);
+};
+
+const onImgError = () => markFailed();
+
 const onImgLoad = (e: Event) => {
   const img = e.target as HTMLImageElement;
-  if ((img.naturalWidth === 128 && img.naturalHeight === 170) || img.naturalWidth <= 1 || img.naturalHeight <= 1) imgFailed.value = true;
+  if ((img.naturalWidth === 128 && img.naturalHeight === 170) || img.naturalWidth <= 1 || img.naturalHeight <= 1) {
+    markFailed();
+  }
 };
 
 const cw = computed(() => {

@@ -51,7 +51,9 @@
                 :title="book.title"
                 :author="book.author"
                 :width="tileWidth"
-                :cover-url="bookCoverUrl(book)"
+                :cover-url="resolvedCoverUrl(book.id, bookCoverUrl(book))"
+                :book-id="book.id"
+                @resolve-cover="onResolveCover"
                 :rating="book.rating"
                 hoverable
                 class="cursor-pointer"
@@ -111,6 +113,7 @@ import Button from '@/components/ui/Button.vue';
 import {apiFetch} from '@/api/client';
 
 import {bookCoverUrl} from '@/utils/coverUrl';
+import {useBookCovers} from '@/composables/useBookCovers';
 
 export default defineComponent({
   components: {CreateShelfModal, ConfirmDialog, MinusIcon, ChevronRightIcon, BookCover, Button},
@@ -131,6 +134,7 @@ export default defineComponent({
       google_books_id: string | null;
       open_library_id: string | null;
       rating: number | null;
+      cover_url: string | null;
     }>>>({});
     const loading = ref(true);
     const router = useRouter();
@@ -140,6 +144,7 @@ export default defineComponent({
     const shelvesContainerRef = ref<HTMLElement | null>(null);
     const containerWidth = ref(0);
     const pendingDeleteShelfId = ref<string | null>(null);
+    const { resolvedCoverUrl, onResolveCover } = useBookCovers();
     let resizeObserver: ResizeObserver | null = null;
 
     const TILE_W_SM = 80;
@@ -226,6 +231,7 @@ export default defineComponent({
           google_books_id: string | null;
           open_library_id: string | null;
           rating: number | null;
+          cover_url: string | null;
         }>> = {};
         data.shelves.forEach((shelf: { id: string }, i: number) => {
           map[shelf.id] = bookResults[i].books;
@@ -296,6 +302,8 @@ export default defineComponent({
       confirmRemoveShelf,
       removeShelf,
       bookCoverUrl,
+      resolvedCoverUrl,
+      onResolveCover,
       toastMessage,
       toastType
     };

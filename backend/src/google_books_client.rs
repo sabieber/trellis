@@ -1,6 +1,13 @@
 use reqwest::Client;
 use serde_json::Value;
 
+pub fn cover_url_from_id(google_books_id: &str) -> String {
+    format!(
+        "https://books.google.com/books/content?id={}&printsec=frontcover&img=1&zoom=1&source=gbs_api",
+        google_books_id
+    )
+}
+
 pub async fn lookup_id_by_isbn(client: &Client, isbn: &str) -> Option<String> {
     if isbn.is_empty() {
         return None;

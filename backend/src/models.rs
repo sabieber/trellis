@@ -42,6 +42,7 @@ pub struct Book {
     pub open_library_id: Option<String>,
     pub added_at: chrono::NaiveDateTime,
     pub rating: Option<i16>,
+    pub cover_url: Option<String>,
 }
 
 #[derive(Queryable, Selectable, Insertable)]

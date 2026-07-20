@@ -71,7 +71,9 @@
                   :title="reading.title || 'Untitled'"
                   :author="reading.author || ''"
                   :width="64"
-                  :cover-url="bookCoverUrl(reading)"
+                  :cover-url="resolvedCoverUrl(reading.book_id, bookCoverUrl(reading))"
+                  :book-id="reading.book_id"
+                  @resolve-cover="onResolveCover"
               />
               <div class="flex-1 min-w-0 flex flex-col justify-between">
                 <div>
@@ -152,6 +154,7 @@ interface ActiveReading {
   google_books_id: string | null;
   isbn13: string | null;
   isbn10: string | null;
+  cover_url: string | null;
   progress: number;
   total_pages: number;
 }
@@ -159,6 +162,7 @@ interface ActiveReading {
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 import {bookCoverUrl} from '@/utils/coverUrl';
+import {useBookCovers} from '@/composables/useBookCovers';
 
 export default defineComponent({
   components: {RouterLink, ChevronRightIcon, TrackProgressModal, Button, PlainProgress, BookCover, VineProgress},
@@ -256,6 +260,7 @@ export default defineComponent({
     };
 
     const navigateTo = (path: string) => router.push(path);
+    const { resolvedCoverUrl, onResolveCover } = useBookCovers();
 
     onMounted(() => {
       fetchGoals();
@@ -266,7 +271,7 @@ export default defineComponent({
       auth, goals, goalsLoading, activeReadings, readingsLoading,
       updateTarget, toastMessage, toastType,
       openUpdateModal, submitProgress, readingPercent,
-      formatGoalLabel, bookCoverUrl, daypart, today, navigateTo,
+      formatGoalLabel, bookCoverUrl, resolvedCoverUrl, onResolveCover, daypart, today, navigateTo,
     };
   },
 });

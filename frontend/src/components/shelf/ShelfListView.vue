@@ -10,8 +10,10 @@
           :title="book.title"
           :author="book.author"
           :width="coverWidth"
-          :cover-url="bookCoverUrl(book)"
+          :cover-url="resolvedCoverUrl(book.id, bookCoverUrl(book))"
+          :book-id="book.id"
           hoverable
+          @resolve-cover="onResolveCover"
       />
       <div class="flex-1 min-w-0 flex flex-col justify-center">
         <h3 class="t-title text-[15px] md:text-base truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
@@ -31,6 +33,7 @@ import {MinusIcon} from '@heroicons/vue/24/outline';
 import BookCover from '@/components/ui/BookCover.vue';
 import Stars from '@/components/ui/Stars.vue';
 import {bookCoverUrl} from '@/utils/coverUrl';
+import {useBookCovers} from '@/composables/useBookCovers';
 import moment from 'moment';
 import type {ShelfBook} from '@/types/shelf';
 import Button from "@/components/ui/Button.vue";
@@ -49,6 +52,8 @@ defineEmits<{
   viewBook: [id: string];
   removeBook: [id: string];
 }>();
+
+const { resolvedCoverUrl, onResolveCover } = useBookCovers();
 
 const formatDate = (book: ShelfBook) => {
   const val = (book as any)[props.dateField];

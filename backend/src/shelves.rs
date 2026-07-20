@@ -227,6 +227,7 @@ pub(crate) async fn list_shelf_books(
             "open_library_id": book.open_library_id,
             "added_at": book.added_at.to_string(),
             "rating": book.rating,
+            "cover_url": book.cover_url,
         });
         json_books.push(json_book);
     }
@@ -254,6 +255,8 @@ pub struct AddBookToShelfRequest {
     pub isbn10: Option<String>,
     pub google_books_id: Option<String>,
     pub open_library_id: Option<String>,
+    #[serde(default)]
+    pub cover_url: Option<String>,
 }
 
 /// Adds a book to a shelf.
@@ -306,6 +309,7 @@ pub(crate) async fn add_book_to_shelf(
             payload.open_library_id,
             now,
             None,
+            payload.cover_url,
         )?;
         crate::books::ensure_membership(conn, book_id, shelf_id, now)?;
         Ok(())

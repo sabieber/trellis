@@ -381,6 +381,7 @@ pub(crate) async fn goal_detail(
                 Option<i16>,
                 Option<NaiveDate>,
                 i32,
+                Option<String>,
             );
 
             let rows: Vec<Row> = match readings
@@ -402,6 +403,7 @@ pub(crate) async fn goal_detail(
                     schema::books::dsl::rating,
                     schema::readings::dsl::finished_at,
                     schema::readings::dsl::total_pages,
+                    schema::books::dsl::cover_url,
                 ))
                 .load::<Row>(connection)
             {
@@ -410,7 +412,7 @@ pub(crate) async fn goal_detail(
             };
 
             rows.into_iter()
-                .map(|(book_id, title, author, isbn13, isbn10, google_books_id, open_library_id, added_at, rating, finished_at, total_pages)| {
+                .map(|(book_id, title, author, isbn13, isbn10, google_books_id, open_library_id, added_at, rating, finished_at, total_pages, cover_url)| {
                     json!({
                         "id": book_id.to_string(),
                         "title": title,
@@ -423,6 +425,7 @@ pub(crate) async fn goal_detail(
                         "rating": rating,
                         "finished_at": finished_at.map(|d| d.to_string()),
                         "total_pages": total_pages,
+                        "cover_url": cover_url,
                     })
                 })
                 .collect::<Vec<_>>()

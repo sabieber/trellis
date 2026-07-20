@@ -177,6 +177,68 @@ pub async fn lookup_id_by_isbn(client: &Client, isbn: &str) -> Option<String> {
     first["key"].as_str().map(|k| k.to_string())
 }
 
+/// Resolves a cover URL for a book identified by ISBN.
+///
+/// Strategy:
+/// 1. Check if the edition itself has a cover.
+/// 2. Follow the edition's work link and check for a cover there.
+///
+/// This handles the common case where the cover lives on the work
+/// page rather than the edition page.
+pub async fn resolve_cover_by_isbn(client: &Client, isbn: &str) -> Option<String> {
+    if isbn.is_empty() {
+        return None;
+    }
+
+    // Fetch the edition (ISBN lookup follows redirects).
+    let edition_url = format!("{}/isbn/{}.json", OL_BASE, isbn);
+    let resp = match client.get(&edition_url).send().await {
+        Ok(r) if r.status().is_success() => r,
+        _ => return None,
+    };
+    let edition: Value = match resp.json().await {
+        Ok(b) => b,
+        Err(_) => return None,
+    };
+
+    // 1. Edition-level cover.
+    if let Some(url) = first_cover_url(&edition) {
+        return Some(url);
+    }
+
+    // 2. Follow to work and check there.
+    let work_key = edition["works"]
+        .as_array()
+        .and_then(|a| a.first())
+        .and_then(|v| v["key"].as_str())?;
+
+    let work_url = format!("{}/{}.json", OL_BASE, work_key.trim_start_matches('/'));
+    let wresp = match client.get(&work_url).send().await {
+        Ok(r) if r.status().is_success() => r,
+        _ => return None,
+    };
+    let work: Value = match wresp.json().await {
+        Ok(b) => b,
+        Err(_) => return None,
+    };
+
+    first_cover_url(&work)
+}
+
+/// Formats the ISBN-based Open Library covers URL. Used as a last-resort
+/// fallback when no `covers` id could be resolved for an edition or work.
+pub fn cover_url_from_isbn(isbn: &str) -> String {
+    format!("https://covers.openlibrary.org/b/isbn/{}-M.jpg", isbn)
+}
+
+fn first_cover_url(v: &Value) -> Option<String> {
+    v["covers"]
+        .as_array()
+        .and_then(|a| a.first())
+        .and_then(|c| c.as_i64())
+        .map(cover_url_from_id)
+}
+
 fn classify_isbn(isbn: &str) -> Option<(& 'static str, String)> {
     let clean: String = isbn.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
     match clean.len() {
@@ -338,5 +400,17 @@ mod tests {
         assert!(!is_ol_author_key("OLA"));
         assert!(!is_ol_author_key("OLABCA"));
         assert!(!is_ol_author_key("OL123B"));
+    }
+
+    #[tokio::test]
+    async fn empty_isbn_returns_none_for_cover() {
+        let client = Client::new();
+        assert!(resolve_cover_by_isbn(&client, "").await.is_none());
+    }
+
+    #[test]
+    fn cover_url_from_id_formats_correct_url() {
+        let url = cover_url_from_id(10507461);
+        assert_eq!(url, "https://covers.openlibrary.org/b/id/10507461-M.jpg");
     }
 }

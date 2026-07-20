@@ -43,6 +43,7 @@ pub(crate) fn resolve_or_create_book(
     open_library_id: Option<String>,
     added_at: chrono::NaiveDateTime,
     rating: Option<i16>,
+    cover_url: Option<String>,
 ) -> QueryResult<Uuid> {
     use crate::schema::books::dsl as b;
 
@@ -136,6 +137,7 @@ pub(crate) fn resolve_or_create_book(
         open_library_id,
         added_at,
         rating,
+        cover_url,
     };
     diesel::insert_into(b::books).values(&new_book).execute(conn)?;
     Ok(new_id)
@@ -167,6 +169,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
     router
         .route("/api/books/info", post(get_book_info))
         .route("/api/books/resolve-google-id", post(resolve_google_id))
+        .route("/api/books/resolve-cover", post(resolve_cover))
         .route("/api/books/rate", post(rate_book))
 }
 
@@ -182,7 +185,9 @@ pub struct BookInfoResponse {
     pub google_books_id: Option<String>,
     pub open_library_id: Option<String>,
     pub isbn13: Option<String>,
+    pub isbn10: Option<String>,
     pub rating: Option<i16>,
+    pub cover_url: Option<String>,
     pub readings: Vec<serde_json::Value>,
     pub shelf_ids: Vec<String>,
 }
@@ -245,7 +250,9 @@ pub(crate) async fn get_book_info(
                 google_books_id: book.google_books_id,
                 open_library_id: book.open_library_id,
                 isbn13: book.isbn13,
+                isbn10: book.isbn10,
                 rating: book.rating,
+                cover_url: book.cover_url,
                 readings: json_readings,
                 shelf_ids,
             })),
@@ -338,6 +345,110 @@ pub(crate) async fn resolve_google_id(
     )
 }
 
+/// Request type for resolving a book cover URL.
+#[derive(Debug, Deserialize)]
+pub struct ResolveCoverRequest {
+    pub book_id: String,
+}
+
+/// Resolves and caches the cover URL for a book.
+///
+/// Accepts a JSON payload with `book_id` (the internal UUID).
+/// Resolution strategy:
+/// 1. If cached in DB, return immediately.
+/// 2. Try Google Books API via ISBN.
+/// 3. Try Open Library work detail via `open_library_id`.
+/// 4. Try Open Library ISBN lookup → follow to work for cover.
+/// 5. Fall back to the ISBN-based covers.openlibrary.org URL.
+///
+/// The resolved URL is persisted so subsequent calls are instant.
+pub(crate) async fn resolve_cover(
+    auth: AuthUser,
+    Json(payload): Json<ResolveCoverRequest>,
+) -> impl IntoResponse {
+    let book_id = match Uuid::parse_str(&payload.book_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "cover_url": serde_json::Value::Null })),
+            )
+        }
+    };
+
+    let connection = &mut connect();
+
+    let book = match books
+        .filter(schema::books::dsl::id.eq(book_id))
+        .filter(schema::books::dsl::user.eq(auth.0))
+        .first::<Book>(connection)
+    {
+        Ok(b) => b,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "cover_url": serde_json::Value::Null })),
+            )
+        }
+    };
+
+    // 1. Return the cached value if present.
+    if let Some(ref url) = book.cover_url {
+        return (StatusCode::OK, Json(json!({ "cover_url": url })));
+    }
+
+    let client = reqwest::Client::new();
+    let isbn = book
+        .isbn13
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .or(book.isbn10.as_deref().filter(|s| !s.is_empty()));
+    let mut resolved: Option<String> = None;
+
+    // 2. Try Google Books API via ISBN.
+    if resolved.is_none() {
+        if let Some(isbn) = isbn {
+            if let Some(gid) = crate::google_books_client::lookup_id_by_isbn(&client, isbn).await {
+                resolved = Some(crate::google_books_client::cover_url_from_id(&gid));
+            }
+        }
+    }
+
+    // 3. Try Open Library work detail via stored open_library_id.
+    if resolved.is_none() {
+        if let Some(ref ol_id) = book.open_library_id {
+            if let Some(nb) = crate::open_library_client::get_work(&client, ol_id).await {
+                resolved = nb.cover_url;
+            }
+        }
+    }
+
+    // 4. Try Open Library ISBN lookup → follow to work.
+    if resolved.is_none() {
+        if let Some(isbn) = isbn {
+            resolved = crate::open_library_client::resolve_cover_by_isbn(&client, isbn).await;
+        }
+    }
+
+    // 5. Fall back to the ISBN-based covers URL as a last resort.
+    if resolved.is_none() {
+        resolved = isbn.map(crate::open_library_client::cover_url_from_isbn);
+    }
+
+    // Persist the resolved URL (even if None, to avoid re-probing).
+    if let Some(ref url) = resolved {
+        let _ = diesel::update(
+            books
+                .filter(schema::books::dsl::id.eq(book_id))
+                .filter(schema::books::dsl::user.eq(auth.0)),
+        )
+        .set(schema::books::dsl::cover_url.eq(url))
+        .execute(connection);
+    }
+
+    (StatusCode::OK, Json(json!({ "cover_url": resolved })))
+}
+
 #[derive(Debug, Deserialize)]
 pub struct RateBookRequest {
     pub book_id: String,
@@ -414,6 +525,15 @@ mod tests {
         let app = Router::new().route("/api/books/rate", post(rate_book));
         let response = app
             .oneshot(Request::builder().method("POST").uri("/api/books/rate").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_resolve_cover_requires_auth() {
+        let app = Router::new().route("/api/books/resolve-cover", post(resolve_cover));
+        let response = app
+            .oneshot(Request::builder().method("POST").uri("/api/books/resolve-cover").body(Body::empty()).unwrap())
             .await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }

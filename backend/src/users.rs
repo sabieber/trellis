@@ -390,6 +390,7 @@ pub(crate) async fn import_good_reads(
             None,
             added_at,
             gr_rating,
+            None,
         ) {
             Ok(id) => id,
             Err(e) => {

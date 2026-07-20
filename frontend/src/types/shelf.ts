@@ -8,4 +8,5 @@ export interface ShelfBook {
   open_library_id: string | null;
   added_at: string;
   rating: number | null;
+  cover_url: string | null;
 }

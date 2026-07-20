@@ -6,11 +6,13 @@
         :title="book.title"
         :author="book.author"
         :width="tileWidth"
-        :cover-url="bookCoverUrl(book)"
+        :cover-url="resolvedCoverUrl(book.id, bookCoverUrl(book))"
+        :book-id="book.id"
         :rating="book.rating"
         hoverable
         class="cursor-pointer"
         @click="$emit('viewBook', book.id)"
+        @resolve-cover="onResolveCover"
     />
   </div>
 </template>
@@ -18,6 +20,7 @@
 <script setup lang="ts">
 import BookCover from '@/components/ui/BookCover.vue';
 import {bookCoverUrl} from '@/utils/coverUrl';
+import {useBookCovers} from '@/composables/useBookCovers';
 import type {ShelfBook} from '@/types/shelf';
 
 defineProps<{
@@ -28,4 +31,6 @@ defineProps<{
 defineEmits<{
   viewBook: [id: string];
 }>();
+
+const { resolvedCoverUrl, onResolveCover } = useBookCovers();
 </script>

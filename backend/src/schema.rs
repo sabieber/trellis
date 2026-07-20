@@ -34,6 +34,7 @@ diesel::table! {
         open_library_id -> Nullable<Text>,
         added_at -> Timestamptz,
         rating -> Nullable<Int2>,
+        cover_url -> Nullable<Text>,
     }
 }
 
