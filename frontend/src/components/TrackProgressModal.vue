@@ -4,12 +4,13 @@
       <h3 class="t-title text-lg">Track Progress</h3>
       <form @submit.prevent.stop="submitForm" class="contents">
         <fieldset class="flex flex-col gap-1.5">
-          <label class="t-meta">Page Number</label>
-          <input type="number" v-model="progress" class="input w-full" ref="progressInput" required />
-        </fieldset>
-        <fieldset class="flex flex-col gap-1.5">
           <label class="t-meta">Date</label>
           <input type="date" v-model="readAt" class="input w-full" required />
+        </fieldset>
+        <fieldset class="flex flex-col gap-1.5">
+          <label class="t-meta">Page Number</label>
+          <BookProgressInput v-if="totalPages > 0" v-model="progress" :total-pages="totalPages" />
+          <input v-else type="number" v-model="progress" class="input w-full" ref="progressInput" required />
         </fieldset>
         <div class="modal-action mt-0 gap-2">
           <Button type="submit" class="flex-1">Submit</Button>
@@ -24,13 +25,18 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted, watch } from 'vue';
 import Button from '@/components/ui/Button.vue';
+import BookProgressInput from '@/components/BookProgressInput.vue';
 
 export default defineComponent({
-  components: { Button },
+  components: { Button, BookProgressInput },
   props: {
     initialProgress: {
       type: Number,
       required: true,
+    },
+    totalPages: {
+      type: Number,
+      default: 0,
     },
   },
   setup(props, { emit }) {

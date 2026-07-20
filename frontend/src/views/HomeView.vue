@@ -107,6 +107,7 @@
     <TrackProgressModal
         v-if="updateTarget"
         :initialProgress="updateTarget.progress"
+        :totalPages="updateTarget.total_pages"
         @close="updateTarget = null"
         @submit="submitProgress"
     />

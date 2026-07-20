@@ -137,6 +137,7 @@ pub(crate) async fn get_reading_info(
         Json(json!({
             "book_id": reading.book.to_string(),
             "started_at": reading.started_at.to_string(),
+            "total_pages": reading.total_pages,
             "entries": json_entries,
         })),
     )

@@ -40,7 +40,7 @@
       </button>
     </div>
     <TrackProgressModal v-if="showModal" @close="showModal = false" @submit="trackProgress"
-                        :initialProgress="latestProgress"/>
+                        :initialProgress="latestProgress" :totalPages="totalPages"/>
     <ConfirmDialog
         v-if="showDeleteConfirm"
         title="Delete Reading"
@@ -72,6 +72,7 @@ export default defineComponent({
     const showModal = ref(false);
     const showDeleteConfirm = ref(false);
     const latestProgress = ref(0);
+    const totalPages = ref(0);
     const pageContainer = ref<any>(null);
     const startedAt = ref('');
     const editingStartDate = ref(false);
@@ -88,6 +89,7 @@ export default defineComponent({
           entries.value = data.entries;
           bookId.value = data.book_id;
           startedAt.value = data.started_at;
+          totalPages.value = data.total_pages ?? 0;
           if (entries.value.length > 0) {
             latestProgress.value = entries.value[entries.value.length - 1].progress;
           }
@@ -173,6 +175,7 @@ export default defineComponent({
       trackProgress,
       deleteReading,
       latestProgress,
+      totalPages,
       pageContainer,
       startedAt,
       editingStartDate,
