@@ -14,6 +14,7 @@
         </fieldset>
         <div class="modal-action mt-0 gap-2">
           <Button type="submit" class="flex-1">Submit</Button>
+          <Button v-if="totalPages > 0" variant="soft" type="submit" class="flex-1" @click="finishBook">Finish</Button>
           <Button variant="ghost" type="button" @click="$emit('close')">Cancel</Button>
         </div>
       </form>
@@ -48,6 +49,11 @@ export default defineComponent({
       emit('submit', progress.value, readAt.value);
     };
 
+    // click fires before form submit, so the regular submit path picks up the final page
+    const finishBook = () => {
+      progress.value = props.totalPages;
+    };
+
     watch(() => props.initialProgress, (newVal) => {
       progress.value = newVal;
     });
@@ -57,7 +63,7 @@ export default defineComponent({
       progressInput.value?.select();
     });
 
-    return { progress, readAt, submitForm, progressInput };
+    return { progress, readAt, submitForm, finishBook, progressInput };
   },
 });
 </script>
