@@ -39,8 +39,8 @@ pub struct Book {
     pub isbn13: Option<String>,
     pub isbn10: Option<String>,
     pub google_books_id: Option<String>,
-    pub open_library_id: Option<String>,
     pub added_at: chrono::NaiveDateTime,
+    pub open_library_id: Option<String>,
     pub rating: Option<i16>,
     pub cover_url: Option<String>,
 }

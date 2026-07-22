@@ -31,8 +31,8 @@ diesel::table! {
         isbn13 -> Nullable<Text>,
         isbn10 -> Nullable<Text>,
         google_books_id -> Nullable<Text>,
-        open_library_id -> Nullable<Text>,
         added_at -> Timestamptz,
+        open_library_id -> Nullable<Text>,
         rating -> Nullable<Int2>,
         cover_url -> Nullable<Text>,
     }
