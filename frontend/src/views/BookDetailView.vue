@@ -58,6 +58,18 @@
               <span class="t-mono text-ink!">{{ book.page_count }}</span>
             </div>
           </div>
+          <Button v-if="sourceUrl" variant="ghost" block class="mt-5" @click="openExternal(sourceUrl)">
+            <ArrowTopRightOnSquareIcon class="size-4"/>
+            View on {{ book.source === 'google' ? 'Google Books' : 'Open Library' }}
+          </Button>
+          <Button v-if="goodreadsUrl" variant="ghost" block class="mt-2" @click="openExternal(goodreadsUrl)">
+            <ArrowTopRightOnSquareIcon class="size-4"/>
+            View on Goodreads
+          </Button>
+          <Button v-if="amazonUrl" variant="ghost" block class="mt-2" @click="openExternal(amazonUrl)">
+            <ArrowTopRightOnSquareIcon class="size-4"/>
+            View on Amazon
+          </Button>
         </div>
 
         <div v-else-if="activeTab === 'Log'">
@@ -152,9 +164,9 @@
 </template>
 
 <script lang="ts">
-import {defineComponent, ref, onMounted} from 'vue';
+import {defineComponent, ref, computed, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
-import {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon} from "@heroicons/vue/24/outline";
+import {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, ArrowTopRightOnSquareIcon} from "@heroicons/vue/24/outline";
 import {fetchBookDetail, searchBooks, resolveGoogleId} from '@/api/bookApi';
 import StartReadingModal from '@/components/StartReadingModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
@@ -167,7 +179,7 @@ import moment from 'moment';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
-  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, StartReadingModal, ConfirmDialog, BookCover, Button, SegmentedControl, Stars},
+  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, ArrowTopRightOnSquareIcon, StartReadingModal, ConfirmDialog, BookCover, Button, SegmentedControl, Stars},
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -382,6 +394,39 @@ export default defineComponent({
 
     const formatDate = (date: string) => moment(date).format('LL');
 
+    const sourceUrl = computed(() => {
+      if (!book.value) return null;
+      if (book.value.source === 'google') {
+        return `https://books.google.com/books?id=${encodeURIComponent(book.value.source_id)}`;
+      }
+      const key = book.value.source_id.startsWith('/')
+          ? book.value.source_id
+          : `/${book.value.source_id}`;
+      return `https://openlibrary.org${key}`;
+    });
+
+    // Shared lookup query for retailers/review sites: prefer the ISBN, which
+    // lands directly on the book page on exact-match search; otherwise fall
+    // back to title + first author.
+    const externalSearchQuery = computed(() => {
+      if (!book.value) return null;
+      const isbn = book.value.isbn13 || book.value.isbn10;
+      if (isbn) return encodeURIComponent(isbn);
+      const author = book.value.authors?.[0];
+      const fallback = [book.value.title, author].filter(Boolean).join(' ');
+      return fallback ? encodeURIComponent(fallback) : null;
+    });
+
+    const goodreadsUrl = computed(() =>
+        externalSearchQuery.value ? `https://www.goodreads.com/search?q=${externalSearchQuery.value}` : null);
+
+    const amazonUrl = computed(() =>
+        externalSearchQuery.value ? `https://www.amazon.com/s?k=${externalSearchQuery.value}` : null);
+
+    const openExternal = (url: string | null) => {
+      if (url) window.open(url, '_blank', 'noopener');
+    };
+
     onMounted(() => {
       const bookId = route.params.id as string;
       fetchBookDetailsWrapper(bookId);
@@ -411,6 +456,10 @@ export default defineComponent({
       deleteReading,
       rateBook,
       formatDate,
+      sourceUrl,
+      goodreadsUrl,
+      amazonUrl,
+      openExternal,
     };
   },
 });
