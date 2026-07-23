@@ -28,7 +28,7 @@
             </div>
             <p class="t-meta mt-2">
               {{ book.published_year }}
-              <span v-if="book.page_count"> · {{ book.page_count }} pp</span>
+              <span v-if="displayedPageCount"> · {{ displayedPageCount }} pp</span>
               <span v-if="book.category"> · {{ book.category }}</span>
             </p>
           </div>
@@ -53,9 +53,16 @@
               <span class="t-meta">Published</span>
               <span class="text-sm font-semibold text-ink">{{ book.published_year }}</span>
             </div>
-            <div v-if="book.page_count" class="flex justify-between py-3 border-b border-line-soft">
+            <div class="flex justify-between py-3 border-b border-line-soft">
               <span class="t-meta">Pages</span>
-              <span class="t-mono text-ink!">{{ book.page_count }}</span>
+              <InlineEdit
+                  class="t-mono text-ink!"
+                  :value="displayedPageCount"
+                  type="number"
+                  label="Edit page count"
+                  :validate="isValidPageCount"
+                  :save="savePageCount"
+              />
             </div>
           </div>
           <Button v-if="sourceUrl" variant="ghost" block class="mt-5" @click="openExternal(sourceUrl)">
@@ -134,7 +141,7 @@
         v-if="showStartReadingModal"
         @close="showStartReadingModal = false"
         @submit="startReadingSession"
-        :initialPages="book?.page_count || 0"
+        :initialPages="displayedPageCount || 0"
     />
 
     <ConfirmDialog
@@ -172,6 +179,7 @@ import StartReadingModal from '@/components/StartReadingModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
+import InlineEdit from '@/components/ui/InlineEdit.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import Stars from '@/components/ui/Stars.vue';
 import {apiFetch} from '@/api/client';
@@ -179,7 +187,7 @@ import moment from 'moment';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
-  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, ArrowTopRightOnSquareIcon, StartReadingModal, ConfirmDialog, BookCover, Button, SegmentedControl, Stars},
+  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, ArrowTopRightOnSquareIcon, StartReadingModal, ConfirmDialog, BookCover, Button, InlineEdit, SegmentedControl, Stars},
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -205,6 +213,9 @@ export default defineComponent({
     const toastMessage = ref('');
     const toastType = ref('');
     const rating = ref<number>(0);
+    // User-provided page count, stored on the book row; takes precedence over
+    // the page count reported by the external catalogs.
+    const pageCountOverride = ref<number | null>(null);
     const pendingRemoveShelfId = ref<string | null>(null);
     const pendingDeleteReadingId = ref<string | null>(null);
 
@@ -228,6 +239,7 @@ export default defineComponent({
           readings.value = data.readings;
           shelfIds.value = data.shelf_ids ?? [];
           rating.value = data.rating ?? 0;
+          pageCountOverride.value = data.page_count ?? null;
           return {
             googleBooksId: data.google_books_id as string | null,
             openLibraryId: data.open_library_id as string | null,
@@ -392,6 +404,30 @@ export default defineComponent({
       }
     };
 
+    const displayedPageCount = computed(() =>
+        pageCountOverride.value ?? book.value?.page_count ?? null);
+
+    const isValidPageCount = (value: string) => /^\d+$/.test(value) && parseInt(value, 10) > 0;
+
+    const savePageCount = async (value: string): Promise<boolean> => {
+      const pages = parseInt(value, 10);
+      try {
+        const response = await apiFetch('/api/books/set-page-count', {
+          method: 'POST',
+          body: JSON.stringify({book_id: route.params.id, page_count: pages}),
+        });
+        if (response.ok) {
+          pageCountOverride.value = pages;
+          return true;
+        }
+        const data = await response.json();
+        showToast(data.error || 'Failed to update page count.', 'alert-error');
+      } catch {
+        showToast('Failed to update page count.', 'alert-error');
+      }
+      return false;
+    };
+
     const formatDate = (date: string) => moment(date).format('LL');
 
     const sourceUrl = computed(() => {
@@ -455,6 +491,9 @@ export default defineComponent({
       confirmDeleteReading,
       deleteReading,
       rateBook,
+      displayedPageCount,
+      isValidPageCount,
+      savePageCount,
       formatDate,
       sourceUrl,
       goodreadsUrl,

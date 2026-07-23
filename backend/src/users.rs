@@ -391,6 +391,7 @@ pub(crate) async fn import_good_reads(
             added_at,
             gr_rating,
             None,
+            record.number_of_pages.map(|p| p as i32),
         ) {
             Ok(id) => id,
             Err(e) => {

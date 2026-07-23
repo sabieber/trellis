@@ -73,6 +73,7 @@ export default defineComponent({
             isbn10: props.book.isbn10,
             google_books_id: props.book.source === 'google' ? props.book.source_id : null,
             open_library_id: props.book.source === 'openlibrary' ? props.book.source_id : null,
+            page_count: props.book.page_count,
           }),
         });
         if (response.ok) {

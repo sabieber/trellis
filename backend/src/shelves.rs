@@ -257,6 +257,8 @@ pub struct AddBookToShelfRequest {
     pub open_library_id: Option<String>,
     #[serde(default)]
     pub cover_url: Option<String>,
+    #[serde(default)]
+    pub page_count: Option<i32>,
 }
 
 /// Adds a book to a shelf.
@@ -310,6 +312,7 @@ pub(crate) async fn add_book_to_shelf(
             now,
             None,
             payload.cover_url,
+            payload.page_count,
         )?;
         crate::books::ensure_membership(conn, book_id, shelf_id, now)?;
         Ok(())

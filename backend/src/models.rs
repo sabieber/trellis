@@ -43,6 +43,7 @@ pub struct Book {
     pub open_library_id: Option<String>,
     pub rating: Option<i16>,
     pub cover_url: Option<String>,
+    pub page_count: Option<i32>,
 }
 
 #[derive(Queryable, Selectable, Insertable)]

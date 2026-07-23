@@ -35,6 +35,7 @@ diesel::table! {
         open_library_id -> Nullable<Text>,
         rating -> Nullable<Int2>,
         cover_url -> Nullable<Text>,
+        page_count -> Nullable<Int4>,
     }
 }
 

@@ -30,6 +30,9 @@ fn normalize(value: Option<String>) -> Option<String> {
 /// source id — merge onto it) from "two distinct books that legitimately share
 /// an ISBN" (each carries its own source id, e.g. bundle editions — keep apart).
 ///
+/// `page_count` is stored on insert and backfilled onto a matched row whose
+/// `page_count` is still NULL; an existing value is never overwritten.
+///
 /// All lookups and the insert run on the passed connection, so within a single
 /// transaction repeated calls for the same book converge on one row.
 pub(crate) fn resolve_or_create_book(
@@ -44,6 +47,7 @@ pub(crate) fn resolve_or_create_book(
     added_at: chrono::NaiveDateTime,
     rating: Option<i16>,
     cover_url: Option<String>,
+    page_count: Option<i32>,
 ) -> QueryResult<Uuid> {
     use crate::schema::books::dsl as b;
 
@@ -53,8 +57,19 @@ pub(crate) fn resolve_or_create_book(
     let isbn10 = normalize(isbn10);
     let google_books_id = normalize(google_books_id);
     let open_library_id = normalize(open_library_id);
+    let page_count = page_count.filter(|p| *p > 0);
 
     let base = || b::books.filter(b::user.eq(user_id)).into_boxed();
+
+    // Returns the matched id, backfilling page_count when the row has none.
+    let reuse = |conn: &mut PgConnection, id: Uuid| -> QueryResult<Uuid> {
+        if let Some(p) = page_count {
+            diesel::update(b::books.filter(b::id.eq(id)).filter(b::page_count.is_null()))
+                .set(b::page_count.eq(p))
+                .execute(conn)?;
+        }
+        Ok(id)
+    };
 
     if let Some(ref gid) = google_books_id {
         if let Some(id) = base()
@@ -63,7 +78,7 @@ pub(crate) fn resolve_or_create_book(
             .first::<Uuid>(conn)
             .optional()?
         {
-            return Ok(id);
+            return reuse(conn, id);
         }
     }
     if let Some(ref oid) = open_library_id {
@@ -73,7 +88,7 @@ pub(crate) fn resolve_or_create_book(
             .first::<Uuid>(conn)
             .optional()?
         {
-            return Ok(id);
+            return reuse(conn, id);
         }
     }
 
@@ -99,7 +114,7 @@ pub(crate) fn resolve_or_create_book(
                     .select((b::id, b::google_books_id, b::open_library_id))
                     .load(conn)?,
             ) {
-                return Ok(id);
+                return reuse(conn, id);
             }
         }
         if let Some(ref v) = isbn10 {
@@ -109,7 +124,7 @@ pub(crate) fn resolve_or_create_book(
                     .select((b::id, b::google_books_id, b::open_library_id))
                     .load(conn)?,
             ) {
-                return Ok(id);
+                return reuse(conn, id);
             }
         }
         if let (Some(ref t), Some(ref a)) = (&title, &author) {
@@ -120,7 +135,7 @@ pub(crate) fn resolve_or_create_book(
                     .select((b::id, b::google_books_id, b::open_library_id))
                     .load(conn)?,
             ) {
-                return Ok(id);
+                return reuse(conn, id);
             }
         }
     }
@@ -138,6 +153,7 @@ pub(crate) fn resolve_or_create_book(
         added_at,
         rating,
         cover_url,
+        page_count,
     };
     diesel::insert_into(b::books).values(&new_book).execute(conn)?;
     Ok(new_id)
@@ -171,7 +187,8 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/books/resolve-google-id", post(resolve_google_id))
         .route("/api/books/resolve-cover", post(resolve_cover))
         .route("/api/books/rate", post(rate_book))
-}
+        .route("/api/books/set-page-count", post(set_page_count))
+    }
 
 /// Request type for getting information about a book.
 #[derive(Debug, Deserialize)]
@@ -188,6 +205,7 @@ pub struct BookInfoResponse {
     pub isbn10: Option<String>,
     pub rating: Option<i16>,
     pub cover_url: Option<String>,
+    pub page_count: Option<i32>,
     pub readings: Vec<serde_json::Value>,
     pub shelf_ids: Vec<String>,
 }
@@ -253,6 +271,7 @@ pub(crate) async fn get_book_info(
                 isbn10: book.isbn10,
                 rating: book.rating,
                 cover_url: book.cover_url,
+                page_count: book.page_count,
                 readings: json_readings,
                 shelf_ids,
             })),
@@ -496,6 +515,47 @@ pub(crate) async fn rate_book(
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SetPageCountRequest {
+    pub book_id: String,
+    pub page_count: Option<i32>,
+}
+
+/// Sets a user-provided page count override for a book. The external catalogs
+/// (Google Books / Open Library) often carry wrong or missing page counts; the
+/// override is stored on the book row and takes precedence over catalog data.
+/// Passing `null` clears the override.
+pub(crate) async fn set_page_count(
+    auth: AuthUser,
+    Json(payload): Json<SetPageCountRequest>,
+) -> impl IntoResponse {
+    let book_id = match Uuid::parse_str(&payload.book_id) {
+        Ok(id) => id,
+        Err(_) => return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Invalid book ID.".to_string() }))),
+    };
+
+    if let Some(p) = payload.page_count {
+        if p <= 0 {
+            return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Page count must be a positive number.".to_string() })));
+        }
+    }
+
+    let connection = &mut connect();
+
+    match diesel::update(
+        books
+            .filter(schema::books::dsl::id.eq(book_id))
+            .filter(schema::books::dsl::user.eq(auth.0)),
+    )
+    .set(schema::books::dsl::page_count.eq(payload.page_count))
+    .execute(connection)
+    {
+        Ok(0) => (StatusCode::NOT_FOUND, Json(json!(ErrorResponse { error: "Book not found.".to_string() }))),
+        Ok(_) => (StatusCode::OK, Json(json!({ "page_count": payload.page_count }))),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(ErrorResponse { error: format!("Failed to update page count: {}", e) }))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use axum::{body::Body, http::Request, routing::post, Router};
@@ -534,6 +594,15 @@ mod tests {
         let app = Router::new().route("/api/books/resolve-cover", post(resolve_cover));
         let response = app
             .oneshot(Request::builder().method("POST").uri("/api/books/resolve-cover").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_set_page_count_requires_auth() {
+        let app = Router::new().route("/api/books/set-page-count", post(set_page_count));
+        let response = app
+            .oneshot(Request::builder().method("POST").uri("/api/books/set-page-count").body(Body::empty()).unwrap())
             .await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }

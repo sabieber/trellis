@@ -137,6 +137,7 @@ export default defineComponent({
             google_books_id: book.value.source === 'google' ? book.value.source_id : null,
             open_library_id: book.value.source === 'openlibrary' ? book.value.source_id : null,
             cover_url: book.value.cover_url,
+            page_count: book.value.page_count,
           }),
         });
         if (response.ok) {
