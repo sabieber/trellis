@@ -51,8 +51,14 @@ const CX = 130; // x of the spine center
 const BASE = 88; // y of the page baseline; covers and spine nub sit below it
 
 // --- interaction ---
-const PX_PER_PAGE = 4; // drag sensitivity: horizontal px per page
+const PX_PER_PAGE = 6; // base drag sensitivity: px per page at slow speeds
 const WHEEL_PER_PAGE = 100; // wheel delta per page — one wheel notch ≈ one page
+const HAPTIC_TICK_MS = 10; // vibration pulse when a drag crosses a page
+// pointer acceleration: faster drags shrink the distance between pages, so a
+// quick swipe covers ground and a slow drag hones in on one page
+const FINE_SPEED = 0.5; // px/ms up to which base sensitivity applies
+const COARSE_SPEED = 2.5; // px/ms at which max speedup is reached
+const MAX_SPEEDUP = 6; // sensitivity multiplier at COARSE_SPEED
 
 // --- page stacks ---
 const PAGE_COUNT = 26; // drawn page curves, not real pages
@@ -120,8 +126,10 @@ export default defineComponent({
   emits: ['update:modelValue'],
   setup(props, { emit }) {
     const dragging = ref(false);
-    let dragStartX = 0;
-    let dragStartValue = 0;
+    let dragPos = 0; // float page position while dragging (current is rounded)
+    let lastX = 0;
+    let lastT = 0;
+    let smoothSpeed = 0;
     let wheelAcc = 0;
 
     // local copy so rapid wheel/drag events don't read a stale prop while
@@ -227,15 +235,35 @@ export default defineComponent({
       }
     };
 
+    // haptic tick per page crossed while dragging, so users can feel where
+    // they land; no-ops where vibration is unsupported (e.g. iOS Safari)
+    const vibrateTick = () => navigator.vibrate?.(HAPTIC_TICK_MS);
+
     const onPointerDown = (e: PointerEvent) => {
       dragging.value = true;
-      dragStartX = e.clientX;
-      dragStartValue = current.value;
+      dragPos = current.value;
+      lastX = e.clientX;
+      lastT = e.timeStamp;
+      smoothSpeed = 0;
       (e.currentTarget as Element).setPointerCapture(e.pointerId);
     };
     const onPointerMove = (e: PointerEvent) => {
       if (!dragging.value) return;
-      set(dragStartValue + (e.clientX - dragStartX) / PX_PER_PAGE);
+      const dx = e.clientX - lastX;
+      const dt = e.timeStamp - lastT;
+      lastX = e.clientX;
+      lastT = e.timeStamp;
+      // smoothed drag speed drives the acceleration between FINE and COARSE
+      if (dt > 0) smoothSpeed = smoothSpeed * 0.7 + (Math.abs(dx) / dt) * 0.3;
+      const t = Math.min(1, Math.max(0, (smoothSpeed - FINE_SPEED) / (COARSE_SPEED - FINE_SPEED)));
+      const speedup = 1 + (MAX_SPEEDUP - 1) * t;
+      // swipe left = forward, like grabbing a page and turning it
+      const before = current.value;
+      // clamp the float position too, so overshooting past the ends leaves no
+      // dead zone to drag back out of
+      dragPos = Math.min(props.totalPages, Math.max(0, dragPos - (dx / PX_PER_PAGE) * speedup));
+      set(dragPos);
+      if (current.value !== before) vibrateTick();
     };
     const onPointerUp = () => {
       dragging.value = false;
