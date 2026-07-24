@@ -9,6 +9,7 @@ mod open_library_client;
 mod readings;
 mod schema;
 mod shelves;
+mod stats;
 mod users;
 mod auth;
 
@@ -45,6 +46,7 @@ pub fn build_router(static_dir: PathBuf) -> Router {
     router = books::register_routes(router);
     router = readings::register_routes(router);
     router = goals::register_routes(router);
+    router = stats::register_routes(router);
     router = book_search::register_routes(router);
 
     // Anything not matched by an `/api/*` route is served from the static dir.

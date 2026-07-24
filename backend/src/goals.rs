@@ -22,7 +22,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/goals/delete", post(delete_goal))
 }
 
-fn get_period(timeframe: &ReadingGoalTimeframe) -> (NaiveDate, NaiveDate) {
+pub(crate) fn get_period(timeframe: &ReadingGoalTimeframe) -> (NaiveDate, NaiveDate) {
     let today = chrono::Utc::now().date_naive();
     match timeframe {
         ReadingGoalTimeframe::Year => (
@@ -50,7 +50,7 @@ fn get_period(timeframe: &ReadingGoalTimeframe) -> (NaiveDate, NaiveDate) {
     }
 }
 
-fn calculate_books_progress(
+pub(crate) fn calculate_books_progress(
     connection: &mut PgConnection,
     user_id: Uuid,
     period_start: NaiveDate,
@@ -70,7 +70,7 @@ fn calculate_books_progress(
     count
 }
 
-fn calculate_pages_progress(
+pub(crate) fn calculate_pages_progress(
     connection: &mut PgConnection,
     user_id: Uuid,
     period_start: NaiveDate,

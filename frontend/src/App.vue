@@ -80,7 +80,7 @@
 <script lang="ts">
 import {defineComponent, ref, watch} from 'vue';
 import {useRoute} from 'vue-router';
-import {MagnifyingGlassIcon, HomeIcon, BookOpenIcon, UserIcon, ChartBarIcon} from "@heroicons/vue/24/outline";
+import {MagnifyingGlassIcon, HomeIcon, BookOpenIcon, UserIcon, ChartBarIcon, ChartPieIcon} from "@heroicons/vue/24/outline";
 import {useAuthStore} from '@/stores/auth';
 import {apiFetch} from '@/api/client';
 
@@ -103,6 +103,7 @@ export default defineComponent({
       {to: "/library", label: "Library", icon: BookOpenIcon},
       {to: "/search", label: "Search", icon: MagnifyingGlassIcon},
       {to: "/goals", label: "Goals", icon: ChartBarIcon},
+      {to: "/stats", label: "Stats", icon: ChartPieIcon},
       {to: "/profile", label: "Profile", icon: UserIcon},
     ];
 
