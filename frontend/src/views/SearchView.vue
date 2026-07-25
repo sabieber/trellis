@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen">
     <div class="px-4 pt-5">
-      <h1 class="t-display text-2xl mb-4">Search</h1>
+      <h1 class="t-display text-2xl mb-4">{{ $t('nav.search') }}</h1>
 
       <div
           class="flex items-center gap-2.5 bg-surface border border-line rounded-sm px-3.5 mb-5 transition-colors duration-150 focus-within:border-green/32"
@@ -11,12 +11,12 @@
             type="text"
             v-model="query"
             class="w-full bg-transparent py-3 text-sm text-ink placeholder:text-muted focus:outline-none"
-            placeholder="Title, author, or ISBN"
+            :placeholder="$t('search.placeholder')"
             @keyup.enter="searchBooks"
         />
         <button
             class="text-muted hover:text-ink transition-colors flex-none"
-            title="Scan barcode"
+            :title="$t('search.scanBarcode')"
             @click="showScanner = true"
         >
           <QrCodeIcon class="size-5"/>
@@ -41,7 +41,7 @@
             @click="viewBookDetail(book)"
         >
           <BookCover
-              :title="book.title || 'Untitled'"
+              :title="book.title || $t('common.untitled')"
               :author="book.authors?.join(', ') || ''"
               :width="46"
               :cover-url="book.cover_url"
@@ -52,7 +52,7 @@
             <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
             <p class="t-meta mt-1">
               {{ book.published_year }}
-              <span v-if="book.page_count"> · {{ book.page_count }} pp</span>
+              <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
               <span v-if="book.category"> · {{ book.category }}</span>
             </p>
           </div>
@@ -60,12 +60,12 @@
       </div>
 
       <div v-else-if="hasSearched" class="flex flex-col items-center text-center pt-12">
-        <h3 class="t-title text-[17px]">Nothing's grown here yet</h3>
-        <p class="t-meta mt-1.5 max-w-58">Search by title, author, or ISBN to find books.</p>
+        <h3 class="t-title text-[17px]">{{ $t('search.emptyTitle') }}</h3>
+        <p class="t-meta mt-1.5 max-w-58">{{ $t('search.emptyHint') }}</p>
       </div>
 
       <div v-else-if="trendingBooks.length">
-        <h2 class="t-title text-sm text-muted uppercase tracking-wide mb-3">Trending now</h2>
+        <h2 class="t-title text-sm text-muted uppercase tracking-wide mb-3">{{ $t('search.trending') }}</h2>
         <div
             v-for="book in trendingBooks"
             :key="book.id"
@@ -73,7 +73,7 @@
             @click="viewBookDetail(book)"
         >
           <BookCover
-              :title="book.title || 'Untitled'"
+              :title="book.title || $t('common.untitled')"
               :author="book.authors?.join(', ') || ''"
               :width="46"
               :cover-url="book.cover_url"
@@ -84,7 +84,7 @@
             <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
             <p class="t-meta mt-1">
               {{ book.published_year }}
-              <span v-if="book.page_count"> · {{ book.page_count }} pp</span>
+              <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
               <span v-if="book.category"> · {{ book.category }}</span>
             </p>
           </div>

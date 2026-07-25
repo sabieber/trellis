@@ -5,10 +5,10 @@
   <div class="lg:h-full lg:flex lg:flex-col">
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-3">
       <div class="flex items-baseline gap-2">
-        <h2 class="t-eyebrow">Reading outcomes</h2>
+        <h2 class="t-eyebrow">{{ $t('stats.outcomesTitle') }}</h2>
         <span class="t-meta">{{ periodLabel }}</span>
       </div>
-      <span v-if="!loading && total > 0" class="t-meta">{{ total }} readings</span>
+      <span v-if="!loading && total > 0" class="t-meta">{{ $t('stats.readingsCount', { count: total }) }}</span>
     </div>
 
     <div ref="cardEl" class="bg-surface border border-line rounded-md p-4 flex-1 flex flex-col justify-center">
@@ -16,7 +16,7 @@
         <span class="loading loading-spinner loading-sm"></span>
       </div>
       <div v-else-if="total === 0" class="t-meta text-center py-14">
-        No readings in this period.
+        {{ $t('stats.noReadings') }}
       </div>
 
       <div v-else class="flex flex-wrap items-center justify-center gap-x-8 gap-y-5">
@@ -40,7 +40,7 @@
               v-on="tooltip.marks(() => seg.content)"
           />
           <text x="18" y="17.4" text-anchor="middle" class="donut-value">{{ total }}</text>
-          <text x="18" y="22" text-anchor="middle" class="donut-label">readings</text>
+          <text x="18" y="22" text-anchor="middle" class="donut-label">{{ $t('stats.readingsLabel') }}</text>
         </svg>
 
         <ul class="space-y-2 min-w-40">
@@ -58,6 +58,7 @@
 
 <script lang="ts">
 import {computed, defineComponent, onMounted, ref, type PropType} from 'vue';
+import {useI18n} from 'vue-i18n';
 import type {ReadingStates} from '@/composables/useStatsBreakdown';
 import {useContainerWidth} from '@/composables/useContainerWidth';
 import {useChartTooltip} from '@/composables/useChartTooltip';
@@ -75,6 +76,7 @@ export default defineComponent({
     loading: {type: Boolean, default: false},
   },
   setup(props) {
+    const {t} = useI18n();
     const cardEl = ref<HTMLElement | null>(null);
     const {containerWidth, setupObserver} = useContainerWidth(cardEl);
     onMounted(setupObserver);
@@ -97,9 +99,9 @@ export default defineComponent({
     const segments = computed(() => {
       const s = props.states ?? {finished: 0, reading: 0, abandoned: 0};
       return [
-        {key: 'finished', label: 'Finished', value: s.finished, color: COLORS.finished},
-        {key: 'reading', label: 'Reading', value: s.reading, color: COLORS.reading},
-        {key: 'abandoned', label: 'Abandoned', value: s.abandoned, color: COLORS.abandoned},
+        {key: 'finished', label: t('bookDetail.stateFinished'), value: s.finished, color: COLORS.finished},
+        {key: 'reading', label: t('bookDetail.stateReading'), value: s.reading, color: COLORS.reading},
+        {key: 'abandoned', label: t('bookDetail.stateAbandoned'), value: s.abandoned, color: COLORS.abandoned},
       ].map((seg) => ({
         ...seg,
         share: total.value ? Math.round((seg.value / total.value) * 100) : 0,

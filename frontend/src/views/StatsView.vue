@@ -1,16 +1,16 @@
 <template>
-  <PageContainer title="Statistics" description="Your reading at a glance" wide>
+  <PageContainer :title="$t('stats.title')" :description="$t('stats.description')" wide>
     <div class="flex flex-wrap items-center justify-between gap-3 mb-7">
       <SegmentedControl
           :model-value="mode"
           @update:model-value="setMode"
-          :options="[{value: 'year', label: 'Year'}, {value: 'month', label: 'Month'}]"
+          :options="[{value: 'year', label: $t('goalModal.year')}, {value: 'month', label: $t('goalModal.month')}]"
           class="w-44"
       />
       <div class="flex items-center gap-1.5">
         <button
             class="flex items-center justify-center size-8 rounded-full text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
-            aria-label="Previous period"
+            :aria-label="$t('stats.prevPeriod')"
             @click="step(-1)"
         >
           <ChevronLeftIcon class="size-4.5"/>
@@ -19,7 +19,7 @@
         <button
             class="flex items-center justify-center size-8 rounded-full text-muted transition-colors duration-150"
             :class="atCurrentPeriod ? 'opacity-40 cursor-default' : 'cursor-pointer hover:text-ink hover:bg-surface-2'"
-            aria-label="Next period"
+            :aria-label="$t('stats.nextPeriod')"
             :disabled="atCurrentPeriod"
             @click="step(1)"
         >

@@ -1,25 +1,25 @@
 <template>
   <div class="modal modal-open">
     <div class="modal-box flex flex-col gap-4">
-      <h3 class="t-title text-lg">Track Progress</h3>
+      <h3 class="t-title text-lg">{{ $t('progressModal.title') }}</h3>
       <form @submit.prevent.stop="submitForm" class="contents">
         <fieldset class="flex flex-col gap-1.5">
-          <label class="t-meta">Date</label>
+          <label class="t-meta">{{ $t('progressModal.date') }}</label>
           <input type="date" v-model="readAt" class="input w-full" required />
         </fieldset>
         <fieldset class="flex flex-col gap-1.5">
-          <label class="t-meta">Page Number</label>
+          <label class="t-meta">{{ $t('progressModal.pageNumber') }}</label>
           <BookProgressInput v-if="totalPages > 0" v-model="progress" :total-pages="totalPages" />
           <input v-else type="number" v-model="progress" class="input w-full" ref="progressInput" required />
         </fieldset>
         <div class="modal-action mt-0 flex-col gap-2">
           <div class="flex w-full gap-2">
-            <Button type="submit" class="flex-1">Submit</Button>
-            <Button v-if="totalPages > 0" variant="soft" type="submit" class="flex-1" @click="finishBook">Finish</Button>
+            <Button type="submit" class="flex-1">{{ $t('common.submit') }}</Button>
+            <Button v-if="totalPages > 0" variant="soft" type="submit" class="flex-1" @click="finishBook">{{ $t('common.finish') }}</Button>
           </div>
           <div class="flex w-full gap-2">
-            <Button variant="ghost" type="button" class="flex-1" @click="$emit('abandon')">Abandon</Button>
-            <Button variant="ghost" type="button" class="flex-1" @click="$emit('close')">Cancel</Button>
+            <Button variant="ghost" type="button" class="flex-1" @click="$emit('abandon')">{{ $t('common.abandon') }}</Button>
+            <Button variant="ghost" type="button" class="flex-1" @click="$emit('close')">{{ $t('common.cancel') }}</Button>
           </div>
         </div>
       </form>

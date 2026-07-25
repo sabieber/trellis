@@ -5,7 +5,7 @@
   <div>
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-3">
       <div class="flex items-baseline gap-2">
-        <h2 class="t-eyebrow">{{ metric === 'pages' ? 'Pages read' : 'Books read' }}</h2>
+        <h2 class="t-eyebrow">{{ metric === 'pages' ? $t('stats.pagesRead') : $t('stats.booksRead') }}</h2>
         <span class="t-meta">{{ bucketLabel }}</span>
       </div>
       <span v-if="!loading && total > 0" class="t-meta">{{ summary }}</span>
@@ -18,11 +18,11 @@
         </div>
 
         <div v-else-if="!series" class="t-meta text-center py-14">
-          Could not load reading activity.
+          {{ $t('stats.couldNotLoadActivity') }}
         </div>
 
         <div v-else-if="total === 0" class="t-meta text-center py-14">
-          No {{ metric === 'pages' ? 'pages' : 'finished books' }} logged in this period.
+          {{ metric === 'pages' ? $t('stats.noPagesLogged') : $t('stats.noBooksLogged') }}
         </div>
 
         <svg v-else :viewBox="`0 0 ${width} ${height}`" preserveAspectRatio="none" class="absolute inset-0 w-full h-full block">
@@ -76,7 +76,7 @@
     <div class="flex justify-end mt-3">
       <SegmentedControl
           v-model="metric"
-          :options="[{value: 'pages', label: 'Pages'}, {value: 'books', label: 'Books'}]"
+          :options="[{value: 'pages', label: $t('common.pages')}, {value: 'books', label: $t('common.books')}]"
           class="w-36"
       />
     </div>
@@ -85,6 +85,7 @@
 
 <script lang="ts">
 import {computed, defineComponent, onMounted, ref, type PropType} from 'vue';
+import {useI18n} from 'vue-i18n';
 import moment from 'moment';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import {useContainerWidth} from '@/composables/useContainerWidth';
@@ -155,6 +156,7 @@ export default defineComponent({
         },
     },
     setup(props) {
+        const {t} = useI18n();
         const metric = ref<'pages' | 'books'>('pages');
         const tooltip = useChartTooltip();
         const chartEl = ref<HTMLElement | null>(null);
@@ -210,7 +212,7 @@ export default defineComponent({
             const barWidth = Math.max(2, Math.min(bandWidth - 3, 20));
             // Keep the day axis readable: label roughly every eighth day.
             const labelEvery = Math.max(1, Math.ceil(values.length / 8));
-            const unit = metric.value === 'pages' ? 'pages' : 'books';
+            const unitKey = metric.value === 'pages' ? 'stats.unitPages' : 'stats.unitBooks';
 
             return values.map((value, index) => {
                 const bandX = PAD_LEFT + bandWidth * index;
@@ -231,7 +233,7 @@ export default defineComponent({
                     path: value > 0
                         ? barPath(bandX + (bandWidth - barWidth) / 2, PAD_TOP + plotHeight.value - barHeight, barWidth, barHeight)
                         : '',
-                    title: `${bucketName} — ${value.toLocaleString()} ${value === 1 ? unit.slice(0, -1) : unit}`,
+                    title: `${bucketName} — ${value.toLocaleString()} ${t(unitKey, value)}`,
                 };
             });
         });
@@ -240,14 +242,19 @@ export default defineComponent({
         const labelledBars = computed(() => bars.value.filter((bar) => bar.label !== ''));
 
         const bucketLabel = computed(() =>
-            props.mode === 'year' ? `by month in ${props.year}` : `by day in ${moment().year(props.year).month(props.month - 1).format('MMM YYYY')}`,
+            props.mode === 'year'
+                ? t('stats.byMonthIn', {year: props.year})
+                : t('stats.byDayIn', {label: moment().year(props.year).month(props.month - 1).format('MMM YYYY')}),
         );
 
         const summary = computed(() => {
-            const unit = metric.value === 'pages' ? 'pages' : 'books';
-            const per = props.mode === 'year' ? 'month' : 'day';
             const active = buckets.value.filter((value) => value > 0).length || 1;
-            return `${total.value.toLocaleString()} ${unit} · ~${Math.round(total.value / active).toLocaleString()} per active ${per}`;
+            return t('stats.volumeSummary', {
+                total: total.value.toLocaleString(),
+                unit: t(metric.value === 'pages' ? 'stats.unitPages' : 'stats.unitBooks', total.value),
+                perActive: Math.round(total.value / active).toLocaleString(),
+                per: t(props.mode === 'year' ? 'stats.perMonthUnit' : 'stats.perDayUnit'),
+            });
         });
 
         return {

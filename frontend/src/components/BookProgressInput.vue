@@ -37,7 +37,7 @@
       />
       <span class="t-meta">/ {{ totalPages }}</span>
     </div>
-    <p class="t-meta text-center opacity-60">Drag or scroll on the book to flip pages</p>
+    <p class="t-meta text-center opacity-60">{{ $t('progressModal.dragHint') }}</p>
   </div>
 </template>
 

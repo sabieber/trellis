@@ -1,7 +1,7 @@
 <template>
   <div class="modal modal-open">
     <div class="modal-box flex flex-col gap-4">
-      <h3 class="t-title text-lg">Add to Shelf</h3>
+      <h3 class="t-title text-lg">{{ $t('addToShelf.title') }}</h3>
       <div v-if="loadingShelves" class="flex justify-center py-4">
         <span class="loading loading-spinner loading-md"></span>
       </div>
@@ -16,9 +16,9 @@
           <span v-if="shelf.description" class="t-meta truncate">{{ shelf.description }}</span>
         </li>
       </ul>
-      <div v-else class="t-meta text-center py-4">No shelves found.</div>
+      <div v-else class="t-meta text-center py-4">{{ $t('addToShelf.noShelves') }}</div>
       <div class="modal-action mt-0">
-        <Button variant="ghost" block @click="$emit('close')">Cancel</Button>
+        <Button variant="ghost" block @click="$emit('close')">{{ $t('common.cancel') }}</Button>
       </div>
     </div>
     <div class="modal-backdrop" @click="$emit('close')"></div>
@@ -28,6 +28,7 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted } from 'vue';
 import type { PropType } from 'vue';
+import { useI18n } from 'vue-i18n';
 import Button from '@/components/ui/Button.vue';
 import { apiFetch } from '@/api/client';
 import type { BookSearchResult } from '@/types/book';
@@ -41,6 +42,7 @@ export default defineComponent({
     },
   },
   setup(props, { emit }) {
+    const { t } = useI18n();
     const shelves = ref<Array<{ id: string, name: string, description: string }>>([]);
     const loadingShelves = ref(false);
 
@@ -77,15 +79,15 @@ export default defineComponent({
           }),
         });
         if (response.ok) {
-          emit('toast', { message: 'Book added to shelf successfully.', type: 'alert-success' });
+          emit('toast', { message: t('addToShelf.added'), type: 'alert-success' });
           emit('close');
         } else {
           console.error('Failed to add book to shelf:', await response.json());
-          emit('toast', { message: 'Failed to add book to shelf.', type: 'alert-error' });
+          emit('toast', { message: t('addToShelf.addFailed'), type: 'alert-error' });
         }
       } catch (error) {
         console.error('Failed to add book to shelf:', error);
-        emit('toast', { message: 'Failed to add book to shelf.', type: 'alert-error' });
+        emit('toast', { message: t('addToShelf.addFailed'), type: 'alert-error' });
       }
     };
 

@@ -2,16 +2,16 @@
   <div class="min-h-screen flex flex-col">
     <div v-if="auth.isAuthenticated" class="flex flex-col gap-6 px-4 pt-5 pb-4">
       <div>
-        <div class="t-display text-2xl">Good {{ daypart }}</div>
+        <div class="t-display text-2xl">{{ greeting }}</div>
         <div class="t-meta mt-1">{{ today }}</div>
       </div>
 
       <!-- Goals section -->
       <div>
         <div class="flex justify-between items-center mb-3">
-          <h2 class="t-eyebrow">Reading goals</h2>
+          <h2 class="t-eyebrow">{{ $t('home.readingGoals') }}</h2>
           <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="navigateTo('/goals')">
-            See all
+            {{ $t('common.seeAll') }}
             <ChevronRightIcon class="size-4"/>
           </Button>
         </div>
@@ -20,8 +20,8 @@
           <span class="loading loading-spinner loading-sm"></span>
         </div>
         <div v-else-if="goals.length === 0" class="t-meta text-center py-4">
-          No goals yet.
-          <RouterLink to="/goals" class="text-green-soft ml-1 hover:text-green transition-colors duration-150">Create one</RouterLink>
+          {{ $t('home.noGoals') }}
+          <RouterLink to="/goals" class="text-green-soft ml-1 hover:text-green transition-colors duration-150">{{ $t('home.createOne') }}</RouterLink>
         </div>
         <div v-else class="flex flex-col gap-2.5">
           <RouterLink
@@ -44,9 +44,9 @@
       <!-- Currently Reading section -->
       <div>
         <div class="flex justify-between items-center mb-3">
-          <h2 class="t-eyebrow">Currently reading</h2>
+          <h2 class="t-eyebrow">{{ $t('home.currentlyReading') }}</h2>
           <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="navigateTo('/library')">
-            See all
+            {{ $t('common.seeAll') }}
             <ChevronRightIcon class="size-4"/>
           </Button>
         </div>
@@ -55,7 +55,7 @@
           <span class="loading loading-spinner loading-sm"></span>
         </div>
         <div v-else-if="activeReadings.length === 0" class="t-meta text-center py-4">
-          Nothing in progress yet.
+          {{ $t('home.nothingInProgress') }}
         </div>
         <div v-else class="flex flex-col gap-2.5">
           <div
@@ -68,7 +68,7 @@
                 class="flex gap-3.5 flex-1 min-w-0"
             >
               <BookCover
-                  :title="reading.title || 'Untitled'"
+                  :title="reading.title || $t('common.untitled')"
                   :author="reading.author || ''"
                   :width="64"
                   :cover-url="resolvedCoverUrl(reading.book_id, bookCoverUrl(reading))"
@@ -77,13 +77,13 @@
               />
               <div class="flex-1 min-w-0 flex flex-col justify-between">
                 <div>
-                  <p class="t-title text-base leading-tight truncate">{{ reading.title || 'Untitled' }}</p>
-                  <p class="t-meta truncate mt-0.5">{{ reading.author || 'Unknown author' }}</p>
+                  <p class="t-title text-base leading-tight truncate">{{ reading.title || $t('common.untitled') }}</p>
+                  <p class="t-meta truncate mt-0.5">{{ reading.author || $t('common.unknownAuthor') }}</p>
                 </div>
                 <div>
                   <VineProgress :pct="readingPercent(reading)" :height="18"/>
                   <p class="t-meta mt-1.5">
-                    page {{ reading.progress }} of {{ reading.total_pages }} ·
+                    {{ $t('home.pageOf', { current: reading.progress, total: reading.total_pages }) }} ·
                     <span class="text-green-soft">{{ readingPercent(reading) }}%</span>
                   </p>
                 </div>
@@ -91,7 +91,7 @@
             </RouterLink>
             <Button variant="soft" class="self-center flex-none px-3.5! py-2! text-[13px]!"
                     @click="openUpdateModal(reading)">
-              Update
+              {{ $t('common.update') }}
             </Button>
           </div>
         </div>
@@ -101,8 +101,8 @@
     <div v-else class="lattice-bg flex flex-col items-center justify-center flex-1 px-4">
       <img src="/logo.svg" class="size-20 rounded-full shadow-soft" alt=""/>
       <h2 class="t-display text-4xl mt-4">trellis</h2>
-      <p class="t-italic text-green-soft text-lg mt-1">a garden library</p>
-      <p class="t-meta text-center mt-3.5">grow your library and reading goals</p>
+      <p class="t-italic text-green-soft text-lg mt-1">{{ $t('auth.tagline') }}</p>
+      <p class="t-meta text-center mt-3.5">{{ $t('home.growTagline') }}</p>
     </div>
 
     <!-- Track progress modal -->
@@ -124,10 +124,12 @@
 </template>
 
 <script lang="ts">
-import {defineComponent, ref, onMounted} from 'vue';
+import {computed, defineComponent, ref, onMounted} from 'vue';
 import {RouterLink, useRouter} from 'vue-router';
+import {useI18n} from 'vue-i18n';
 import {ChevronRightIcon} from '@heroicons/vue/24/outline';
 import {useAuthStore} from '@/stores/auth';
+import {apiErrorMessage} from '@/utils/apiError';
 import TrackProgressModal from '@/components/TrackProgressModal.vue';
 import Button from '@/components/ui/Button.vue';
 import BookCover from '@/components/ui/BookCover.vue';
@@ -159,14 +161,13 @@ interface ActiveReading {
   total_pages: number;
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
 import {bookCoverUrl} from '@/utils/coverUrl';
 import {useBookCovers} from '@/composables/useBookCovers';
 
 export default defineComponent({
   components: {RouterLink, ChevronRightIcon, TrackProgressModal, Button, PlainProgress, BookCover, VineProgress},
   setup() {
+    const {t, locale} = useI18n();
     const auth = useAuthStore();
     const router = useRouter();
     const goals = ref<Goal[]>([]);
@@ -180,7 +181,8 @@ export default defineComponent({
     const now = new Date();
     const hour = now.getHours();
     const daypart = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
-    const today = now.toLocaleDateString(undefined, {weekday: 'long', day: 'numeric', month: 'long'});
+    const greeting = computed(() => t(`home.greeting.${daypart}`));
+    const today = computed(() => now.toLocaleDateString(locale.value, {weekday: 'long', day: 'numeric', month: 'long'}));
 
     const showToast = (message: string, type: string) => {
       toastMessage.value = message;
@@ -236,14 +238,13 @@ export default defineComponent({
         });
         if (res.ok) {
           updateTarget.value = null;
-          showToast('Progress updated!', 'alert-success');
+          showToast(t('home.progressUpdated'), 'alert-success');
           await fetchActiveReadings();
         } else {
-          const err = await res.json();
-          showToast(err.error || 'Failed to update progress.', 'alert-error');
+          showToast(apiErrorMessage(res.status, t), 'alert-error');
         }
       } catch {
-        showToast('Failed to update progress.', 'alert-error');
+        showToast(t('error.network'), 'alert-error');
       }
     };
 
@@ -253,10 +254,11 @@ export default defineComponent({
     const formatGoalLabel = (goal: Goal): string => {
       const start = new Date(goal.period_start + 'T00:00:00');
       const end = new Date(goal.period_end + 'T00:00:00');
-      const typeLabel = goal.goal_type === 'books' ? 'Books' : 'Pages';
-      if (goal.timeframe === 'year') return `${typeLabel} in ${start.getFullYear()}`;
-      if (goal.timeframe === 'month') return `${typeLabel} in ${MONTHS[start.getMonth()]} ${start.getFullYear()}`;
-      return `${typeLabel} in ${MONTHS[start.getMonth()]} ${start.getDate()}–${end.getDate()}`;
+      const type = goal.goal_type === 'books' ? t('common.books') : t('common.pages');
+      const month = start.toLocaleDateString(locale.value, {month: 'short'});
+      if (goal.timeframe === 'year') return t('home.goalYear', {type, year: start.getFullYear()});
+      if (goal.timeframe === 'month') return t('home.goalMonth', {type, month, year: start.getFullYear()});
+      return t('home.goalWeek', {type, month, from: start.getDate(), to: end.getDate()});
     };
 
     const navigateTo = (path: string) => router.push(path);
@@ -271,7 +273,7 @@ export default defineComponent({
       auth, goals, goalsLoading, activeReadings, readingsLoading,
       updateTarget, toastMessage, toastType,
       openUpdateModal, submitProgress, readingPercent,
-      formatGoalLabel, bookCoverUrl, resolvedCoverUrl, onResolveCover, daypart, today, navigateTo,
+      formatGoalLabel, bookCoverUrl, resolvedCoverUrl, onResolveCover, greeting, today, navigateTo,
     };
   },
 });

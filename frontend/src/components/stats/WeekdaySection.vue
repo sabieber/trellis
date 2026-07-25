@@ -4,10 +4,10 @@
   <div class="lg:h-full lg:flex lg:flex-col">
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-3">
       <div class="flex items-baseline gap-2">
-        <h2 class="t-eyebrow">Reading by weekday</h2>
+        <h2 class="t-eyebrow">{{ $t('stats.weekdayTitle') }}</h2>
         <span class="t-meta">{{ periodLabel }}</span>
       </div>
-      <span v-if="!loading && total > 0" class="t-meta">busiest on {{ peakLabel }}</span>
+      <span v-if="!loading && total > 0" class="t-meta">{{ $t('stats.busiestOn', { day: peakLabel }) }}</span>
     </div>
 
     <div class="bg-surface border border-line rounded-md p-4 flex flex-col flex-1 justify-center">
@@ -15,7 +15,7 @@
         <span class="loading loading-spinner loading-sm"></span>
       </div>
       <div v-else-if="total === 0" class="t-meta text-center py-14">
-        No pages logged in this period.
+        {{ $t('stats.noPagesLogged') }}
       </div>
       <MiniBars v-else :bars="bars" highlight-peak/>
     </div>
@@ -24,10 +24,9 @@
 
 <script lang="ts">
 import {computed, defineComponent, type PropType} from 'vue';
+import moment from 'moment';
 import MiniBars from '@/components/stats/MiniBars.vue';
 import {formatPeriod} from '@/utils/period';
-
-const LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default defineComponent({
   components: {MiniBars},
@@ -39,8 +38,11 @@ export default defineComponent({
     loading: {type: Boolean, default: false},
   },
   setup(props) {
+    // Localized Mon–Sun short names, tracking the active moment locale.
+    const labels = computed(() => Array.from({length: 7}, (_, i) => moment().isoWeekday(i + 1).format('ddd')));
+
     const bars = computed(() =>
-        LABELS.map((label, index) => ({label, value: props.weekdayPages[index] ?? 0})),
+        labels.value.map((label, index) => ({label, value: props.weekdayPages[index] ?? 0})),
     );
 
     const total = computed(() => props.weekdayPages.reduce((sum, pages) => sum + pages, 0));
@@ -50,7 +52,7 @@ export default defineComponent({
       props.weekdayPages.forEach((pages, index) => {
         if (pages > (props.weekdayPages[peak] ?? 0)) peak = index;
       });
-      return LABELS[peak];
+      return labels.value[peak];
     });
 
     const periodLabel = computed(() => formatPeriod(props.mode, props.year, props.month));

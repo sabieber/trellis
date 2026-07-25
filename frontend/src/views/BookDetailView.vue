@@ -4,7 +4,7 @@
       <div class="px-4 pt-4 pb-2">
         <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="$router.back()">
           <ChevronLeftIcon class="size-4"/>
-          Back
+          {{ $t('common.back') }}
         </Button>
       </div>
 
@@ -15,7 +15,7 @@
       <div v-else-if="book" class="px-4 pb-8">
         <div class="flex gap-4 mb-6">
           <BookCover
-              :title="book.title || 'Untitled'"
+              :title="book.title || $t('common.untitled')"
               :author="book.authors?.join(', ') || ''"
               :width="108"
               :cover-url="book.cover_url"
@@ -28,7 +28,7 @@
             </div>
             <p class="t-meta mt-2">
               {{ book.published_year }}
-              <span v-if="displayedPageCount"> · {{ displayedPageCount }} pp</span>
+              <span v-if="displayedPageCount"> · {{ $t('search.pagesAbbr', { count: displayedPageCount }) }}</span>
               <span v-if="book.category"> · {{ book.category }}</span>
             </p>
           </div>
@@ -40,26 +40,26 @@
 
         <div v-if="activeTab === 'Info'">
           <template v-if="book.description">
-            <h2 class="t-eyebrow mb-2">About</h2>
+            <h2 class="t-eyebrow mb-2">{{ $t('bookDetail.about') }}</h2>
             <p class="text-ink-dim text-sm leading-relaxed mb-5" v-html="book.description"></p>
           </template>
-          <h2 class="t-eyebrow mb-1">Details</h2>
+          <h2 class="t-eyebrow mb-1">{{ $t('bookDetail.details') }}</h2>
           <div class="flex flex-col">
             <div v-if="book.category" class="flex justify-between py-3 border-b border-line-soft">
-              <span class="t-meta">Genre</span>
+              <span class="t-meta">{{ $t('bookDetail.genre') }}</span>
               <span class="text-sm font-semibold text-green-soft">{{ book.category }}</span>
             </div>
             <div v-if="book.published_year" class="flex justify-between py-3 border-b border-line-soft">
-              <span class="t-meta">Published</span>
+              <span class="t-meta">{{ $t('bookDetail.published') }}</span>
               <span class="text-sm font-semibold text-ink">{{ book.published_year }}</span>
             </div>
             <div class="flex justify-between py-3 border-b border-line-soft">
-              <span class="t-meta">Pages</span>
+              <span class="t-meta">{{ $t('common.pages') }}</span>
               <InlineEdit
                   class="t-mono text-ink!"
                   :value="displayedPageCount"
                   type="number"
-                  label="Edit page count"
+                  :label="$t('bookDetail.editPageCount')"
                   :validate="isValidPageCount"
                   :save="savePageCount"
               />
@@ -67,15 +67,15 @@
           </div>
           <Button v-if="sourceUrl" variant="ghost" block class="mt-5" @click="openExternal(sourceUrl)">
             <ArrowTopRightOnSquareIcon class="size-4"/>
-            View on {{ book.source === 'google' ? 'Google Books' : 'Open Library' }}
+            {{ $t('bookDetail.viewOn', { source: book.source === 'google' ? 'Google Books' : 'Open Library' }) }}
           </Button>
           <Button v-if="goodreadsUrl" variant="ghost" block class="mt-2" @click="openExternal(goodreadsUrl)">
             <ArrowTopRightOnSquareIcon class="size-4"/>
-            View on Goodreads
+            {{ $t('bookDetail.viewOn', { source: 'Goodreads' }) }}
           </Button>
           <Button v-if="amazonUrl" variant="ghost" block class="mt-2" @click="openExternal(amazonUrl)">
             <ArrowTopRightOnSquareIcon class="size-4"/>
-            View on Amazon
+            {{ $t('bookDetail.viewOn', { source: 'Amazon' }) }}
           </Button>
         </div>
 
@@ -95,7 +95,7 @@
                   }}</span>
                 <span class="flex items-center gap-2">
                   <span class="badge badge-sm" :class="readingState(reading).badgeClass">{{ readingState(reading).label }}</span>
-                  <span class="t-meta group-hover:text-green-soft transition-colors duration-150">{{ reading.progress }} / {{ reading.total_pages }} pages</span>
+                  <span class="t-meta group-hover:text-green-soft transition-colors duration-150">{{ $t('bookDetail.pagesProgress', { current: reading.progress, total: reading.total_pages }) }}</span>
                 </span>
               </div>
               <button
@@ -106,10 +106,10 @@
               </button>
             </div>
           </div>
-          <p v-else class="t-meta text-center py-4">No reading sessions yet.</p>
+          <p v-else class="t-meta text-center py-4">{{ $t('bookDetail.noReadings') }}</p>
           <Button variant="soft" block class="mt-2" @click="showStartReadingModal = true">
             <BookOpenIcon class="size-4"/>
-            Start Reading
+            {{ $t('readingModal.title') }}
           </Button>
         </div>
 
@@ -133,11 +133,11 @@
               </div>
             </div>
           </div>
-          <div v-else class="t-meta text-center py-4">No shelves found.</div>
+          <div v-else class="t-meta text-center py-4">{{ $t('addToShelf.noShelves') }}</div>
         </div>
       </div>
 
-      <div v-else class="t-meta text-center py-8 px-4">Book not found.</div>
+      <div v-else class="t-meta text-center py-8 px-4">{{ $t('common.bookNotFound') }}</div>
     </div>
 
     <StartReadingModal
@@ -149,18 +149,17 @@
 
     <ConfirmDialog
         v-if="pendingRemoveShelfId"
-        title="Remove from Shelf"
-        message="Are you sure you want to remove this book from the shelf?"
-        confirmLabel="Remove"
+        :title="$t('bookDetail.removeFromShelfTitle')"
+        :message="$t('shelf.removeBookMessage')"
+        :confirmLabel="$t('common.remove')"
         @confirm="removeBookFromShelf"
         @cancel="pendingRemoveShelfId = null"
     />
 
     <ConfirmDialog
         v-if="pendingDeleteReadingId"
-        title="Delete Reading"
-        message="Are you sure you want to delete this reading session and all its entries? This cannot be undone."
-        confirmLabel="Delete"
+        :title="$t('bookDetail.deleteReadingTitle')"
+        :message="$t('bookDetail.deleteReadingMessage')"
         @confirm="deleteReading"
         @cancel="pendingDeleteReadingId = null"
     />
@@ -176,8 +175,10 @@
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
+import {useI18n} from 'vue-i18n';
 import {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, ArrowTopRightOnSquareIcon} from "@heroicons/vue/24/outline";
 import {fetchBookDetail, searchBooks, resolveGoogleId} from '@/api/bookApi';
+import {apiErrorMessage} from '@/utils/apiError';
 import StartReadingModal from '@/components/StartReadingModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
@@ -192,6 +193,7 @@ import type {BookSearchResult} from '@/types/book';
 export default defineComponent({
   components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, ArrowTopRightOnSquareIcon, StartReadingModal, ConfirmDialog, BookCover, Button, InlineEdit, SegmentedControl, Stars},
   setup() {
+    const {t} = useI18n();
     const route = useRoute();
     const router = useRouter();
     const book = ref<BookSearchResult | null>(null);
@@ -206,11 +208,11 @@ export default defineComponent({
     const loading = ref(true);
     const showStartReadingModal = ref(false);
     const activeTab = ref((route.query.tab as string) || 'Info');
-    const tabs = [
-      { value: 'Info', label: 'Info' },
-      { value: 'Log', label: 'Log' },
-      { value: 'Shelves', label: 'Shelves' },
-    ];
+    const tabs = computed(() => [
+      { value: 'Info', label: t('bookDetail.tabInfo') },
+      { value: 'Log', label: t('bookDetail.tabLog') },
+      { value: 'Shelves', label: t('bookDetail.tabShelves') },
+    ]);
     const shelves = ref<Array<{ id: string; name: string; description: string }>>([]);
     const shelfIds = ref<string[]>([]);
     const loadingShelves = ref(false);
@@ -309,12 +311,12 @@ export default defineComponent({
         });
         if (response.ok) {
           if (!shelfIds.value.includes(shelfId)) shelfIds.value.push(shelfId);
-          showToast('Book added to shelf successfully.', 'alert-success');
+          showToast(t('addToShelf.added'), 'alert-success');
         } else {
-          showToast('Failed to add book to shelf.', 'alert-error');
+          showToast(t('addToShelf.addFailed'), 'alert-error');
         }
       } catch {
-        showToast('Failed to add book to shelf.', 'alert-error');
+        showToast(t('addToShelf.addFailed'), 'alert-error');
       }
     };
 
@@ -333,13 +335,12 @@ export default defineComponent({
         });
         if (response.ok) {
           shelfIds.value = shelfIds.value.filter((id) => id !== shelfId);
-          showToast('Book removed from shelf successfully.', 'alert-success');
+          showToast(t('shelf.bookRemoved'), 'alert-success');
         } else {
-          const data = await response.json();
-          showToast(data.error || 'Failed to remove book from shelf.', 'alert-error');
+          showToast(apiErrorMessage(response.status, t), 'alert-error');
         }
       } catch {
-        showToast('Failed to remove book from shelf.', 'alert-error');
+        showToast(t('error.network'), 'alert-error');
       }
     };
 
@@ -361,13 +362,12 @@ export default defineComponent({
         });
         if (response.ok) {
           readings.value = readings.value.filter((r) => r.id !== readingId);
-          showToast('Reading deleted.', 'alert-success');
+          showToast(t('bookDetail.readingDeleted'), 'alert-success');
         } else {
-          const data = await response.json();
-          showToast(data.error || 'Failed to delete reading.', 'alert-error');
+          showToast(apiErrorMessage(response.status, t), 'alert-error');
         }
       } catch {
-        showToast('Failed to delete reading.', 'alert-error');
+        showToast(t('error.network'), 'alert-error');
       }
     };
 
@@ -385,11 +385,10 @@ export default defineComponent({
           await fetchBookDetailsWrapper(route.params.id as string);
           showStartReadingModal.value = false;
         } else {
-          const errorData = await response.json();
-          showToast(errorData.error, 'alert-error');
+          showToast(apiErrorMessage(response.status, t), 'alert-error');
         }
       } catch {
-        showToast('Failed to start reading session.', 'alert-error');
+        showToast(t('error.network'), 'alert-error');
       }
     };
 
@@ -404,7 +403,7 @@ export default defineComponent({
           rating.value = val ?? 0;
         }
       } catch {
-        showToast('Failed to update rating.', 'alert-error');
+        showToast(t('error.network'), 'alert-error');
       }
     };
 
@@ -424,10 +423,9 @@ export default defineComponent({
           pageCountOverride.value = pages;
           return true;
         }
-        const data = await response.json();
-        showToast(data.error || 'Failed to update page count.', 'alert-error');
+        showToast(apiErrorMessage(response.status, t), 'alert-error');
       } catch {
-        showToast('Failed to update page count.', 'alert-error');
+        showToast(t('error.network'), 'alert-error');
       }
       return false;
     };
@@ -435,9 +433,9 @@ export default defineComponent({
     const formatDate = (date: string) => moment(date).format('LL');
 
     const readingState = (reading: { finished_at: string | null; cancelled_at: string | null }) => {
-      if (reading.cancelled_at) return {label: 'Abandoned', badgeClass: 'badge-neutral'};
-      if (reading.finished_at) return {label: 'Finished', badgeClass: 'badge-success'};
-      return {label: 'Reading', badgeClass: 'badge-warning'};
+      if (reading.cancelled_at) return {label: t('bookDetail.stateAbandoned'), badgeClass: 'badge-neutral'};
+      if (reading.finished_at) return {label: t('bookDetail.stateFinished'), badgeClass: 'badge-success'};
+      return {label: t('bookDetail.stateReading'), badgeClass: 'badge-warning'};
     };
 
     const sourceUrl = computed(() => {

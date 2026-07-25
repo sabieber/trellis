@@ -27,6 +27,7 @@
 
 <script lang="ts">
 import {defineComponent, ref, onMounted, onBeforeUnmount} from 'vue';
+import {useI18n} from 'vue-i18n';
 import {XMarkIcon} from '@heroicons/vue/24/outline';
 import {BarcodeDetector as BarcodeDetectorPolyfill, prepareZXingModule} from 'barcode-detector/pure';
 import zxingWasmUrl from 'zxing-reader-wasm?url';
@@ -51,7 +52,8 @@ export default defineComponent({
   components: {XMarkIcon},
   emits: ['detected', 'close'],
   setup(_, {emit}) {
-    const statusMessage = ref('Point camera at a barcode…');
+    const {t} = useI18n();
+    const statusMessage = ref(t('scanner.pointCamera'));
     const videoRef = ref<HTMLVideoElement | null>(null);
     let stream: MediaStream | null = null;
     let animationId = 0;
@@ -73,7 +75,7 @@ export default defineComponent({
       }
 
       if (!stream) {
-        statusMessage.value = 'Camera access denied or unavailable.';
+        statusMessage.value = t('scanner.cameraDenied');
         return;
       }
 

@@ -3,7 +3,7 @@
       class="stars"
       :class="{ interactive }"
       :style="size ? { fontSize: size + 'px' } : undefined"
-      :aria-label="`${displayRating} out of 5 stars`"
+      :aria-label="$t('common.starsAria', { rating: displayRating })"
       @mouseleave="hoverVal = 0"
   >
     <span

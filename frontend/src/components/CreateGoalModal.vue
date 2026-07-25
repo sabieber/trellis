@@ -1,30 +1,30 @@
 <template>
   <div class="modal modal-open">
     <div class="modal-box flex flex-col gap-4">
-      <h3 class="t-title text-lg">Create Goal</h3>
+      <h3 class="t-title text-lg">{{ $t('goalModal.title') }}</h3>
       <form @submit.prevent.stop="submitForm" class="contents">
         <fieldset class="flex flex-col gap-1.5">
-          <label class="t-meta">Type</label>
+          <label class="t-meta">{{ $t('goalModal.type') }}</label>
           <select v-model="goalType" class="select w-full">
-            <option value="books">Books</option>
-            <option value="pages">Pages</option>
+            <option value="books">{{ $t('common.books') }}</option>
+            <option value="pages">{{ $t('common.pages') }}</option>
           </select>
         </fieldset>
         <fieldset class="flex flex-col gap-1.5">
-          <label class="t-meta">Timeframe</label>
+          <label class="t-meta">{{ $t('goalModal.timeframe') }}</label>
           <select v-model="timeframe" class="select w-full">
-            <option value="year">Year</option>
-            <option value="month">Month</option>
-            <option value="week">Week</option>
+            <option value="year">{{ $t('goalModal.year') }}</option>
+            <option value="month">{{ $t('goalModal.month') }}</option>
+            <option value="week">{{ $t('goalModal.week') }}</option>
           </select>
         </fieldset>
         <fieldset class="flex flex-col gap-1.5">
-          <label class="t-meta">{{ goalType === 'books' ? 'Number of Books' : 'Number of Pages' }}</label>
+          <label class="t-meta">{{ goalType === 'books' ? $t('goalModal.numberOfBooks') : $t('goalModal.numberOfPages') }}</label>
           <input type="number" v-model="target" class="input w-full" min="1" required />
         </fieldset>
         <div class="modal-action mt-0 gap-2">
-          <Button type="submit" class="flex-1">Create</Button>
-          <Button variant="ghost" type="button" @click="$emit('close')">Cancel</Button>
+          <Button type="submit" class="flex-1">{{ $t('common.create') }}</Button>
+          <Button variant="ghost" type="button" @click="$emit('close')">{{ $t('common.cancel') }}</Button>
         </div>
       </form>
     </div>

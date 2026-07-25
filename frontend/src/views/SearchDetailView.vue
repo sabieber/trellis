@@ -4,7 +4,7 @@
       <div class="px-4 pt-4 pb-2">
         <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="$router.back()">
           <ChevronLeftIcon class="size-4"/>
-          Back
+          {{ $t('common.back') }}
         </Button>
       </div>
 
@@ -15,7 +15,7 @@
       <div v-else-if="book" class="px-4 pb-8">
         <div class="flex flex-col items-center text-center mt-2 mb-6">
           <BookCover
-              :title="book.title || 'Untitled'"
+              :title="book.title || $t('common.untitled')"
               :author="book.authors?.join(', ') || ''"
               :width="128"
               :cover-url="book.cover_url"
@@ -24,22 +24,22 @@
           <p class="t-meta text-sm mt-1.5">{{ book.authors?.join(', ') }}</p>
           <div v-if="book.average_rating" class="flex items-center gap-2 mt-2.5">
             <Stars :rating="book.average_rating"/>
-            <span class="t-meta">{{ book.average_rating }} avg</span>
+            <span class="t-meta">{{ $t('searchDetail.avgRating', { rating: book.average_rating }) }}</span>
           </div>
           <p class="t-meta mt-2">
             {{ book.published_year }}
-            <span v-if="book.page_count"> · {{ book.page_count }} pp</span>
+            <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
             <span v-if="book.category"> · {{ book.category }}</span>
           </p>
         </div>
 
         <Button block class="mb-6" @click="scrollToShelfSection">
           <PlusIcon class="size-4"/>
-          Add to Library
+          {{ $t('searchDetail.addToLibrary') }}
         </Button>
 
         <div ref="shelfSection" class="mb-6">
-          <h2 class="t-eyebrow mb-2">Add to shelf</h2>
+          <h2 class="t-eyebrow mb-2">{{ $t('searchDetail.addToShelf') }}</h2>
           <div v-if="loadingShelves" class="flex justify-center py-4">
             <span class="loading loading-spinner loading-md"></span>
           </div>
@@ -56,16 +56,16 @@
               <PlusIcon class="size-4 text-muted group-hover:text-green-soft transition-colors duration-150"/>
             </div>
           </div>
-          <div v-else class="t-meta py-2">No shelves found.</div>
+          <div v-else class="t-meta py-2">{{ $t('addToShelf.noShelves') }}</div>
         </div>
 
         <div v-if="book.description">
-          <h2 class="t-eyebrow mb-2">Description</h2>
+          <h2 class="t-eyebrow mb-2">{{ $t('common.description') }}</h2>
           <p class="text-ink-dim text-sm leading-relaxed" v-html="book.description"></p>
         </div>
       </div>
 
-      <div v-else class="t-meta text-center py-8 px-4">Book not found.</div>
+      <div v-else class="t-meta text-center py-8 px-4">{{ $t('common.bookNotFound') }}</div>
     </div>
 
     <div v-if="toastMessage" class="toast toast-top toast-center pt-4 z-50">
@@ -79,6 +79,7 @@
 <script lang="ts">
 import {defineComponent, ref, onMounted} from 'vue';
 import {useRoute} from 'vue-router';
+import {useI18n} from 'vue-i18n';
 import {ChevronLeftIcon, PlusIcon} from "@heroicons/vue/24/outline";
 import {fetchBookDetail} from '@/api/bookApi';
 import {apiFetch} from '@/api/client';
@@ -90,6 +91,7 @@ import type {BookSearchResult} from '@/types/book';
 export default defineComponent({
   components: {ChevronLeftIcon, PlusIcon, BookCover, Button, Stars},
   setup() {
+    const {t} = useI18n();
     const route = useRoute();
     const book = ref<BookSearchResult | null>(null);
     const loading = ref(true);
@@ -141,12 +143,12 @@ export default defineComponent({
           }),
         });
         if (response.ok) {
-          showToast('Book added to shelf successfully.', 'alert-success');
+          showToast(t('addToShelf.added'), 'alert-success');
         } else {
-          showToast('Failed to add book to shelf.', 'alert-error');
+          showToast(t('addToShelf.addFailed'), 'alert-error');
         }
       } catch {
-        showToast('Failed to add book to shelf.', 'alert-error');
+        showToast(t('addToShelf.addFailed'), 'alert-error');
       }
     };
 

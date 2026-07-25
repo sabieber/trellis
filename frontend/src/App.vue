@@ -29,7 +29,7 @@
             :class="$route.path === item.to ? 'bg-green/13 text-green' : 'text-ink-dim hover:text-ink hover:bg-surface-2'"
         >
           <component :is="item.icon" class="size-5.5"/>
-          {{ item.label }}
+          {{ $t(item.label) }}
         </RouterLink>
       </nav>
       <RouterLink
@@ -48,7 +48,7 @@
         </svg>
         <div class="min-w-0">
           <div class="t-title text-base">{{ yearGoal.progress }} / {{ yearGoal.target }}</div>
-          <div class="t-meta mt-0.5">{{ currentYear }} goal</div>
+          <div class="t-meta mt-0.5">{{ $t('common.yearGoal', { year: currentYear }) }}</div>
         </div>
       </RouterLink>
     </aside>
@@ -71,7 +71,7 @@
           :class="$route.path === item.to ? 'text-green' : 'text-faint'"
       >
         <component :is="item.icon" class="size-6"/>
-        <span>{{ item.label }}</span>
+        <span>{{ $t(item.label) }}</span>
       </RouterLink>
       <div class="dropdown dropdown-top dropdown-end">
         <div
@@ -81,7 +81,7 @@
             :class="isMoreActive ? 'text-green' : 'text-faint'"
         >
           <component :is="EllipsisHorizontalIcon" class="size-6"/>
-          <span>More</span>
+          <span>{{ $t('nav.more') }}</span>
         </div>
         <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-1 w-44 p-2 shadow-sm mb-3">
           <li v-for="item in moreNavItems" :key="item.to">
@@ -92,7 +92,7 @@
                 :class="$route.path === item.to ? 'text-green' : ''"
             >
               <component :is="item.icon" class="size-5"/>
-              {{ item.label }}
+              {{ $t(item.label) }}
             </RouterLink>
           </li>
         </ul>
@@ -131,18 +131,18 @@ export default defineComponent({
     const currentYear = new Date().getFullYear();
 
     const navItems = [
-      {to: "/", label: "Home", icon: HomeIcon},
-      {to: "/library", label: "Library", icon: BookOpenIcon},
-      {to: "/search", label: "Search", icon: MagnifyingGlassIcon},
-      {to: "/goals", label: "Goals", icon: ChartBarIcon},
-      {to: "/stats", label: "Stats", icon: ChartPieIcon},
-      {to: "/profile", label: "Profile", icon: UserIcon},
+      {to: "/", label: "nav.home", icon: HomeIcon},
+      {to: "/library", label: "nav.library", icon: BookOpenIcon},
+      {to: "/search", label: "nav.search", icon: MagnifyingGlassIcon},
+      {to: "/goals", label: "nav.goals", icon: ChartBarIcon},
+      {to: "/stats", label: "nav.stats", icon: ChartPieIcon},
+      {to: "/profile", label: "nav.profile", icon: UserIcon},
     ];
 
     // Mobile dock has less room, so Stats/Profile collapse into a "More" dropdown there.
     const moreNavItems = [
-      {to: "/stats", label: "Stats", icon: ChartPieIcon},
-      {to: "/profile", label: "Profile", icon: UserIcon},
+      {to: "/stats", label: "nav.stats", icon: ChartPieIcon},
+      {to: "/profile", label: "nav.profile", icon: UserIcon},
     ];
     const mobileNavItems = navItems.filter(item => !moreNavItems.some(m => m.to === item.to));
     const isMoreActive = computed(() => moreNavItems.some(item => item.to === route.path));

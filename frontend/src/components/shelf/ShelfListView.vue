@@ -18,7 +18,7 @@
       <div class="flex-1 min-w-0 flex flex-col justify-center">
         <h3 class="t-title text-[15px] md:text-base truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
         <p class="t-meta mt-0.5">{{ book.author }}</p>
-        <p class="t-mono mt-1 hidden md:block">{{ dateLabel }} {{ formatDate(book) }}</p>
+        <p class="t-mono mt-1 hidden md:block">{{ dateLabel || $t('shelf.added') }} {{ formatDate(book) }}</p>
         <Stars v-if="book.rating" :rating="book.rating" :size="12" class="mt-0.5"/>
       </div>
       <Button variant="ghost" class="px-2! py-2! text-[13px]!" @click="$emit('removeBook', book.id)">
@@ -44,7 +44,7 @@ const props = withDefaults(defineProps<{
   dateLabel?: string;
   dateField?: 'added_at' | 'finished_at';
 }>(), {
-  dateLabel: 'Added',
+  dateLabel: '',
   dateField: 'added_at',
 });
 

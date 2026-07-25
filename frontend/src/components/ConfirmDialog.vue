@@ -4,8 +4,8 @@
       <h3 class="t-title text-lg">{{ title }}</h3>
       <p class="text-sm text-ink-dim py-4">{{ message }}</p>
       <div class="modal-action">
-        <Button variant="ghost" :class="confirmClass" @click="$emit('confirm')">{{ confirmLabel }}</Button>
-        <Button variant="ghost" @click="$emit('cancel')">Cancel</Button>
+        <Button variant="ghost" :class="confirmClass" @click="$emit('confirm')">{{ confirmLabel || $t('common.delete') }}</Button>
+        <Button variant="ghost" @click="$emit('cancel')">{{ $t('common.cancel') }}</Button>
       </div>
     </div>
     <div class="modal-backdrop" @click="$emit('cancel')"></div>
@@ -21,7 +21,7 @@ export default defineComponent({
   props: {
     title: {type: String, required: true},
     message: {type: String, required: true},
-    confirmLabel: {type: String, default: 'Delete'},
+    confirmLabel: {type: String, default: ''},
     confirmClass: {type: String, default: 'text-[#c47556]!'},
   },
   emits: ['confirm', 'cancel'],

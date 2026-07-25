@@ -3,9 +3,9 @@
     <template #title-button>
       <div v-if="!loading && books.length" class="flex items-center gap-2">
         <select v-model="sortBy" class="select select-sm w-36">
-          <option value="added_at">Added at</option>
-          <option value="title">Book name</option>
-          <option value="author">Author name</option>
+          <option value="added_at">{{ $t('shelf.sortAdded') }}</option>
+          <option value="title">{{ $t('shelf.sortTitle') }}</option>
+          <option value="author">{{ $t('shelf.sortAuthor') }}</option>
         </select>
         <SegmentedControl v-model="layoutMode" :options="layoutOptions">
           <template #option="{ option }">
@@ -51,14 +51,14 @@
         />
       </template>
 
-      <div v-else class="t-meta text-center py-12">No books found.</div>
+      <div v-else class="t-meta text-center py-12">{{ $t('shelf.noBooks') }}</div>
     </div>
 
     <ConfirmDialog
         v-if="pendingRemoveBookId"
-        title="Remove Book"
-        message="Are you sure you want to remove this book from the shelf?"
-        confirmLabel="Remove"
+        :title="$t('shelf.removeBookTitle')"
+        :message="$t('shelf.removeBookMessage')"
+        :confirmLabel="$t('common.remove')"
         @confirm="removeBookFromShelf"
         @cancel="pendingRemoveBookId = null"
     />
@@ -68,6 +68,7 @@
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted, watch} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
+import {useI18n} from 'vue-i18n';
 import {QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon} from "@heroicons/vue/24/outline";
 import PageContainer from '@/components/PageContainer.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
@@ -77,6 +78,7 @@ import ShelfGridView from '@/components/shelf/ShelfGridView.vue';
 import ShelfBoardView from '@/components/shelf/ShelfBoardView.vue';
 import ShelfPileView from '@/components/shelf/ShelfPileView.vue';
 import {apiFetch} from '@/api/client';
+import {apiErrorMessage} from '@/utils/apiError';
 import {useContainerWidth} from '@/composables/useContainerWidth';
 import type {ShelfBook} from '@/types/shelf';
 
@@ -94,6 +96,7 @@ export default defineComponent({
     ShelfListView, ShelfGridView, ShelfBoardView, ShelfPileView,
   },
   setup() {
+    const {t} = useI18n();
     const route = useRoute();
     const router = useRouter();
     const books = ref<ShelfBook[]>([]);
@@ -177,19 +180,15 @@ export default defineComponent({
           body: JSON.stringify({book_id: bookId, shelf_id: route.params.id}),
         });
         if (response.ok) {
-          pageContainer.value?.showToast({message: 'Book removed from shelf successfully.', type: 'alert-success'});
+          pageContainer.value?.showToast({message: t('shelf.bookRemoved'), type: 'alert-success'});
           books.value = books.value.filter((book) => book.id !== bookId);
         } else {
-          const data = await response.json();
-          console.error('Failed to remove book:', data);
-          pageContainer.value?.showToast({
-            message: data.error || 'Failed to remove book from shelf.',
-            type: 'alert-error'
-          });
+          console.error('Failed to remove book:', await response.json());
+          pageContainer.value?.showToast({message: apiErrorMessage(response.status, t), type: 'alert-error'});
         }
       } catch (error) {
         console.error('Failed to remove book:', error);
-        pageContainer.value?.showToast({message: 'Failed to remove book from shelf.', type: 'alert-error'});
+        pageContainer.value?.showToast({message: t('error.network'), type: 'alert-error'});
       }
     };
 

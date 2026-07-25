@@ -4,10 +4,10 @@
   <div class="lg:h-full lg:flex lg:flex-col">
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-3">
       <div class="flex items-baseline gap-2">
-        <h2 class="t-eyebrow">Top authors</h2>
+        <h2 class="t-eyebrow">{{ $t('stats.topAuthors') }}</h2>
         <span class="t-meta">{{ periodLabel }}</span>
       </div>
-      <span v-if="!loading && authors.length > 0" class="t-meta">by books finished</span>
+      <span v-if="!loading && authors.length > 0" class="t-meta">{{ $t('stats.byBooksFinished') }}</span>
     </div>
 
     <div class="bg-surface border border-line rounded-md p-4 flex-1 flex flex-col justify-center">
@@ -15,7 +15,7 @@
         <span class="loading loading-spinner loading-sm"></span>
       </div>
       <div v-else-if="authors.length === 0" class="t-meta text-center py-14">
-        No finished books in this period.
+        {{ $t('stats.noFinished') }}
       </div>
 
       <ol v-else class="space-y-3">
@@ -24,7 +24,7 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-baseline justify-between gap-2">
               <span class="t-title text-sm truncate">{{ author.author }}</span>
-              <span class="t-meta flex-none">{{ author.pages.toLocaleString() }}p</span>
+              <span class="t-meta flex-none">{{ $t('stats.pagesShort', { n: author.pages.toLocaleString() }) }}</span>
             </div>
             <div class="h-1.5 bg-surface-3 rounded-full mt-1.5 overflow-hidden">
               <div class="h-full bg-green rounded-full" :style="{width: `${barWidth(author.books)}%`}"></div>

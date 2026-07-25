@@ -1,24 +1,24 @@
 <template>
-  <PageContainer title="Profile" ref="pageContainer">
+  <PageContainer :title="$t('nav.profile')" ref="pageContainer">
     <template #title-button>
       <button
           @click="logout"
           class="flex items-center gap-1.5 text-sm font-semibold text-[#c98b6e] px-3 py-2 rounded-sm hover:bg-surface-2 transition-colors duration-150"
       >
         <PowerIcon class="size-5"/>
-        Log out
+        {{ $t('common.logout') }}
       </button>
     </template>
     <div class="mt-4">
-      <h3 class="t-eyebrow mb-2">Library</h3>
+      <h3 class="t-eyebrow mb-2">{{ $t('profile.library') }}</h3>
       <div class="bg-surface border border-line rounded-md p-4">
-        <p class="t-title text-[15px]">Import from Goodreads</p>
-        <p class="t-meta mt-1 mb-3">Select a CSV file to import your GoodReads data.</p>
+        <p class="t-title text-[15px]">{{ $t('profile.importTitle') }}</p>
+        <p class="t-meta mt-1 mb-3">{{ $t('profile.importDesc') }}</p>
         <div class="flex items-center gap-2">
           <input type="file" accept=".csv" @change="handleFileChange" class="file-input w-full max-w-xs"/>
           <Button :disabled="isUploading" @click="uploadFile">
             <span v-if="isUploading" class="loading loading-spinner loading-sm"></span>
-            <span v-else>Upload</span>
+            <span v-else>{{ $t('profile.upload') }}</span>
           </Button>
         </div>
         <div v-if="importResult" :class="['mt-4 p-3 rounded-md border', importResult.success ? 'bg-success/10 border-success/30' : 'bg-error/10 border-error/30']">
@@ -54,7 +54,7 @@ export default defineComponent({
   components: {PageContainer, PowerIcon, Button, SegmentedControl},
   setup() {
     const router = useRouter();
-    const {locale} = useI18n();
+    const {t, locale} = useI18n();
 
     // Language names are shown as endonyms, so the labels don't get translated.
     const languageOptions = [{value: 'en', label: 'English'}, {value: 'de', label: 'Deutsch'}];
@@ -82,7 +82,7 @@ export default defineComponent({
 
     const uploadFile = async () => {
       if (!selectedFile.value) {
-        pageContainer.value.showToast({message: 'Please select a file first.', type: 'alert-warning'});
+        pageContainer.value.showToast({message: t('profile.selectFileFirst'), type: 'alert-warning'});
         return;
       }
 
@@ -98,15 +98,21 @@ export default defineComponent({
         });
 
         if (response.ok) {
-          const data = await response.json();
-          importResult.value = { success: true, message: data.message };
+          const d = await response.json();
+          const summary = t('profile.importSummary', {
+            added: d.books_added,
+            skipped: d.books_skipped,
+            readings: d.readings_created,
+          });
+          const failed = d.books_failed > 0 ? ' ' + t('profile.importFailed', {failed: d.books_failed}) : '';
+          importResult.value = { success: true, message: summary + failed };
         } else {
           console.error('Failed to import file:', await response.json());
-          importResult.value = { success: false, message: 'Failed to import file.' };
+          importResult.value = { success: false, message: t('profile.importError') };
         }
       } catch (error) {
         console.error('Failed to import file:', error);
-        importResult.value = { success: false, message: 'Failed to import file.' };
+        importResult.value = { success: false, message: t('profile.importError') };
       } finally {
         isUploading.value = false;
       }

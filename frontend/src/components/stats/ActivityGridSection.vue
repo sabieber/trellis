@@ -5,7 +5,7 @@
   <div>
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-3">
       <div class="flex items-baseline gap-2">
-        <h2 class="t-eyebrow">Reading activity</h2>
+        <h2 class="t-eyebrow">{{ $t('stats.activityTitle') }}</h2>
         <span class="t-meta">{{ periodLabel }}</span>
       </div>
       <span v-if="!loading" class="t-meta">{{ summary }}</span>
@@ -18,7 +18,7 @@
         </div>
 
         <div v-else-if="!series" class="t-meta text-center py-8">
-          Could not load reading activity.
+          {{ $t('stats.couldNotLoadActivity') }}
         </div>
 
         <!-- Year: 7 weekday rows × week columns -->
@@ -73,9 +73,9 @@
         </div>
 
         <div v-if="series && !loading" class="flex items-center justify-end gap-1.5 mt-3.5" style="--cell: 11px">
-          <span class="t-meta">Less</span>
+          <span class="t-meta">{{ $t('stats.less') }}</span>
           <div v-for="level in [0, 1, 2, 3, 4]" :key="level" class="heat-cell" :class="`heat-${level}`"></div>
-          <span class="t-meta">More</span>
+          <span class="t-meta">{{ $t('stats.more') }}</span>
         </div>
       </div>
     </div>
@@ -84,6 +84,7 @@
 
 <script lang="ts">
 import {computed, defineComponent, nextTick, onMounted, ref, watch, type PropType} from 'vue';
+import {useI18n} from 'vue-i18n';
 import moment from 'moment';
 import type {ActivityDay, ActivitySeries} from '@/composables/useActivityStats';
 import {useContainerWidth} from '@/composables/useContainerWidth';
@@ -134,8 +135,15 @@ export default defineComponent({
     },
   },
   setup(props) {
+    const {t, locale} = useI18n();
     const tooltip = useChartTooltip();
     const today = dateKey(new Date());
+
+    // Localized heatmap axis labels (Mon–Sun); recompute when the UI locale changes.
+    const weekdayRowLabels = computed(() =>
+        Array.from({length: 7}, (_, i) => (locale.value, i % 2 === 0 ? moment().isoWeekday(i + 1).format('ddd') : '')));
+    const weekdayShortLabels = computed(() =>
+        Array.from({length: 7}, (_, i) => (locale.value, moment().isoWeekday(i + 1).format('dd').charAt(0))));
     const gridEl = ref<HTMLElement | null>(null);
     const scrollEl = ref<HTMLElement | null>(null);
     const {containerWidth, setupObserver} = useContainerWidth(gridEl);
@@ -162,9 +170,9 @@ export default defineComponent({
       const books = activity?.books ?? 0;
 
       const parts: string[] = [];
-      if (pages > 0) parts.push(`${pages.toLocaleString()} ${pages === 1 ? 'page' : 'pages'}`);
-      if (books > 0) parts.push(`${books} ${books === 1 ? 'book' : 'books'} finished`);
-      const detail = parts.length ? parts.join(', ') : 'no reading logged';
+      if (pages > 0) parts.push(`${pages.toLocaleString()} ${t('stats.unitPages', pages)}`);
+      if (books > 0) parts.push(`${books} ${t('stats.booksFinished', books)}`);
+      const detail = parts.length ? parts.join(', ') : t('stats.noReadingLogged');
 
       return {
         id: key,
@@ -282,8 +290,11 @@ export default defineComponent({
       const days = props.series?.days ?? [];
       const pages = days.reduce((sum, day) => sum + day.pages, 0);
       const books = days.reduce((sum, day) => sum + day.books, 0);
-      if (pages === 0 && books === 0) return 'nothing logged yet';
-      return `${pages.toLocaleString()} pages · ${books} ${books === 1 ? 'book' : 'books'} finished`;
+      if (pages === 0 && books === 0) return t('stats.nothingLogged');
+      return t('stats.activitySummary', {
+        pages: pages.toLocaleString(),
+        books: t('stats.booksFinished', books),
+      });
     });
 
     return {
@@ -298,8 +309,8 @@ export default defineComponent({
       periodLabel,
       summary,
       tooltip,
-      weekdayRowLabels: ['Mon', '', 'Wed', '', 'Fri', '', ''],
-      weekdayShortLabels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+      weekdayRowLabels,
+      weekdayShortLabels,
     };
   },
 });

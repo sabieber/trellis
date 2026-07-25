@@ -3,9 +3,9 @@
     <template #title-button>
       <div v-if="!loading && books.length" class="flex items-center gap-2">
         <select v-model="sortBy" class="select select-sm w-36">
-          <option value="finished_at">Finished at</option>
-          <option value="title">Book name</option>
-          <option value="author">Author name</option>
+          <option value="finished_at">{{ $t('shelf.sortFinished') }}</option>
+          <option value="title">{{ $t('shelf.sortTitle') }}</option>
+          <option value="author">{{ $t('shelf.sortAuthor') }}</option>
         </select>
         <SegmentedControl v-model="layoutMode" :options="layoutOptions">
           <template #option="{ option }">
@@ -20,7 +20,7 @@
 
     <div v-if="goal" class="mb-5">
       <div class="flex justify-between t-meta mb-1.5">
-        <span>{{ goal.progress }} / {{ goal.target }} {{ goal.goal_type === 'books' ? 'books' : 'pages' }}</span>
+        <span>{{ goal.progress }} / {{ goal.target }} {{ goal.goal_type === 'books' ? $t('common.books') : $t('common.pages') }}</span>
         <span class="text-green-soft">{{ goal.percentage }}%</span>
       </div>
       <PlainProgress :pct="goal.percentage"/>
@@ -36,7 +36,7 @@
             v-if="layoutMode === 'list'"
             :books="sortedBooks"
             :cover-width="listCoverWidth"
-            dateLabel="Finished"
+            :dateLabel="$t('shelf.finished')"
             dateField="finished_at"
             @view-book="viewBookDetail"
             @remove-book="() => {}"
@@ -61,7 +61,7 @@
         />
       </template>
 
-      <div v-else class="t-meta text-center py-12">No books finished in this period yet.</div>
+      <div v-else class="t-meta text-center py-12">{{ $t('goalDetail.noBooks') }}</div>
     </div>
   </PageContainer>
 </template>
@@ -69,6 +69,7 @@
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted, watch} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
+import {useI18n} from 'vue-i18n';
 import {QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon} from '@heroicons/vue/24/outline';
 import PageContainer from '@/components/PageContainer.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
@@ -88,7 +89,6 @@ const GRID_TILE_SM = 80;
 const GRID_TILE_LG = 112;
 const SPINE_HEIGHT_SM = 160;
 const SPINE_HEIGHT_LG = 200;
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 interface GoalDetail {
   id: string;
@@ -114,6 +114,7 @@ export default defineComponent({
     PlainProgress,
   },
   setup() {
+    const {t, locale} = useI18n();
     const route = useRoute();
     const router = useRouter();
     const goal = ref<GoalDetail | null>(null);
@@ -155,15 +156,19 @@ export default defineComponent({
       const g = goal.value;
       const start = new Date(g.period_start + 'T00:00:00');
       const end = new Date(g.period_end + 'T00:00:00');
-      const typeLabel = g.goal_type === 'books' ? 'Books' : 'Pages';
-      if (g.timeframe === 'year') return `${typeLabel} in ${start.getFullYear()}`;
-      if (g.timeframe === 'month') return `${typeLabel} in ${MONTHS[start.getMonth()]} ${start.getFullYear()}`;
-      return `${typeLabel} in ${MONTHS[start.getMonth()]} ${start.getDate()}\u2013${end.getDate()}`;
+      const type = g.goal_type === 'books' ? t('common.books') : t('common.pages');
+      const month = start.toLocaleDateString(locale.value, {month: 'short'});
+      if (g.timeframe === 'year') return t('home.goalYear', {type, year: start.getFullYear()});
+      if (g.timeframe === 'month') return t('home.goalMonth', {type, month, year: start.getFullYear()});
+      return t('home.goalWeek', {type, month, from: start.getDate(), to: end.getDate()});
     });
 
     const periodDescription = computed(() => {
       if (!goal.value) return '';
-      return `${moment(goal.value.period_start).format('MMM D')} to ${moment(goal.value.period_end).format('MMM D, YYYY')}`;
+      return t('goals.periodRange', {
+        from: moment(goal.value.period_start).format('MMM D'),
+        to: moment(goal.value.period_end).format('MMM D, YYYY'),
+      });
     });
 
     const sortedBooks = computed(() => {

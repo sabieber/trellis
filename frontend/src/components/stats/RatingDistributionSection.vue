@@ -3,10 +3,10 @@
   <div class="lg:h-full lg:flex lg:flex-col">
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-3">
       <div class="flex items-baseline gap-2">
-        <h2 class="t-eyebrow">Ratings</h2>
+        <h2 class="t-eyebrow">{{ $t('stats.ratingsTitle') }}</h2>
         <span class="t-meta">{{ periodLabel }}</span>
       </div>
-      <span v-if="!loading && rated > 0" class="t-meta">{{ rated }} rated · avg {{ average }}</span>
+      <span v-if="!loading && rated > 0" class="t-meta">{{ $t('stats.ratedAvg', { count: rated, avg: average }) }}</span>
     </div>
 
     <div class="bg-surface border border-line rounded-md p-4 flex flex-col flex-1 justify-center">
@@ -14,7 +14,7 @@
         <span class="loading loading-spinner loading-sm"></span>
       </div>
       <div v-else-if="rated === 0" class="t-meta text-center py-14">
-        No rated books finished in this period.
+        {{ $t('stats.noRated') }}
       </div>
       <MiniBars v-else :bars="bars"/>
     </div>

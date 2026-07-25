@@ -525,19 +525,16 @@ pub(crate) async fn import_good_reads(
         }
     }
 
-    let message = if books_failed > 0 {
-        format!(
-            "Import complete. {} books added, {} already present, {} failed to insert, {} readings created.",
-            books_added, books_skipped, books_failed, readings_created
-        )
-    } else {
-        format!(
-            "Import complete. {} books added, {} already present, {} readings created.",
-            books_added, books_skipped, readings_created
-        )
-    };
-
-    (StatusCode::OK, Json(json!({ "message": message })))
+    // Return raw counts so the frontend can render a localized summary.
+    (
+        StatusCode::OK,
+        Json(json!({
+            "books_added": books_added,
+            "books_skipped": books_skipped,
+            "books_failed": books_failed,
+            "readings_created": readings_created,
+        })),
+    )
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="flex items-baseline gap-2 mb-3">
-      <h2 class="t-eyebrow">Key facts</h2>
+      <h2 class="t-eyebrow">{{ $t('stats.keyFacts') }}</h2>
       <span v-if="stats" class="t-meta">{{ periodLabel }}</span>
     </div>
 
@@ -10,59 +10,59 @@
     </div>
 
     <div v-else-if="!stats" class="t-meta text-center py-6">
-      Could not load statistics.
+      {{ $t('stats.couldNotLoad') }}
     </div>
 
     <div v-else class="grid grid-cols-2 md:grid-cols-3 gap-3.5">
       <StatCard
           :icon="BookOpenIcon"
-          label="Books read"
+          :label="$t('stats.booksRead')"
           :value="stats.books_read"
-          :subtext="`finished in ${finishedInLabel}`"
+          :subtext="$t('stats.finishedIn', { label: finishedInLabel })"
       />
       <StatCard
           :icon="DocumentTextIcon"
-          label="Pages read"
+          :label="$t('stats.pagesRead')"
           :value="formatNumber(stats.pages_read)"
-          :subtext="`~${pagesPerDay} per day`"
+          :subtext="$t('stats.perDay', { n: pagesPerDay })"
       />
       <StatCard
           :icon="PlusCircleIcon"
-          label="Books added"
+          :label="$t('stats.booksAdded')"
           :value="stats.books_added"
-          subtext="new in your library"
+          :subtext="$t('stats.newInLibrary')"
       />
       <StatCard
           :icon="CalendarDaysIcon"
-          label="Reading days"
+          :label="$t('stats.readingDays')"
           :value="stats.reading_days"
-          subtext="with logged progress"
+          :subtext="$t('stats.withProgress')"
       />
       <StatCard
           :icon="FireIcon"
-          label="Day streak"
+          :label="$t('stats.dayStreak')"
           :value="stats.reading_streak_days"
-          :subtext="stats.reading_streak_days === 1 ? 'day in a row' : 'days in a row'"
+          :subtext="$t('stats.daysInRow', stats.reading_streak_days)"
       />
       <StatCard
           v-if="stats.average_rating !== null"
           :icon="StarIcon"
-          label="Avg. rating"
+          :label="$t('stats.avgRating')"
           :value="stats.average_rating.toFixed(1)"
-          subtext="of finished books"
+          :subtext="$t('stats.ofFinished')"
       />
       <StatCard
           v-if="stats.avg_days_to_finish !== null"
           :icon="ClockIcon"
-          label="Days to finish"
+          :label="$t('stats.daysToFinish')"
           :value="stats.avg_days_to_finish.toFixed(stats.avg_days_to_finish < 10 ? 1 : 0)"
-          subtext="avg per finished book"
+          :subtext="$t('stats.avgPerFinished')"
       />
       <StatCard
           :icon="ScaleIcon"
-          label="Added vs finished"
+          :label="$t('stats.addedVsFinished')"
           :value="`${stats.books_added} / ${stats.books_read}`"
-          subtext="added / finished"
+          :subtext="$t('stats.addedFinished')"
       />
     </div>
   </div>

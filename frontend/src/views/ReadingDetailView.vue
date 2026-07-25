@@ -1,65 +1,64 @@
 <template>
-  <PageContainer title="Reading journal" ref="pageContainer">
+  <PageContainer :title="$t('readingDetail.title')" ref="pageContainer">
     <div v-if="loading" class="flex justify-center">
       <span class="loading loading-spinner loading-lg"></span>
     </div>
     <div v-else>
       <div class="bg-surface border border-line rounded-md p-4 mb-5">
         <div class="flex justify-between items-center">
-          <span class="t-meta">Started</span>
+          <span class="t-meta">{{ $t('readingDetail.started') }}</span>
           <div v-if="editingStartDate" class="flex items-center gap-2">
             <input type="date" v-model="startDateDraft" class="input input-sm" />
-            <button @click="saveStartDate" class="text-sm text-[#7a9e7e] hover:underline">Save</button>
-            <button @click="editingStartDate = false" class="text-sm text-[#c47556] hover:underline">Cancel</button>
+            <button @click="saveStartDate" class="text-sm text-[#7a9e7e] hover:underline">{{ $t('common.save') }}</button>
+            <button @click="editingStartDate = false" class="text-sm text-[#c47556] hover:underline">{{ $t('common.cancel') }}</button>
           </div>
           <div v-else class="flex items-center gap-2">
             <span class="text-sm text-ink">{{ startedAt }}</span>
-            <button @click="beginEditStartDate" class="text-sm text-[#7a9e7e] hover:underline">Edit</button>
+            <button @click="beginEditStartDate" class="text-sm text-[#7a9e7e] hover:underline">{{ $t('common.edit') }}</button>
           </div>
         </div>
       </div>
       <div v-if="entries.length">
-        <h2 class="t-eyebrow mb-3">Activity</h2>
+        <h2 class="t-eyebrow mb-3">{{ $t('readingDetail.activity') }}</h2>
         <ul class="flex flex-col gap-2.5">
           <li v-for="entry in entries" :key="entry.id" class="bg-surface border border-line rounded-md p-4">
             <div class="flex justify-between items-center">
               <span class="text-sm text-ink">{{ entry.read_at }}</span>
-              <span class="t-meta">page {{ entry.progress }}</span>
+              <span class="t-meta">{{ $t('readingDetail.page', { n: entry.progress }) }}</span>
             </div>
             <p class="t-meta mt-1">{{ entry.mode }}</p>
           </li>
         </ul>
       </div>
-      <div v-else class="t-meta text-center py-8">No entries found.</div>
-      <Button block class="mt-5" @click="showModal = true">Track Progress</Button>
+      <div v-else class="t-meta text-center py-8">{{ $t('readingDetail.noEntries') }}</div>
+      <Button block class="mt-5" @click="showModal = true">{{ $t('progressModal.title') }}</Button>
       <button
           @click="showAbandonConfirm = true"
           class="w-full mt-2 py-2.5 text-sm text-[#c47556] cursor-pointer hover:underline transition-colors duration-150"
       >
-        Abandon reading
+        {{ $t('readingDetail.abandonReading') }}
       </button>
       <button
           @click="showDeleteConfirm = true"
           class="w-full mt-2 py-2.5 text-sm text-[#c47556] cursor-pointer hover:underline transition-colors duration-150"
       >
-        Delete reading
+        {{ $t('readingDetail.deleteReading') }}
       </button>
     </div>
     <TrackProgressModal v-if="showModal" @close="showModal = false" @submit="trackProgress" @abandon="onAbandonFromModal"
                         :initialProgress="latestProgress" :totalPages="totalPages"/>
     <ConfirmDialog
         v-if="showAbandonConfirm"
-        title="Abandon Reading"
-        message="Are you sure you want to abandon this reading? It will be marked as not finished."
-        confirmLabel="Abandon"
+        :title="$t('readingDetail.abandonTitle')"
+        :message="$t('readingDetail.abandonMessage')"
+        :confirmLabel="$t('common.abandon')"
         @confirm="abandonReading"
         @cancel="showAbandonConfirm = false"
     />
     <ConfirmDialog
         v-if="showDeleteConfirm"
-        title="Delete Reading"
-        message="Are you sure you want to delete this reading session and all its entries? This cannot be undone."
-        confirmLabel="Delete"
+        :title="$t('bookDetail.deleteReadingTitle')"
+        :message="$t('bookDetail.deleteReadingMessage')"
         @confirm="deleteReading"
         @cancel="showDeleteConfirm = false"
     />
@@ -69,15 +68,18 @@
 <script lang="ts">
 import {defineComponent, ref, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
+import {useI18n} from 'vue-i18n';
 import TrackProgressModal from '@/components/TrackProgressModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import PageContainer from '@/components/PageContainer.vue';
 import Button from '@/components/ui/Button.vue';
 import {apiFetch} from '@/api/client';
+import {apiErrorMessage} from '@/utils/apiError';
 
 export default defineComponent({
   components: {TrackProgressModal, ConfirmDialog, PageContainer, Button},
   setup() {
+    const {t} = useI18n();
     const route = useRoute();
     const router = useRouter();
     const bookId = ref('');
@@ -128,11 +130,10 @@ export default defineComponent({
           fetchReadingEntries(route.params.id as string);
           showModal.value = false;
         } else {
-          const errorData = await response.json();
-          pageContainer.value?.showToast({message: errorData.error, type: 'alert-error'});
+          pageContainer.value?.showToast({message: apiErrorMessage(response.status, t), type: 'alert-error'});
         }
       } catch (error) {
-        pageContainer.value?.showToast({message: 'Failed to track progress.', type: 'alert-error'});
+        pageContainer.value?.showToast({message: t('error.network'), type: 'alert-error'});
       }
     };
 
@@ -146,11 +147,10 @@ export default defineComponent({
         if (response.ok) {
           router.replace({name: 'book-detail', params: {id: bookId.value}});
         } else {
-          const errorData = await response.json();
-          pageContainer.value?.showToast({message: errorData.error || 'Failed to delete reading.', type: 'alert-error'});
+          pageContainer.value?.showToast({message: apiErrorMessage(response.status, t), type: 'alert-error'});
         }
       } catch {
-        pageContainer.value?.showToast({message: 'Failed to delete reading.', type: 'alert-error'});
+        pageContainer.value?.showToast({message: t('error.network'), type: 'alert-error'});
       }
     };
 
@@ -169,11 +169,10 @@ export default defineComponent({
         if (response.ok) {
           router.replace({name: 'book-detail', params: {id: bookId.value}});
         } else {
-          const errorData = await response.json();
-          pageContainer.value?.showToast({message: errorData.error || 'Failed to abandon reading.', type: 'alert-error'});
+          pageContainer.value?.showToast({message: apiErrorMessage(response.status, t), type: 'alert-error'});
         }
       } catch {
-        pageContainer.value?.showToast({message: 'Failed to abandon reading.', type: 'alert-error'});
+        pageContainer.value?.showToast({message: t('error.network'), type: 'alert-error'});
       }
     };
 
@@ -192,11 +191,10 @@ export default defineComponent({
           startedAt.value = startDateDraft.value;
           editingStartDate.value = false;
         } else {
-          const errorData = await response.json();
-          pageContainer.value?.showToast({message: errorData.error || 'Failed to update start date.', type: 'alert-error'});
+          pageContainer.value?.showToast({message: apiErrorMessage(response.status, t), type: 'alert-error'});
         }
       } catch {
-        pageContainer.value?.showToast({message: 'Failed to update start date.', type: 'alert-error'});
+        pageContainer.value?.showToast({message: t('error.network'), type: 'alert-error'});
       }
     };
 

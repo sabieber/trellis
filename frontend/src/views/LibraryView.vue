@@ -2,19 +2,19 @@
   <div class="min-h-screen flex flex-col">
     <!-- Header -->
     <div class="flex justify-between items-center px-4 pt-5 pb-2">
-      <h1 class="t-display text-2xl">Library</h1>
+      <h1 class="t-display text-2xl">{{ $t('nav.library') }}</h1>
       <div class="flex items-center gap-2">
         <select v-model="sortBy" class="select select-sm w-36">
-          <option value="name">Name</option>
-          <option value="created_at">Created at</option>
-          <option value="updated_at">Updated at</option>
+          <option value="name">{{ $t('library.sortName') }}</option>
+          <option value="created_at">{{ $t('library.sortCreated') }}</option>
+          <option value="updated_at">{{ $t('library.sortUpdated') }}</option>
         </select>
         <CreateShelfModal @shelfCreated="fetchData"/>
       </div>
     </div>
 
     <div class="px-4 pb-3">
-      <p class="t-meta">{{ totalBooks }} books total</p>
+      <p class="t-meta">{{ $t('library.booksTotal', { count: totalBooks }) }}</p>
     </div>
 
     <!-- Loading -->
@@ -29,14 +29,14 @@
         <div class="flex justify-between items-center mb-3">
           <div class="flex items-baseline gap-2">
             <h2 class="t-title text-base leading-tight">{{ shelf.name }}</h2>
-            <span class="t-meta">{{ (shelfBooks[shelf.id] || []).length }} books</span>
+            <span class="t-meta">{{ $t('library.bookCount', { count: (shelfBooks[shelf.id] || []).length }) }}</span>
           </div>
           <div class="flex items-center gap-1">
             <Button variant="ghost" class="px-2! py-2! text-[13px]!" @click="confirmRemoveShelf(shelf.id)">
               <MinusIcon class="size-4"/>
             </Button>
             <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="goToShelf(shelf.id)">
-              See all
+              {{ $t('common.seeAll') }}
               <ChevronRightIcon class="size-4"/>
             </Button>
           </div>
@@ -76,19 +76,19 @@
               class="flex-none aspect-2/3 rounded-cover bg-surface border border-dashed border-line flex items-center justify-center cursor-pointer hoverable-card"
               :style="{ width: tileWidth + 'px' }"
           >
-            <span class="t-meta text-faint text-center px-1">Empty</span>
+            <span class="t-meta text-faint text-center px-1">{{ $t('library.empty') }}</span>
           </div>
         </div>
       </div>
 
-      <div v-if="!shelves.length" class="t-meta text-center py-10">No shelves yet.</div>
+      <div v-if="!shelves.length" class="t-meta text-center py-10">{{ $t('library.noShelves') }}</div>
     </div>
 
     <ConfirmDialog
         v-if="pendingDeleteShelfId"
-        title="Remove Shelf"
-        message="Are you sure you want to remove this shelf? Books only on this shelf may be deleted."
-        confirmLabel="Remove"
+        :title="$t('library.removeShelfTitle')"
+        :message="$t('library.removeShelfMessage')"
+        :confirmLabel="$t('common.remove')"
         @confirm="removeShelf"
         @cancel="pendingDeleteShelfId = null"
     />
@@ -105,12 +105,14 @@
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted, onUnmounted, watch, nextTick} from 'vue';
 import {useRouter} from 'vue-router';
+import {useI18n} from 'vue-i18n';
 import {MinusIcon, ChevronRightIcon} from '@heroicons/vue/24/outline';
 import CreateShelfModal from '@/components/CreateShelfModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
 import {apiFetch} from '@/api/client';
+import {apiErrorMessage} from '@/utils/apiError';
 
 import {bookCoverUrl} from '@/utils/coverUrl';
 import {useBookCovers} from '@/composables/useBookCovers';
@@ -118,6 +120,7 @@ import {useBookCovers} from '@/composables/useBookCovers';
 export default defineComponent({
   components: {CreateShelfModal, ConfirmDialog, MinusIcon, ChevronRightIcon, BookCover, Button},
   setup() {
+    const {t} = useI18n();
     const shelves = ref<Array<{
       id: string;
       name: string;
@@ -270,12 +273,12 @@ export default defineComponent({
           const map = {...shelfBooks.value};
           delete map[shelfId];
           shelfBooks.value = map;
-          showToast('Shelf removed.', 'alert-success');
+          showToast(t('library.shelfRemoved'), 'alert-success');
         } else {
-          showToast('Failed to remove shelf.', 'alert-error');
+          showToast(apiErrorMessage(res.status, t), 'alert-error');
         }
       } catch {
-        showToast('Failed to remove shelf.', 'alert-error');
+        showToast(t('error.network'), 'alert-error');
       }
     };
 
