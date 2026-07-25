@@ -28,22 +28,40 @@
         </div>
       </div>
     </div>
+
+    <div class="mt-6">
+      <h3 class="t-eyebrow mb-2">{{ $t('common.language') }}</h3>
+      <div class="bg-surface border border-line rounded-md p-4">
+        <SegmentedControl v-model="language" :options="languageOptions"/>
+      </div>
+    </div>
   </PageContainer>
 </template>
 
 <script lang="ts">
-import {defineComponent, ref} from 'vue';
+import {computed, defineComponent, ref} from 'vue';
 import {useRouter} from 'vue-router';
+import {useI18n} from 'vue-i18n';
 import PageContainer from '@/components/PageContainer.vue';
 import Button from '@/components/ui/Button.vue';
+import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import {PowerIcon} from "@heroicons/vue/24/outline";
 import {apiFetch} from '@/api/client';
 import {useAuthStore} from '@/stores/auth';
+import {setLocale, type Locale} from '@/i18n';
 
 export default defineComponent({
-  components: {PageContainer, PowerIcon, Button},
+  components: {PageContainer, PowerIcon, Button, SegmentedControl},
   setup() {
     const router = useRouter();
+    const {locale} = useI18n();
+
+    // Language names are shown as endonyms, so the labels don't get translated.
+    const languageOptions = [{value: 'en', label: 'English'}, {value: 'de', label: 'Deutsch'}];
+    const language = computed({
+      get: () => locale.value,
+      set: (value: string) => setLocale(value as Locale),
+    });
     const pageContainer = ref<any>(null);
     const selectedFile = ref<File | null>(null);
     const isUploading = ref(false);
@@ -94,7 +112,7 @@ export default defineComponent({
       }
     };
 
-    return {logout, pageContainer, handleFileChange, uploadFile, isUploading, importResult};
+    return {logout, pageContainer, handleFileChange, uploadFile, isUploading, importResult, language, languageOptions};
   }
 });
 </script>

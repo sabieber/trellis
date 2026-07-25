@@ -3,7 +3,8 @@
     "name": "Name",
     "password": "Passwort",
     "login": "Anmelden",
-    "logout": "Abmelden"
+    "logout": "Abmelden",
+    "language": "Sprache"
   },
   "error": {
     "network": "Verbindung zum Server fehlgeschlagen!",

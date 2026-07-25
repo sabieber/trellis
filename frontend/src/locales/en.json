@@ -3,7 +3,8 @@
     "name": "Name",
     "password": "Password",
     "login": "Log in",
-    "logout": "Log out"
+    "logout": "Log out",
+    "language": "Language"
   },
   "error": {
     "network": "Failed to connect to the server!",
