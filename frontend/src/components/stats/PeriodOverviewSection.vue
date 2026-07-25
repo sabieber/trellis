@@ -51,22 +51,38 @@
           :value="stats.average_rating.toFixed(1)"
           subtext="of finished books"
       />
+      <StatCard
+          v-if="stats.avg_days_to_finish !== null"
+          :icon="ClockIcon"
+          label="Days to finish"
+          :value="stats.avg_days_to_finish.toFixed(stats.avg_days_to_finish < 10 ? 1 : 0)"
+          subtext="avg per finished book"
+      />
+      <StatCard
+          :icon="ScaleIcon"
+          label="Added vs finished"
+          :value="`${stats.books_added} / ${stats.books_read}`"
+          subtext="added / finished"
+      />
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import {defineComponent, ref, computed, watch} from 'vue';
+import {defineComponent, computed, toRef} from 'vue';
 import {
   BookOpenIcon,
   CalendarDaysIcon,
+  ClockIcon,
   DocumentTextIcon,
   FireIcon,
   PlusCircleIcon,
+  ScaleIcon,
   StarIcon,
 } from '@heroicons/vue/24/outline';
 import StatCard from '@/components/stats/StatCard.vue';
-import {apiFetch} from '@/api/client';
+import {usePeriodResource} from '@/composables/usePeriodResource';
+import {formatPeriod} from '@/utils/period';
 import moment from 'moment';
 
 interface PeriodOverview {
@@ -79,6 +95,7 @@ interface PeriodOverview {
   reading_days: number;
   reading_streak_days: number;
   average_rating: number | null;
+  avg_days_to_finish: number | null;
 }
 
 export default defineComponent({
@@ -98,38 +115,14 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const stats = ref<PeriodOverview | null>(null);
-    const loading = ref(true);
-
-    const fetchStats = async () => {
-      loading.value = true;
-      try {
-        const res = await apiFetch('/api/stats/overview', {
-          method: 'POST',
-          body: JSON.stringify({
-            mode: props.mode,
-            year: props.year,
-            month: props.mode === 'month' ? props.month : undefined,
-          }),
-        });
-        if (res.ok) {
-          stats.value = await res.json();
-        } else {
-          stats.value = null;
-        }
-      } catch (e) {
-        console.error('Failed to fetch overview stats:', e);
-        stats.value = null;
-      } finally {
-        loading.value = false;
-      }
-    };
-
-    const periodLabel = computed(() =>
-        props.mode === 'year'
-            ? `${props.year}`
-            : moment().year(props.year).month(props.month - 1).format('MMM YYYY'),
+    const {data: stats, loading} = usePeriodResource<PeriodOverview>(
+        '/api/stats/overview',
+        toRef(props, 'mode'),
+        toRef(props, 'year'),
+        toRef(props, 'month'),
     );
+
+    const periodLabel = computed(() => formatPeriod(props.mode, props.year, props.month));
 
     const finishedInLabel = computed(() =>
         props.mode === 'year' ? `${props.year}` : moment().month(props.month - 1).format('MMM'),
@@ -152,8 +145,6 @@ export default defineComponent({
 
     const formatNumber = (n: number) => n.toLocaleString();
 
-    watch(() => [props.mode, props.year, props.month], fetchStats, {immediate: true});
-
     return {
       stats,
       loading,
@@ -163,9 +154,11 @@ export default defineComponent({
       formatNumber,
       BookOpenIcon,
       CalendarDaysIcon,
+      ClockIcon,
       DocumentTextIcon,
       FireIcon,
       PlusCircleIcon,
+      ScaleIcon,
       StarIcon,
     };
   },
