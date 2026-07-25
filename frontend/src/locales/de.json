@@ -172,7 +172,12 @@
     "pagesAbbr": "{count} S.",
     "emptyTitle": "Hier ist noch nichts gewachsen",
     "emptyHint": "Suche nach Titel, Autor oder ISBN, um Bücher zu finden.",
-    "trending": "Gerade beliebt"
+    "trending": "Gerade beliebt",
+    "source": {
+      "library": "Bibliothek",
+      "google": "Google",
+      "openlibrary": "Open Library"
+    }
   },
   "scanner": {
     "pointCamera": "Kamera auf einen Barcode richten…",

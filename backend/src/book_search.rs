@@ -1,4 +1,6 @@
 use crate::auth::AuthUser;
+use crate::db::connect;
+use crate::models::Book;
 use axum::{
     extract::{Path, Query},
     http::StatusCode,
@@ -6,10 +8,13 @@ use axum::{
     routing::get,
     Json, Router,
 };
+use diesel::prelude::*;
+use diesel::PgTextExpressionMethods;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NormalizedBook {
@@ -41,20 +46,122 @@ pub struct SearchQuery {
 }
 
 pub(crate) async fn unified_search(
-    _auth: AuthUser,
+    auth: AuthUser,
     Query(params): Query<SearchQuery>,
 ) -> impl IntoResponse {
     let client = Client::new();
     let query = params.query.clone();
+
+    // The user's own library first, so owned books can win dedup and sort to top.
+    let library = library_search(auth.0, &query);
+    let lib_keys: Vec<Vec<String>> = library.iter().map(keys_for_library_book).collect();
+    let lib_normalized: Vec<NormalizedBook> = library.iter().map(library_to_normalized).collect();
 
     let google_future = google_search(client.clone(), query.clone());
     let ol_future = crate::open_library_client::search(&client, &query);
 
     let (google_results, ol_results) = tokio::join!(google_future, ol_future);
 
-    let merged = merge_results(google_results, ol_results);
+    let external = merge_results(google_results, ol_results);
+    let merged = merge_with_library(lib_normalized, lib_keys, external);
 
     (StatusCode::OK, Json(json!(merged)))
+}
+
+/// ILIKE-matches the user's own books on title or author. No full-text index —
+/// a personal library is small enough for a substring scan.
+fn library_search(user_id: Uuid, query: &str) -> Vec<Book> {
+    use crate::schema::books::dsl as b;
+    let conn = &mut connect();
+    let pattern = format!("%{}%", query);
+    b::books
+        .filter(b::user.eq(user_id))
+        .filter(b::title.ilike(&pattern).or(b::author.ilike(&pattern)))
+        .limit(25)
+        .load::<Book>(conn)
+        .unwrap_or_default()
+}
+
+fn library_to_normalized(book: &Book) -> NormalizedBook {
+    NormalizedBook {
+        id: book.id.to_string(),
+        source: "library".to_string(),
+        source_id: book.id.to_string(),
+        title: book.title.clone().unwrap_or_default(),
+        authors: book.author.clone().map(|a| vec![a]).unwrap_or_default(),
+        cover_url: book.cover_url.clone(),
+        published_year: None,
+        page_count: book.page_count.map(|p| p as u32),
+        category: None,
+        description: None,
+        average_rating: None,
+        isbn13: book.isbn13.clone(),
+        isbn10: book.isbn10.clone(),
+    }
+}
+
+/// Cross-source identity keys for an owned book: ISBNs plus the stored Google /
+/// Open Library ids, so an owned book can be matched against an external hit
+/// even when they don't share an ISBN.
+fn keys_for_library_book(book: &Book) -> Vec<String> {
+    let mut keys = Vec::new();
+    if let Some(v) = &book.isbn13 {
+        keys.push(format!("isbn:{v}"));
+    }
+    if let Some(v) = &book.isbn10 {
+        keys.push(format!("isbn:{v}"));
+    }
+    if let Some(v) = &book.google_books_id {
+        keys.push(format!("google:{v}"));
+    }
+    if let Some(v) = &book.open_library_id {
+        keys.push(format!("ol:{v}"));
+    }
+    keys
+}
+
+fn external_keys(book: &NormalizedBook) -> Vec<String> {
+    let mut keys = Vec::new();
+    if let Some(v) = &book.isbn13 {
+        keys.push(format!("isbn:{v}"));
+    }
+    if let Some(v) = &book.isbn10 {
+        keys.push(format!("isbn:{v}"));
+    }
+    match book.source.as_str() {
+        "google" => keys.push(format!("google:{}", book.source_id)),
+        "openlibrary" => keys.push(format!("ol:{}", book.source_id)),
+        _ => {}
+    }
+    keys
+}
+
+/// Prepends the user's library and folds external results into it: an external
+/// hit matching an owned book (by any identity key) enriches that owned row's
+/// missing fields and is dropped; unmatched hits are appended.
+fn merge_with_library(
+    library: Vec<NormalizedBook>,
+    library_keys: Vec<Vec<String>>,
+    external: Vec<NormalizedBook>,
+) -> Vec<NormalizedBook> {
+    let mut key_to_idx: HashMap<String, usize> = HashMap::new();
+    for (i, keys) in library_keys.iter().enumerate() {
+        for key in keys {
+            key_to_idx.entry(key.clone()).or_insert(i);
+        }
+    }
+
+    let mut results = library;
+    for ext in external {
+        match external_keys(&ext)
+            .into_iter()
+            .find_map(|k| key_to_idx.get(&k).copied())
+        {
+            Some(idx) => enrich_from_ol(&mut results[idx], &ext),
+            None => results.push(ext),
+        }
+    }
+    results
 }
 
 pub(crate) async fn trending(_auth: AuthUser) -> impl IntoResponse {
@@ -243,6 +350,12 @@ fn enrich_from_ol(target: &mut NormalizedBook, ol: &NormalizedBook) {
     }
     if target.isbn10.is_none() && ol.isbn10.is_some() {
         target.isbn10 = ol.isbn10.clone();
+    }
+    if target.published_year.is_none() && ol.published_year.is_some() {
+        target.published_year = ol.published_year.clone();
+    }
+    if target.average_rating.is_none() && ol.average_rating.is_some() {
+        target.average_rating = ol.average_rating;
     }
 }
 
@@ -484,6 +597,65 @@ mod tests {
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].cover_url, Some("http://ol.com/cover.jpg".into()));
         assert_eq!(merged[0].page_count, Some(300));
+    }
+
+    fn nb(source: &str, source_id: &str, isbn13: Option<&str>) -> NormalizedBook {
+        NormalizedBook {
+            id: format!("{source}:{source_id}"),
+            source: source.into(),
+            source_id: source_id.into(),
+            title: "T".into(),
+            authors: vec![],
+            cover_url: None,
+            published_year: None,
+            page_count: None,
+            category: None,
+            description: None,
+            average_rating: None,
+            isbn13: isbn13.map(String::from),
+            isbn10: None,
+        }
+    }
+
+    #[test]
+    fn library_book_wins_and_is_enriched() {
+        let mut lib = nb("library", "uuid1", Some("9781234567890"));
+        lib.id = "uuid1".into();
+        let keys = vec![vec!["isbn:9781234567890".to_string()]];
+
+        let mut ext = nb("google", "vol1", Some("9781234567890"));
+        ext.cover_url = Some("http://c/cover.jpg".into());
+        ext.published_year = Some("2001".into());
+
+        let merged = merge_with_library(vec![lib], keys, vec![ext]);
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].source, "library");
+        assert_eq!(merged[0].id, "uuid1"); // library id preserved for /book/:id routing
+        assert_eq!(merged[0].cover_url, Some("http://c/cover.jpg".into()));
+        assert_eq!(merged[0].published_year, Some("2001".into()));
+    }
+
+    #[test]
+    fn library_matches_external_by_google_id_without_isbn() {
+        let mut lib = nb("library", "uuid1", None);
+        lib.id = "uuid1".into();
+        let keys = vec![vec!["google:vol1".to_string()]];
+
+        let merged = merge_with_library(vec![lib], keys, vec![nb("google", "vol1", None)]);
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].source, "library");
+    }
+
+    #[test]
+    fn distinct_library_and_external_both_kept_library_first() {
+        let mut lib = nb("library", "uuid1", Some("1111111111111"));
+        lib.id = "uuid1".into();
+        let keys = vec![vec!["isbn:1111111111111".to_string()]];
+
+        let merged = merge_with_library(vec![lib], keys, vec![nb("google", "vol1", Some("2222222222222"))]);
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].source, "library");
+        assert_eq!(merged[1].source, "google");
     }
 
     #[tokio::test]

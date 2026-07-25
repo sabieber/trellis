@@ -48,7 +48,13 @@
               hoverable
           />
           <div class="min-w-0 flex flex-col justify-center">
-            <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
+            <div class="flex items-center gap-2 min-w-0">
+              <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
+              <span
+                  class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border"
+                  :class="book.source === 'library' ? 'border-green/40 text-green-soft' : 'border-line text-muted'"
+              >{{ sourceLabel(book.source) }}</span>
+            </div>
             <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
             <p class="t-meta mt-1">
               {{ book.published_year }}
@@ -80,7 +86,13 @@
               hoverable
           />
           <div class="min-w-0 flex flex-col justify-center">
-            <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
+            <div class="flex items-center gap-2 min-w-0">
+              <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
+              <span
+                  class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border"
+                  :class="book.source === 'library' ? 'border-green/40 text-green-soft' : 'border-line text-muted'"
+              >{{ sourceLabel(book.source) }}</span>
+            </div>
             <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
             <p class="t-meta mt-1">
               {{ book.published_year }}
@@ -96,6 +108,7 @@
 
 <script lang="ts">
 import {defineComponent, ref, onMounted} from 'vue';
+import {useI18n} from 'vue-i18n';
 import {useRouter, useRoute} from 'vue-router';
 import {MagnifyingGlassIcon, QrCodeIcon} from '@heroicons/vue/24/outline';
 import BookCover from '@/components/ui/BookCover.vue';
@@ -114,6 +127,7 @@ export default defineComponent({
     const showScanner = ref(false);
     const router = useRouter();
     const route = useRoute();
+    const {t} = useI18n();
 
     const searchBooksWrapper = async () => {
       if (!query.value.trim()) return;
@@ -125,8 +139,17 @@ export default defineComponent({
     };
 
     const viewBookDetail = (book: BookSearchResult) => {
-      router.push({name: 'search-detail', params: {id: book.id}});
+      // Owned books already have a real row — go to their detail page, not the
+      // external-lookup search-detail view (which would 404 on a UUID).
+      if (book.source === 'library') {
+        router.push({name: 'book-detail', params: {id: book.id}});
+      } else {
+        router.push({name: 'search-detail', params: {id: book.id}});
+      }
     };
+
+    const sourceLabel = (source: BookSearchResult['source']) =>
+        t(`search.source.${source}`);
 
     const onBarcodeDetected = (code: string) => {
       query.value = code;
@@ -153,6 +176,7 @@ export default defineComponent({
       showScanner,
       searchBooks: searchBooksWrapper,
       viewBookDetail,
+      sourceLabel,
       onBarcodeDetected,
     };
   },

@@ -172,7 +172,12 @@
     "pagesAbbr": "{count} pp",
     "emptyTitle": "Nothing's grown here yet",
     "emptyHint": "Search by title, author, or ISBN to find books.",
-    "trending": "Trending now"
+    "trending": "Trending now",
+    "source": {
+      "library": "Library",
+      "google": "Google",
+      "openlibrary": "Open Library"
+    }
   },
   "scanner": {
     "pointCamera": "Point camera at a barcode…",

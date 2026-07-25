@@ -1,6 +1,6 @@
 export interface BookSearchResult {
   id: string
-  source: 'google' | 'openlibrary'
+  source: 'google' | 'openlibrary' | 'library'
   source_id: string
   title: string
   authors: string[]
