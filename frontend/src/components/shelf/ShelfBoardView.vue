@@ -8,9 +8,11 @@
             :title="book.title"
             :author="book.author"
             :page-count="book.page_count"
-            :cover-url="book.cover_url"
+            :cover-url="resolvedCoverUrl(book.id, bookCoverUrl(book))"
+            :book-id="book.id"
             :height="spineHeight"
             @click="$emit('viewBook', book.id)"
+            @resolve-cover="onResolveCover"
         />
       </div>
       <div class="shelf-board"></div>
@@ -22,7 +24,11 @@
 import {computed} from 'vue';
 import BookSpine from '@/components/ui/BookSpine.vue';
 import {spineWidth} from '@/utils/bookColorway';
+import {bookCoverUrl} from '@/utils/coverUrl';
+import {useBookCovers} from '@/composables/useBookCovers';
 import type {ShelfBook} from '@/types/shelf';
+
+const {resolvedCoverUrl, onResolveCover} = useBookCovers();
 
 const SHELF_GAP = 3;
 

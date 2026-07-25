@@ -1,7 +1,7 @@
 <template>
   <div
       class="spine"
-      :class="{ 'has-cover': !!coverUrl }"
+      :class="{ 'has-cover': showCover }"
       :style="{
         width: width + 'px',
         height: actualHeight + 'px',
@@ -9,11 +9,15 @@
         color: colors.text,
       }"
   >
-    <div
-        v-if="coverUrl"
+    <img
+        v-if="showCover"
         class="spine-cover"
-        :style="{ backgroundImage: `url(${coverUrl})` }"
-    ></div>
+        :src="coverUrl ?? undefined"
+        :alt="title"
+        loading="lazy"
+        @error="onError"
+        @load="onLoad"
+    />
     <span class="spine-title">{{ title }}</span>
   </div>
 </template>
@@ -27,6 +31,7 @@ import {
   spineHeightOffset,
   type Colorway
 } from '@/utils/bookColorway';
+import {useCoverImage} from '@/composables/useCoverImage';
 
 const props = withDefaults(
     defineProps<{
@@ -36,9 +41,23 @@ const props = withDefaults(
       pageCount?: number | null;
       coverUrl?: string | null;
       height?: number;
+      /** Internal book UUID; when set, emit `resolve-cover` on image failure so parent can look up the real cover. */
+      bookId?: string | null;
     }>(),
-    {author: '', colorway: '', pageCount: null, coverUrl: null, height: 200},
+    {author: '', colorway: '', pageCount: null, coverUrl: null, height: 200, bookId: null},
 );
+
+const emit = defineEmits<{
+  'resolve-cover': [bookId: string];
+}>();
+
+const {imgFailed, onError, onLoad} = useCoverImage(
+    () => props.coverUrl,
+    () => props.bookId,
+    (id) => emit('resolve-cover', id),
+);
+
+const showCover = computed(() => props.coverUrl && !imgFailed.value);
 
 const width = computed(() => spineWidth(props.title, props.pageCount));
 
@@ -77,11 +96,12 @@ const colors = computed(() => {
 .spine-cover {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: center;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   /* Dim + slight blur so the narrow centre-crop reads as a muted spine texture
      rather than awkwardly sliced cover text, and stays consistent across books. */
-  filter: brightness(0.42) saturate(0.85) blur(2px);
+  filter: brightness(0.42) saturate(0.85) blur(1.4px);
 }
 
 /* Cylindrical shading: darkened edges + off-centre highlight so the spine

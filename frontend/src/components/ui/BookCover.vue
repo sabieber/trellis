@@ -16,8 +16,8 @@
         :src="coverUrl"
         :alt="title"
         loading="lazy"
-        @error="onImgError"
-        @load="onImgLoad"
+        @error="onError"
+        @load="onLoad"
     />
     <template v-else-if="isTiny">
       <span class="cv-init">{{ (title || '?').charAt(0) }}</span>
@@ -34,7 +34,8 @@
 </template>
 
 <script setup lang="ts">
-import {computed, ref, watch} from 'vue';
+import {computed} from 'vue';
+import {useCoverImage} from '@/composables/useCoverImage';
 
 const props = withDefaults(
     defineProps<{
@@ -58,27 +59,11 @@ const emit = defineEmits<{
 
 const WAYS = ['moss', 'clay', 'ink', 'plum', 'gold', 'char', 'sage', 'rust', 'teal', 'navy'];
 
-// Google Books serves a fixed 128×170 "image not available" placeholder for
-// books without cover art; treat it as missing so the typographic cover shows.
-// OpenLibrary returns a 1×1 GIF when a cover does not exist.
-const imgFailed = ref(false);
-watch(() => props.coverUrl, () => {
-  imgFailed.value = false;
-});
-
-const markFailed = () => {
-  imgFailed.value = true;
-  if (props.bookId) emit('resolve-cover', props.bookId);
-};
-
-const onImgError = () => markFailed();
-
-const onImgLoad = (e: Event) => {
-  const img = e.target as HTMLImageElement;
-  if ((img.naturalWidth === 128 && img.naturalHeight === 170) || img.naturalWidth <= 1 || img.naturalHeight <= 1) {
-    markFailed();
-  }
-};
+const {imgFailed, onError, onLoad} = useCoverImage(
+    () => props.coverUrl,
+    () => props.bookId,
+    (id) => emit('resolve-cover', id),
+);
 
 const cw = computed(() => {
   if (props.colorway) return `cv--${props.colorway}`;
