@@ -8,7 +8,17 @@ updates:
     directory: "/backend"
     schedule:
       interval: daily
+    cooldown:
+      default-days: 2
+      semver-major-days: 14
+      semver-minor-days: 5
+      semver-patch-days: 2
   - package-ecosystem: npm
     directory: "/frontend"
     schedule:
       interval: daily
+    cooldown:
+      default-days: 2
+      semver-major-days: 14
+      semver-minor-days: 5
+      semver-patch-days: 2
