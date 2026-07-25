@@ -22,6 +22,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/readings/active", post(list_active_readings))
         .route("/api/readings/delete", post(delete_reading))
         .route("/api/readings/update-started-at", post(update_started_at))
+        .route("/api/readings/cancel", post(cancel_reading))
 }
 
 #[derive(Debug, Deserialize)]
@@ -419,6 +420,41 @@ pub(crate) async fn update_started_at(
     }
 }
 
+pub(crate) async fn cancel_reading(
+    auth: AuthUser,
+    Json(payload): Json<ReadingRequest>,
+) -> impl IntoResponse {
+    let connection = &mut connect();
+
+    let reading_id = match parse_uuid(&payload.reading_id, "reading ID") {
+        Ok(id) => id,
+        Err(e) => return e,
+    };
+
+    if let Err(e) = find_reading_for_user(reading_id, &auth, connection) {
+        return e;
+    }
+
+    match diesel::update(readings.filter(schema::readings::dsl::id.eq(reading_id)))
+        .set((
+            schema::readings::dsl::cancelled_at.eq(chrono::Utc::now().date_naive()),
+            schema::readings::dsl::updated_at.eq(chrono::Utc::now().naive_utc()),
+        ))
+        .execute(connection)
+    {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({ "message": "Reading cancelled successfully." })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Error cancelling reading: {}", e)
+            })),
+        ),
+    }
+}
+
 pub(crate) async fn delete_reading(
     auth: AuthUser,
     Json(payload): Json<ReadingRequest>,
@@ -504,6 +540,22 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/api/books/reading")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_cancel_reading_requires_auth() {
+        let app = Router::new().route("/api/readings/cancel", post(cancel_reading));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/readings/cancel")
                     .body(Body::empty())
                     .unwrap(),
             )

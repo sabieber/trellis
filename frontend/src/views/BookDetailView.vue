@@ -93,7 +93,10 @@
                 <span class="text-sm text-ink group-hover:text-green-soft transition-colors duration-150">{{
                     formatDate(reading.started_at)
                   }}</span>
-                <span class="t-meta group-hover:text-green-soft transition-colors duration-150">{{ reading.progress }} / {{ reading.total_pages }} pages</span>
+                <span class="flex items-center gap-2">
+                  <span class="badge badge-sm" :class="readingState(reading).badgeClass">{{ readingState(reading).label }}</span>
+                  <span class="t-meta group-hover:text-green-soft transition-colors duration-150">{{ reading.progress }} / {{ reading.total_pages }} pages</span>
+                </span>
               </div>
               <button
                   @click.stop="confirmDeleteReading(reading.id)"
@@ -196,6 +199,7 @@ export default defineComponent({
       id: string;
       started_at: string;
       finished_at: string | null;
+      cancelled_at: string | null;
       progress: number;
       total_pages: number
     }>>([]);
@@ -430,6 +434,12 @@ export default defineComponent({
 
     const formatDate = (date: string) => moment(date).format('LL');
 
+    const readingState = (reading: { finished_at: string | null; cancelled_at: string | null }) => {
+      if (reading.cancelled_at) return {label: 'Abandoned', badgeClass: 'badge-neutral'};
+      if (reading.finished_at) return {label: 'Finished', badgeClass: 'badge-success'};
+      return {label: 'Reading', badgeClass: 'badge-warning'};
+    };
+
     const sourceUrl = computed(() => {
       if (!book.value) return null;
       if (book.value.source === 'google') {
@@ -495,6 +505,7 @@ export default defineComponent({
       isValidPageCount,
       savePageCount,
       formatDate,
+      readingState,
       sourceUrl,
       goodreadsUrl,
       amazonUrl,

@@ -33,14 +33,28 @@
       <div v-else class="t-meta text-center py-8">No entries found.</div>
       <Button block class="mt-5" @click="showModal = true">Track Progress</Button>
       <button
+          @click="showAbandonConfirm = true"
+          class="w-full mt-2 py-2.5 text-sm text-[#c47556] cursor-pointer hover:underline transition-colors duration-150"
+      >
+        Abandon reading
+      </button>
+      <button
           @click="showDeleteConfirm = true"
           class="w-full mt-2 py-2.5 text-sm text-[#c47556] cursor-pointer hover:underline transition-colors duration-150"
       >
         Delete reading
       </button>
     </div>
-    <TrackProgressModal v-if="showModal" @close="showModal = false" @submit="trackProgress"
+    <TrackProgressModal v-if="showModal" @close="showModal = false" @submit="trackProgress" @abandon="onAbandonFromModal"
                         :initialProgress="latestProgress" :totalPages="totalPages"/>
+    <ConfirmDialog
+        v-if="showAbandonConfirm"
+        title="Abandon Reading"
+        message="Are you sure you want to abandon this reading? It will be marked as not finished."
+        confirmLabel="Abandon"
+        @confirm="abandonReading"
+        @cancel="showAbandonConfirm = false"
+    />
     <ConfirmDialog
         v-if="showDeleteConfirm"
         title="Delete Reading"
@@ -71,6 +85,7 @@ export default defineComponent({
     const loading = ref(true);
     const showModal = ref(false);
     const showDeleteConfirm = ref(false);
+    const showAbandonConfirm = ref(false);
     const latestProgress = ref(0);
     const totalPages = ref(0);
     const pageContainer = ref<any>(null);
@@ -139,6 +154,29 @@ export default defineComponent({
       }
     };
 
+    const onAbandonFromModal = () => {
+      showModal.value = false;
+      showAbandonConfirm.value = true;
+    };
+
+    const abandonReading = async () => {
+      showAbandonConfirm.value = false;
+      try {
+        const response = await apiFetch('/api/readings/cancel', {
+          method: 'POST',
+          body: JSON.stringify({reading_id: route.params.id}),
+        });
+        if (response.ok) {
+          router.replace({name: 'book-detail', params: {id: bookId.value}});
+        } else {
+          const errorData = await response.json();
+          pageContainer.value?.showToast({message: errorData.error || 'Failed to abandon reading.', type: 'alert-error'});
+        }
+      } catch {
+        pageContainer.value?.showToast({message: 'Failed to abandon reading.', type: 'alert-error'});
+      }
+    };
+
     const beginEditStartDate = () => {
       startDateDraft.value = startedAt.value;
       editingStartDate.value = true;
@@ -172,8 +210,11 @@ export default defineComponent({
       loading,
       showModal,
       showDeleteConfirm,
+      showAbandonConfirm,
       trackProgress,
       deleteReading,
+      onAbandonFromModal,
+      abandonReading,
       latestProgress,
       totalPages,
       pageContainer,

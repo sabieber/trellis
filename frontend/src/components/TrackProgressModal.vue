@@ -12,10 +12,15 @@
           <BookProgressInput v-if="totalPages > 0" v-model="progress" :total-pages="totalPages" />
           <input v-else type="number" v-model="progress" class="input w-full" ref="progressInput" required />
         </fieldset>
-        <div class="modal-action mt-0 gap-2">
-          <Button type="submit" class="flex-1">Submit</Button>
-          <Button v-if="totalPages > 0" variant="soft" type="submit" class="flex-1" @click="finishBook">Finish</Button>
-          <Button variant="ghost" type="button" @click="$emit('close')">Cancel</Button>
+        <div class="modal-action mt-0 flex-col gap-2">
+          <div class="flex w-full gap-2">
+            <Button type="submit" class="flex-1">Submit</Button>
+            <Button v-if="totalPages > 0" variant="soft" type="submit" class="flex-1" @click="finishBook">Finish</Button>
+          </div>
+          <div class="flex w-full gap-2">
+            <Button variant="ghost" type="button" class="flex-1" @click="$emit('abandon')">Abandon</Button>
+            <Button variant="ghost" type="button" class="flex-1" @click="$emit('close')">Cancel</Button>
+          </div>
         </div>
       </form>
     </div>
