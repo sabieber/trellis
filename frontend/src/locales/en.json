@@ -1,0 +1,27 @@
+{
+  "common": {
+    "name": "Name",
+    "password": "Password",
+    "login": "Log in",
+    "logout": "Log out"
+  },
+  "error": {
+    "network": "Failed to connect to the server!",
+    "badRequest": "That request could not be processed.",
+    "unauthorized": "Invalid name or password.",
+    "forbidden": "You don't have access to that.",
+    "notFound": "Not found.",
+    "conflict": "That already exists.",
+    "server": "Something went wrong. Please try again."
+  },
+  "auth": {
+    "tagline": "a garden library",
+    "introSignup": "Plant your shelves and watch a reading life take root.",
+    "introSignin": "Welcome back — your books have been waiting.",
+    "forgotPassword": "Forgot password?",
+    "createAccount": "Create account",
+    "newToTrellis": "New to trellis?",
+    "alreadyGrowing": "Already growing a library?",
+    "createAnAccount": "Create an account"
+  }
+}

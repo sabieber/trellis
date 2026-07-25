@@ -1,0 +1,27 @@
+{
+  "common": {
+    "name": "Name",
+    "password": "Passwort",
+    "login": "Anmelden",
+    "logout": "Abmelden"
+  },
+  "error": {
+    "network": "Verbindung zum Server fehlgeschlagen!",
+    "badRequest": "Die Anfrage konnte nicht verarbeitet werden.",
+    "unauthorized": "Ungültiger Name oder Passwort.",
+    "forbidden": "Dazu hast du keinen Zugriff.",
+    "notFound": "Nicht gefunden.",
+    "conflict": "Das existiert bereits.",
+    "server": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+  },
+  "auth": {
+    "tagline": "eine Bibliothek zum Wachsen",
+    "introSignup": "Lege deine Regale an und sieh zu, wie ein Leseleben Wurzeln schlägt.",
+    "introSignin": "Willkommen zurück — deine Bücher haben auf dich gewartet.",
+    "forgotPassword": "Passwort vergessen?",
+    "createAccount": "Konto erstellen",
+    "newToTrellis": "Neu bei trellis?",
+    "alreadyGrowing": "Schon eine Bibliothek am Wachsen?",
+    "createAnAccount": "Konto erstellen"
+  }
+}

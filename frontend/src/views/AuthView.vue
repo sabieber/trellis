@@ -3,11 +3,9 @@
     <div class="flex flex-col items-center mb-8">
       <img src="/logo.svg" class="size-20 rounded-full shadow-soft" alt="trellis"/>
       <h1 class="t-display text-4xl mt-4">trellis</h1>
-      <p class="t-italic text-green-soft text-lg mt-1">a garden library</p>
+      <p class="t-italic text-green-soft text-lg mt-1">{{ $t('auth.tagline') }}</p>
       <p class="t-meta text-center max-w-65 mt-3.5 leading-relaxed">
-        {{
-          activeTab === 'signup' ? 'Plant your shelves and watch a reading life take root.' : 'Welcome back — your books have been waiting.'
-        }}
+        {{ activeTab === 'signup' ? $t('auth.introSignup') : $t('auth.introSignin') }}
       </p>
     </div>
 
@@ -18,7 +16,7 @@
 
     <div class="w-full max-w-sm flex flex-col gap-4">
       <div class="flex flex-col gap-1">
-        <label class="t-meta">Name</label>
+        <label class="t-meta">{{ $t('common.name') }}</label>
         <input
             type="text"
             class="input w-full"
@@ -30,8 +28,8 @@
 
       <div class="flex flex-col gap-1">
         <div class="flex justify-between items-center">
-          <label class="t-meta">Password</label>
-          <a v-if="activeTab === 'signin'" class="t-meta text-green-soft hover:text-green transition-colors duration-150 cursor-pointer">Forgot password?</a>
+          <label class="t-meta">{{ $t('common.password') }}</label>
+          <a v-if="activeTab === 'signin'" class="t-meta text-green-soft hover:text-green transition-colors duration-150 cursor-pointer">{{ $t('auth.forgotPassword') }}</a>
         </div>
         <input
             type="password"
@@ -44,16 +42,16 @@
       </div>
 
       <Button block class="mt-2" @click="submit">
-        {{ activeTab === 'signin' ? 'Log in' : 'Create account' }}
+        {{ activeTab === 'signin' ? $t('common.login') : $t('auth.createAccount') }}
       </Button>
 
       <p class="t-meta text-center mt-4">
-        {{ activeTab === 'signin' ? 'New to trellis?' : 'Already growing a library?' }}
+        {{ activeTab === 'signin' ? $t('auth.newToTrellis') : $t('auth.alreadyGrowing') }}
         <button
             class="text-green-soft font-semibold hover:text-green transition-colors duration-150 cursor-pointer ml-1"
             @click="switchTab(activeTab === 'signin' ? 'signup' : 'signin')"
         >
-          {{ activeTab === 'signin' ? 'Create an account' : 'Log in' }}
+          {{ activeTab === 'signin' ? $t('auth.createAnAccount') : $t('common.login') }}
         </button>
       </p>
     </div>
@@ -65,13 +63,16 @@ import {defineComponent, ref, watch} from 'vue';
 import {useRoute} from 'vue-router';
 import {ExclamationTriangleIcon} from '@heroicons/vue/24/outline';
 import router from '@/router';
+import {useI18n} from 'vue-i18n';
 import {useAuthStore} from '@/stores/auth';
 import {API_BASE_URL} from '@/api/config';
+import {apiErrorMessage} from '@/utils/apiError';
 import Button from '@/components/ui/Button.vue';
 
 export default defineComponent({
   components: {ExclamationTriangleIcon, Button},
   setup() {
+    const {t} = useI18n();
     const route = useRoute();
     const activeTab = ref<'signin' | 'signup'>(route.name === 'register' ? 'signup' : 'signin');
     const username = ref('');
@@ -100,11 +101,10 @@ export default defineComponent({
           auth.setAuth(data.token, data.user_id);
           router.push('/');
         } else {
-          const data: { error: string } = await response.json();
-          errorMessage.value = data.error;
+          errorMessage.value = apiErrorMessage(response.status, t);
         }
       } catch {
-        errorMessage.value = 'Failed to connect to the server!';
+        errorMessage.value = t('error.network');
       }
     };
 
@@ -118,11 +118,10 @@ export default defineComponent({
         if (response.ok) {
           await login();
         } else {
-          const data: { error: string } = await response.json();
-          errorMessage.value = data.error;
+          errorMessage.value = apiErrorMessage(response.status, t);
         }
       } catch {
-        errorMessage.value = 'Failed to connect to the server!';
+        errorMessage.value = t('error.network');
       }
     };
 
