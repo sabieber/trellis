@@ -64,7 +64,7 @@
         class="sm:hidden fixed bottom-0 inset-x-0 z-10 flex justify-around items-center pt-2 pb-5 bg-bg-2 border-t border-line"
     >
       <RouterLink
-          v-for="item in navItems"
+          v-for="item in mobileNavItems"
           :key="item.to"
           :to="item.to"
           class="flex flex-col items-center gap-1 text-[10.5px] font-semibold transition-colors duration-150"
@@ -73,14 +73,46 @@
         <component :is="item.icon" class="size-6"/>
         <span>{{ item.label }}</span>
       </RouterLink>
+      <div class="dropdown dropdown-top dropdown-end">
+        <div
+            tabindex="0"
+            role="button"
+            class="flex flex-col items-center gap-1 text-[10.5px] font-semibold transition-colors duration-150"
+            :class="isMoreActive ? 'text-green' : 'text-faint'"
+        >
+          <component :is="EllipsisHorizontalIcon" class="size-6"/>
+          <span>More</span>
+        </div>
+        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-1 w-44 p-2 shadow-sm mb-3">
+          <li v-for="item in moreNavItems" :key="item.to">
+            <RouterLink
+                :to="item.to"
+                @click="(e: MouseEvent) => (e.currentTarget as HTMLElement).blur()"
+                class="flex items-center gap-2.5"
+                :class="$route.path === item.to ? 'text-green' : ''"
+            >
+              <component :is="item.icon" class="size-5"/>
+              {{ item.label }}
+            </RouterLink>
+          </li>
+        </ul>
+      </div>
     </nav>
   </div>
 </template>
 
 <script lang="ts">
-import {defineComponent, ref, watch} from 'vue';
+import {computed, defineComponent, ref, watch} from 'vue';
 import {useRoute} from 'vue-router';
-import {MagnifyingGlassIcon, HomeIcon, BookOpenIcon, UserIcon, ChartBarIcon, ChartPieIcon} from "@heroicons/vue/24/outline";
+import {
+  MagnifyingGlassIcon,
+  HomeIcon,
+  BookOpenIcon,
+  UserIcon,
+  ChartBarIcon,
+  ChartPieIcon,
+  EllipsisHorizontalIcon,
+} from "@heroicons/vue/24/outline";
 import {useAuthStore} from '@/stores/auth';
 import {apiFetch} from '@/api/client';
 
@@ -107,6 +139,14 @@ export default defineComponent({
       {to: "/profile", label: "Profile", icon: UserIcon},
     ];
 
+    // Mobile dock has less room, so Stats/Profile collapse into a "More" dropdown there.
+    const moreNavItems = [
+      {to: "/stats", label: "Stats", icon: ChartPieIcon},
+      {to: "/profile", label: "Profile", icon: UserIcon},
+    ];
+    const mobileNavItems = navItems.filter(item => !moreNavItems.some(m => m.to === item.to));
+    const isMoreActive = computed(() => moreNavItems.some(item => item.to === route.path));
+
     const fetchYearGoal = async () => {
       if (!auth.isAuthenticated) {
         yearGoal.value = null;
@@ -126,7 +166,7 @@ export default defineComponent({
     // Refetch on navigation so logged progress shows up without a reload.
     watch([() => auth.isAuthenticated, () => route.path], fetchYearGoal, {immediate: true});
 
-    return {navItems, yearGoal, currentYear};
+    return {navItems, mobileNavItems, moreNavItems, isMoreActive, yearGoal, currentYear, EllipsisHorizontalIcon};
   },
 });
 </script>
