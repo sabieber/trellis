@@ -20,7 +20,7 @@
         <input
             type="text"
             class="input w-full"
-            placeholder="you@example.com"
+            placeholder="name"
             v-model="username"
             autocomplete="username"
         />
