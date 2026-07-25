@@ -9,4 +9,5 @@ export interface ShelfBook {
   added_at: string;
   rating: number | null;
   cover_url: string | null;
+  page_count: number | null;
 }

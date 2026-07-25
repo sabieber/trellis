@@ -5,7 +5,7 @@
         :key="book.id"
         class="pile-book"
         :style="{
-          height: bookHeight(book.title) + 'px',
+          height: bookHeight(book) + 'px',
           width: bookWidth(book.title) + '%',
           background: bookColors(book.title).bg,
           color: bookColors(book.title).text,
@@ -21,6 +21,7 @@
 import {
   colorwayForTitle,
   COLORWAY_COLORS,
+  spineWidth,
   spineWidthForTitle,
   spineHeightOffset,
   type Colorway,
@@ -39,18 +40,23 @@ defineEmits<{
   viewBook: [id: string];
 }>();
 
-function bookHeight(title: string): number {
-  return PILE_BASE_HEIGHT + Math.round(spineHeightOffset(title));
+function bookHeight(book: ShelfBook): number {
+  // Flat books stack by thickness, so page count drives height here (width is
+  // the book's format). Falls back to the title hash when page count is empty.
+  if (book.page_count && book.page_count > 0) {
+    return spineWidth(book.title, book.page_count);
+  }
+  return PILE_BASE_HEIGHT + Math.round(spineHeightOffset(book.title));
 }
 
 function bookWidth(title: string): number {
-  const w = spineWidthForTitle(title);
-  return PILE_WIDTH_MIN + ((w - 26) / 16) * (PILE_WIDTH_MAX - PILE_WIDTH_MIN);
+  const width = spineWidthForTitle(title);
+  return PILE_WIDTH_MIN + ((width - 26) / 16) * (PILE_WIDTH_MAX - PILE_WIDTH_MIN);
 }
 
 function bookColors(title: string) {
-  const cw = colorwayForTitle(title) as Colorway;
-  return COLORWAY_COLORS[cw];
+  const colorway = colorwayForTitle(title) as Colorway;
+  return COLORWAY_COLORS[colorway];
 }
 </script>
 

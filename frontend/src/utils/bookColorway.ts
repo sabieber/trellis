@@ -28,6 +28,17 @@ export function spineWidthForTitle(title: string): number {
   return 26 + (Math.abs(h) % 17);
 }
 
+// Spine thickness from stored page count (50→20px .. 1200→60px), so a 1000-page
+// tome sits visibly fatter than a novella. Falls back to the title hash when the
+// page count is unknown.
+export function spineWidth(title: string, pageCount?: number | null): number {
+  if (pageCount && pageCount > 0) {
+    const clamped = Math.min(Math.max(pageCount, 50), 1200);
+    return Math.round(20 + ((clamped - 50) / (1200 - 50)) * 40);
+  }
+  return spineWidthForTitle(title);
+}
+
 export function spineHeightOffset(title: string): number {
   let h = 0;
   for (const ch of title) h = (h * 41 + ch.charCodeAt(0)) | 0;

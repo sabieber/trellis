@@ -7,6 +7,8 @@
             :key="book.id"
             :title="book.title"
             :author="book.author"
+            :page-count="book.page_count"
+            :cover-url="book.cover_url"
             :height="spineHeight"
             @click="$emit('viewBook', book.id)"
         />
@@ -19,7 +21,7 @@
 <script setup lang="ts">
 import {computed} from 'vue';
 import BookSpine from '@/components/ui/BookSpine.vue';
-import {spineWidthForTitle} from '@/utils/bookColorway';
+import {spineWidth} from '@/utils/bookColorway';
 import type {ShelfBook} from '@/types/shelf';
 
 const SHELF_GAP = 3;
@@ -41,12 +43,12 @@ const shelfRows = computed(() => {
   let row: ShelfBook[] = [];
   let rowWidth = 0;
   for (const book of props.books) {
-    const bw = spineWidthForTitle(book.title);
-    const needed = row.length === 0 ? bw : bw + SHELF_GAP;
+    const width = spineWidth(book.title, book.page_count);
+    const needed = row.length === 0 ? width : width + SHELF_GAP;
     if (rowWidth + needed > w && row.length > 0) {
       rows.push(row);
       row = [book];
-      rowWidth = bw;
+      rowWidth = width;
     } else {
       row.push(book);
       rowWidth += needed;

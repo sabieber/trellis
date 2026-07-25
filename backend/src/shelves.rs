@@ -228,6 +228,7 @@ pub(crate) async fn list_shelf_books(
             "added_at": book.added_at.to_string(),
             "rating": book.rating,
             "cover_url": book.cover_url,
+            "page_count": book.page_count,
         });
         json_books.push(json_book);
     }
