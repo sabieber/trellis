@@ -94,11 +94,12 @@ diesel::table! {
 diesel::table! {
     shelves (id) {
         id -> Uuid,
-        name -> Text,
+        code -> Text,
         description -> Nullable<Text>,
         user -> Uuid,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        name -> Nullable<Text>,
     }
 }
 

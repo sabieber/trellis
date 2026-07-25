@@ -124,7 +124,7 @@
                 @click="toggleShelf(shelf.id)"
                 class="flex items-center justify-between py-3 border-b border-line-soft cursor-pointer group"
             >
-              <span class="text-sm group-hover:text-green-soft transition-colors duration-150" :class="isOnShelf(shelf.id) ? 'text-ink' : 'text-ink-dim'">{{ shelf.name }}</span>
+              <span class="text-sm group-hover:text-green-soft transition-colors duration-150" :class="isOnShelf(shelf.id) ? 'text-ink' : 'text-ink-dim'">{{ shelf.name || shelf.code }}</span>
               <div
                   class="size-7 rounded-full flex items-center justify-center border transition-colors duration-150"
                   :class="isOnShelf(shelf.id) ? 'bg-green/13 border-green/32' : 'bg-surface border-line'"
@@ -213,7 +213,7 @@ export default defineComponent({
       { value: 'Log', label: t('bookDetail.tabLog') },
       { value: 'Shelves', label: t('bookDetail.tabShelves') },
     ]);
-    const shelves = ref<Array<{ id: string; name: string; description: string }>>([]);
+    const shelves = ref<Array<{ id: string; code: string; name: string | null; description: string }>>([]);
     const shelfIds = ref<string[]>([]);
     const loadingShelves = ref(false);
     const toastMessage = ref('');

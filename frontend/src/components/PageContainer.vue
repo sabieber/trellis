@@ -3,8 +3,10 @@
     <div :class="['w-full flex flex-col grow', wide ? 'px-4 pt-5 pb-4' : 'max-w-lg p-6']">
       <div class="flex justify-between items-start mb-4 gap-4">
         <div class="min-w-0">
-          <h2 class="t-display text-2xl truncate">{{ title }}</h2>
-          <p v-if="description" class="t-meta mt-1">{{ description }}</p>
+          <slot name="title">
+            <h2 class="t-display text-2xl truncate">{{ title }}</h2>
+            <p v-if="description" class="t-meta mt-1">{{ description }}</p>
+          </slot>
         </div>
         <slot name="title-button"></slot>
       </div>

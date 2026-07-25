@@ -14,6 +14,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
     router
         .route("/api/shelves", post(list_shelves))
         .route("/api/shelves/create", post(create_shelf))
+        .route("/api/shelves/set-name", post(set_shelf_name))
         .route("/api/shelves/add-book", post(add_book_to_shelf))
         .route("/api/shelves/books", post(list_shelf_books))
         .route("/api/shelves/remove-book", post(remove_book_from_shelf))
@@ -46,6 +47,7 @@ pub(crate) async fn list_shelves(auth: AuthUser) -> impl IntoResponse {
     for shelf in results {
         let json_shelf = json!({
             "id": shelf.id.to_string(),
+            "code": shelf.code,
             "name": shelf.name,
             "description": shelf.description,
             "user": shelf.user.to_string(),
@@ -72,7 +74,10 @@ pub(crate) async fn create_shelf(
 ) -> impl IntoResponse {
     let new_shelf = Shelf {
         id: Uuid::new_v4(),
-        name: payload.name.trim().to_string(),
+        // What the user types becomes the code (the import-resolution key); the
+        // editable display name starts empty and falls back to the code.
+        code: payload.name.trim().to_string(),
+        name: None,
         description: payload.description.map(|d| d.trim().to_string()),
         user: auth.0,
         created_at: chrono::Utc::now().naive_utc(),
@@ -89,6 +94,53 @@ pub(crate) async fn create_shelf(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!(ErrorResponse { error: format!("Error while creating the shelf: {}", e) })),
+        ),
+    }
+}
+
+/// Request type for setting a shelf's editable display name.
+#[derive(Debug, Deserialize)]
+pub struct SetShelfNameRequest {
+    pub shelf_id: String,
+    pub name: Option<String>,
+}
+
+/// Sets (or clears) a shelf's display name. An empty/blank name is stored as
+/// NULL so the shelf falls back to showing its code.
+pub(crate) async fn set_shelf_name(
+    auth: AuthUser,
+    Json(payload): Json<SetShelfNameRequest>,
+) -> impl IntoResponse {
+    use crate::schema::shelves::dsl as s;
+
+    let connection = &mut connect();
+    let shelf_id = match Uuid::parse_str(&payload.shelf_id) {
+        Ok(id) => id,
+        Err(_) => return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Invalid shelf ID.".to_string() }))),
+    };
+
+    let shelf: Shelf = match s::shelves.filter(s::id.eq(shelf_id)).first(connection) {
+        Ok(shelf) => shelf,
+        Err(_) => return (StatusCode::NOT_FOUND, Json(json!(ErrorResponse { error: "Shelf not found.".to_string() }))),
+    };
+
+    if shelf.user != auth.0 {
+        return (StatusCode::FORBIDDEN, Json(json!(ErrorResponse { error: "Access denied.".to_string() })));
+    }
+
+    let name = payload
+        .name
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty());
+
+    match diesel::update(s::shelves.filter(s::id.eq(shelf_id)))
+        .set((s::name.eq(&name), s::updated_at.eq(chrono::Utc::now().naive_utc())))
+        .execute(connection)
+    {
+        Ok(_) => (StatusCode::OK, Json(json!({ "message": "Shelf name updated successfully.", "name": name }))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse { error: format!("Error while updating the shelf name: {}", e) })),
         ),
     }
 }
@@ -236,6 +288,7 @@ pub(crate) async fn list_shelf_books(
     (StatusCode::OK, Json(json!({
         "shelf": {
             "id": shelf.id.to_string(),
+            "code": shelf.code,
             "name": shelf.name,
             "description": shelf.description,
             "user": shelf.user.to_string(),
@@ -443,6 +496,15 @@ mod tests {
         let app = Router::new().route("/api/shelves/create", post(create_shelf));
         let response = app
             .oneshot(Request::builder().method("POST").uri("/api/shelves/create").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_set_shelf_name_requires_auth() {
+        let app = Router::new().route("/api/shelves/set-name", post(set_shelf_name));
+        let response = app
+            .oneshot(Request::builder().method("POST").uri("/api/shelves/set-name").body(Body::empty()).unwrap())
             .await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }

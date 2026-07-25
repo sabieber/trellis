@@ -51,7 +51,7 @@
                 class="flex items-center justify-between py-3 border-b border-line-soft cursor-pointer group"
             >
               <span class="text-sm text-ink group-hover:text-green-soft transition-colors duration-150">{{
-                  shelf.name
+                  shelf.name || shelf.code
                 }}</span>
               <PlusIcon class="size-4 text-muted group-hover:text-green-soft transition-colors duration-150"/>
             </div>
@@ -95,7 +95,7 @@ export default defineComponent({
     const route = useRoute();
     const book = ref<BookSearchResult | null>(null);
     const loading = ref(true);
-    const shelves = ref<Array<{ id: string; name: string; description: string }>>([]);
+    const shelves = ref<Array<{ id: string; code: string; name: string | null; description: string }>>([]);
     const loadingShelves = ref(false);
     const shelfSection = ref<HTMLElement | null>(null);
     const toastMessage = ref('');

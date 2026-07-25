@@ -1,5 +1,18 @@
 <template>
-  <PageContainer :title="shelf.name" :description="shelf.description" wide ref="pageContainer">
+  <PageContainer :title="shelf.name || shelf.code" :description="shelf.description" wide ref="pageContainer">
+    <template #title>
+      <h2 class="t-display text-2xl truncate">
+        <InlineEdit
+            :value="shelf.name"
+            :placeholder="shelf.code"
+            :save="saveName"
+            :label="$t('shelf.editName')"
+        />
+      </h2>
+      <p v-if="shelf.name" class="t-mono mt-0.5">{{ shelf.code }}</p>
+      <p v-if="shelf.description" class="t-meta mt-1">{{ shelf.description }}</p>
+    </template>
+
     <template #title-button>
       <div v-if="!loading && books.length" class="flex items-center gap-2">
         <select v-model="sortBy" class="select select-sm w-36">
@@ -72,6 +85,7 @@ import {useI18n} from 'vue-i18n';
 import {QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon} from "@heroicons/vue/24/outline";
 import PageContainer from '@/components/PageContainer.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import InlineEdit from '@/components/ui/InlineEdit.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import ShelfListView from '@/components/shelf/ShelfListView.vue';
 import ShelfGridView from '@/components/shelf/ShelfGridView.vue';
@@ -92,7 +106,7 @@ const SPINE_HEIGHT_LG = 200;
 export default defineComponent({
   components: {
     QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon,
-    PageContainer, SegmentedControl, ConfirmDialog,
+    PageContainer, SegmentedControl, ConfirmDialog, InlineEdit,
     ShelfListView, ShelfGridView, ShelfBoardView, ShelfPileView,
   },
   setup() {
@@ -101,7 +115,7 @@ export default defineComponent({
     const router = useRouter();
     const books = ref<ShelfBook[]>([]);
     const loading = ref(true);
-    const shelf = ref({name: '', description: ''});
+    const shelf = ref<{code: string; name: string | null; description: string}>({code: '', name: null, description: ''});
     const sortBy = ref<'added_at' | 'title' | 'author'>('added_at');
     const pageContainer = ref<any>(null);
     const contentRef = ref<HTMLElement | null>(null);
@@ -192,6 +206,24 @@ export default defineComponent({
       }
     };
 
+    const saveName = async (value: string): Promise<boolean> => {
+      const name = value.trim() || null;
+      try {
+        const response = await apiFetch('/api/shelves/set-name', {
+          method: 'POST',
+          body: JSON.stringify({shelf_id: route.params.id, name}),
+        });
+        if (response.ok) {
+          shelf.value.name = name;
+          return true;
+        }
+        pageContainer.value?.showToast({message: apiErrorMessage(response.status, t), type: 'alert-error'});
+      } catch {
+        pageContainer.value?.showToast({message: t('error.network'), type: 'alert-error'});
+      }
+      return false;
+    };
+
     const viewBookDetail = (id: string) => {
       router.push({name: 'book-detail', params: {id}});
     };
@@ -203,7 +235,7 @@ export default defineComponent({
       layoutMode, layoutOptions,
       listCoverWidth, gridTileWidth, spineHeight, containerWidth,
       pageContainer, contentRef, pendingRemoveBookId,
-      confirmRemoveBook, removeBookFromShelf, viewBookDetail,
+      confirmRemoveBook, removeBookFromShelf, viewBookDetail, saveName,
     };
   },
 });

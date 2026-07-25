@@ -84,6 +84,7 @@
   },
   "shelf": {
     "added": "Added",
+    "editName": "Rename",
     "sortAdded": "Added at",
     "sortFinished": "Finished at",
     "sortTitle": "Book name",

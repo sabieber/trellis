@@ -274,7 +274,7 @@ pub(crate) async fn import_good_reads(
 
     let mut shelf_map: HashMap<String, Uuid> = existing_shelves
         .into_iter()
-        .map(|s| (s.name, s.id))
+        .map(|s| (s.code, s.id))
         .collect();
 
     // Create any shelves from the CSV that don't exist yet
@@ -283,7 +283,8 @@ pub(crate) async fn import_good_reads(
         if !shelf_map.contains_key(shelf_name) {
             let new_shelf = Shelf {
                 id: Uuid::new_v4(),
-                name: shelf_name.clone(),
+                code: shelf_name.clone(),
+                name: None,
                 description: None,
                 user: user_uuid,
                 created_at: now,

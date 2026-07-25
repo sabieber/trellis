@@ -84,6 +84,7 @@
   },
   "shelf": {
     "added": "Hinzugefügt",
+    "editName": "Umbenennen",
     "sortAdded": "Hinzugefügt am",
     "sortFinished": "Beendet am",
     "sortTitle": "Buchtitel",

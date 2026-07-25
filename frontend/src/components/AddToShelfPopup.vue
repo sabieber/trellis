@@ -12,7 +12,7 @@
           @click="addBookToShelf(shelf.id)"
           class="flex items-center gap-3 px-3 py-2 rounded-sm cursor-pointer hover:bg-surface-2 transition-colors duration-150"
         >
-          <span class="text-sm font-medium text-ink">{{ shelf.name }}</span>
+          <span class="text-sm font-medium text-ink">{{ shelf.name || shelf.code }}</span>
           <span v-if="shelf.description" class="t-meta truncate">{{ shelf.description }}</span>
         </li>
       </ul>
@@ -43,7 +43,7 @@ export default defineComponent({
   },
   setup(props, { emit }) {
     const { t } = useI18n();
-    const shelves = ref<Array<{ id: string, name: string, description: string }>>([]);
+    const shelves = ref<Array<{ id: string, code: string, name: string | null, description: string }>>([]);
     const loadingShelves = ref(false);
 
     const fetchShelves = async () => {

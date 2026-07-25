@@ -28,7 +28,7 @@
         <!-- Shelf header row -->
         <div class="flex justify-between items-center mb-3">
           <div class="flex items-baseline gap-2">
-            <h2 class="t-title text-base leading-tight">{{ shelf.name }}</h2>
+            <h2 class="t-title text-base leading-tight">{{ shelf.name || shelf.code }}</h2>
             <span class="t-meta">{{ $t('library.bookCount', { count: (shelfBooks[shelf.id] || []).length }) }}</span>
           </div>
           <div class="flex items-center gap-1">
@@ -123,7 +123,8 @@ export default defineComponent({
     const {t} = useI18n();
     const shelves = ref<Array<{
       id: string;
-      name: string;
+      code: string;
+      name: string | null;
       description: string;
       created_at: string;
       updated_at: string
@@ -186,7 +187,7 @@ export default defineComponent({
     const sortedShelves = computed(() => {
       const arr = [...shelves.value];
       if (sortBy.value === 'name') {
-        arr.sort((a, b) => a.name.localeCompare(b.name));
+        arr.sort((a, b) => (a.name || a.code).localeCompare(b.name || b.code));
       } else if (sortBy.value === 'created_at') {
         arr.sort((a, b) => b.created_at.localeCompare(a.created_at));
       } else {

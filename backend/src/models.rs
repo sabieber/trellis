@@ -20,11 +20,14 @@ pub struct User {
 #[diesel(belongs_to(User))]
 pub struct Shelf {
     pub id: Uuid,
-    pub name: String,
+    pub code: String,
     pub description: Option<String>,
     pub user: Uuid,
     pub created_at: chrono::NaiveDateTime,
     pub updated_at: chrono::NaiveDateTime,
+    // `name` is last because the migration appended the column; the field order
+    // must match the schema column order for positional `Queryable` loads.
+    pub name: Option<String>,
 }
 
 #[derive(Queryable, Selectable, Insertable)]
