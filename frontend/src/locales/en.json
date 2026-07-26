@@ -158,12 +158,16 @@
   "readingModal": {
     "title": "Start Reading",
     "totalPages": "Total Pages",
-    "startDate": "Start Date"
+    "startDate": "Start Date",
+    "trackingMode": "Tracking Mode",
+    "modePages": "Pages",
+    "modePercentage": "Percentage"
   },
   "progressModal": {
     "title": "Track Progress",
     "date": "Date",
     "pageNumber": "Page Number",
+    "percentLabel": "Percent",
     "dragHint": "Drag or scroll on the book to flip pages"
   },
   "addToShelf": {

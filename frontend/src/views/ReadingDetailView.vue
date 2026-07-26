@@ -24,7 +24,7 @@
           <li v-for="entry in entries" :key="entry.id" class="bg-surface border border-line rounded-md p-4">
             <div class="flex justify-between items-center">
               <span class="text-sm text-ink">{{ entry.read_at }}</span>
-              <span class="t-meta">{{ $t('readingDetail.page', { n: entry.progress }) }}</span>
+              <span class="t-meta">{{ mode === 'percentage' ? `${entry.progress}%` : $t('readingDetail.page', { n: entry.progress }) }}</span>
             </div>
             <p class="t-meta mt-1">{{ entry.mode }}</p>
           </li>
@@ -46,7 +46,7 @@
       </button>
     </div>
     <TrackProgressModal v-if="showModal" @close="showModal = false" @submit="trackProgress" @abandon="onAbandonFromModal"
-                        :initialProgress="latestProgress" :totalPages="totalPages"/>
+                        :initialProgress="latestProgress" :totalPages="totalPages" :mode="mode"/>
     <ConfirmDialog
         v-if="showAbandonConfirm"
         :title="$t('readingDetail.abandonTitle')"
@@ -90,6 +90,7 @@ export default defineComponent({
     const showAbandonConfirm = ref(false);
     const latestProgress = ref(0);
     const totalPages = ref(0);
+    const mode = ref('pages');
     const pageContainer = ref<any>(null);
     const startedAt = ref('');
     const editingStartDate = ref(false);
@@ -107,6 +108,7 @@ export default defineComponent({
           bookId.value = data.book_id;
           startedAt.value = data.started_at;
           totalPages.value = data.total_pages ?? 0;
+          mode.value = data.mode ?? 'pages';
           if (entries.value.length > 0) {
             latestProgress.value = entries.value[entries.value.length - 1].progress;
           }
@@ -215,6 +217,7 @@ export default defineComponent({
       abandonReading,
       latestProgress,
       totalPages,
+      mode,
       pageContainer,
       startedAt,
       editingStartDate,

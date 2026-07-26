@@ -35,6 +35,8 @@ pub struct StartReadingRequest {
     pub book_id: String,
     pub total_pages: i32,
     pub started_at: Option<String>,
+    /// "pages" (default) or "percentage"
+    pub mode: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -139,6 +141,7 @@ pub(crate) async fn get_reading_info(
             "book_id": reading.book.to_string(),
             "started_at": reading.started_at.to_string(),
             "total_pages": reading.total_pages,
+            "mode": reading.mode.to_string(),
             "entries": json_entries,
         })),
     )
@@ -193,13 +196,33 @@ pub(crate) async fn start_reading_session(
         None => chrono::Utc::now().date_naive(),
     };
 
+    let mode = match payload.mode.as_deref() {
+        None | Some("pages") => ReadingMode::Pages,
+        Some("percentage") => ReadingMode::Percentage,
+        Some(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Invalid mode. Must be 'pages' or 'percentage'.".to_string()
+                })),
+            )
+        }
+    };
+
+    // percentage readings track 0-100; the book's real page count lives on the book
+    // row and is used to estimate pages for statistics
+    let total_pages = match mode {
+        ReadingMode::Percentage => 100,
+        ReadingMode::Pages => payload.total_pages,
+    };
+
     let new_reading = Reading {
         id: Uuid::new_v4(),
         book: book_id,
         user: auth.0,
-        total_pages: payload.total_pages,
+        total_pages,
         progress: 0,
-        mode: ReadingMode::Pages,
+        mode,
         started_at,
         finished_at: None,
         cancelled_at: None,
@@ -246,7 +269,7 @@ pub(crate) async fn track_progress(
         book: reading.book,
         user: auth.0,
         progress: payload.progress,
-        mode: ReadingMode::Pages,
+        mode: reading.mode,
         read_at: match chrono::NaiveDate::parse_from_str(&payload.read_at, "%Y-%m-%d") {
             Ok(d) => d,
             Err(_) => {
@@ -301,6 +324,7 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
         uuid::Uuid,
         i32,
         i32,
+        ReadingMode,
         uuid::Uuid,
         Option<String>,
         Option<String>,
@@ -320,6 +344,7 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
             schema::readings::dsl::id,
             schema::readings::dsl::progress,
             schema::readings::dsl::total_pages,
+            schema::readings::dsl::mode,
             schema::books::dsl::id,
             schema::books::dsl::title,
             schema::books::dsl::author,
@@ -339,6 +364,7 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
                         reading_id,
                         progress,
                         total_pages,
+                        mode,
                         book_id,
                         title,
                         author,
@@ -357,6 +383,7 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
                             "isbn10": isbn10,
                             "progress": progress,
                             "total_pages": total_pages,
+                            "mode": mode.to_string(),
                             "cover_url": cover_url,
                         })
                     },

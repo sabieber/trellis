@@ -78,12 +78,17 @@
               <div class="flex-1 min-w-0 flex flex-col justify-between">
                 <div>
                   <p class="t-title text-base leading-tight truncate">{{ reading.title || $t('common.untitled') }}</p>
-                  <p class="t-meta truncate mt-0.5">{{ reading.author || $t('common.unknownAuthor') }}</p>
+                  <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
+                    <p class="t-meta truncate">{{ reading.author || $t('common.unknownAuthor') }}</p>
+                    <span class="badge badge-sm flex-none">{{ reading.mode === 'percentage' ? $t('readingModal.modePercentage') : $t('readingModal.modePages') }}</span>
+                  </div>
                 </div>
                 <div>
                   <VineProgress :pct="readingPercent(reading)" :height="18"/>
                   <p class="t-meta mt-1.5">
-                    {{ $t('home.pageOf', { current: reading.progress, total: reading.total_pages }) }} ·
+                    <template v-if="reading.mode !== 'percentage'">
+                      {{ $t('home.pageOf', { current: reading.progress, total: reading.total_pages }) }} ·
+                    </template>
                     <span class="text-green-soft">{{ readingPercent(reading) }}%</span>
                   </p>
                 </div>
@@ -110,6 +115,7 @@
         v-if="updateTarget"
         :initialProgress="updateTarget.progress"
         :totalPages="updateTarget.total_pages"
+        :mode="updateTarget.mode"
         @close="updateTarget = null"
         @submit="submitProgress"
     />
@@ -159,6 +165,7 @@ interface ActiveReading {
   cover_url: string | null;
   progress: number;
   total_pages: number;
+  mode: string;
 }
 
 import {bookCoverUrl} from '@/utils/coverUrl';

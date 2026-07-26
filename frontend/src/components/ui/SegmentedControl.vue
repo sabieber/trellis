@@ -9,6 +9,7 @@
     <button
         v-for="opt in options"
         :key="opt.value"
+        type="button"
         role="tab"
         :aria-selected="opt.value === modelValue"
         :class="{ 'is-active': opt.value === modelValue }"

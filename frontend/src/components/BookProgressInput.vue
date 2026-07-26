@@ -35,7 +35,7 @@
           @input="onInput"
           @blur="onBlur"
       />
-      <span class="t-meta">/ {{ totalPages }}</span>
+      <span class="t-meta">{{ mode === 'percentage' ? '%' : `/ ${totalPages}` }}</span>
     </div>
     <p class="t-meta text-center opacity-60">{{ $t('progressModal.dragHint') }}</p>
   </div>
@@ -122,6 +122,7 @@ export default defineComponent({
   props: {
     modelValue: { type: Number, required: true },
     totalPages: { type: Number, required: true },
+    mode: { type: String, default: 'pages' },
   },
   emits: ['update:modelValue'],
   setup(props, { emit }) {

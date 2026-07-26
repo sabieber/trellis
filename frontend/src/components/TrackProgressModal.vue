@@ -8,8 +8,8 @@
           <input type="date" v-model="readAt" class="input w-full" required />
         </fieldset>
         <fieldset class="flex flex-col gap-1.5">
-          <label class="t-meta">{{ $t('progressModal.pageNumber') }}</label>
-          <BookProgressInput v-if="totalPages > 0" v-model="progress" :total-pages="totalPages" />
+          <label class="t-meta">{{ mode === 'percentage' ? $t('progressModal.percentLabel') : $t('progressModal.pageNumber') }}</label>
+          <BookProgressInput v-if="totalPages > 0" v-model="progress" :total-pages="totalPages" :mode="mode" />
           <input v-else type="number" v-model="progress" class="input w-full" ref="progressInput" required />
         </fieldset>
         <div class="modal-action mt-0 flex-col gap-2">
@@ -43,6 +43,10 @@ export default defineComponent({
     totalPages: {
       type: Number,
       default: 0,
+    },
+    mode: {
+      type: String,
+      default: 'pages',
     },
   },
   setup(props, { emit }) {

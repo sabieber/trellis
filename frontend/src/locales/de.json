@@ -158,12 +158,16 @@
   "readingModal": {
     "title": "Lesen beginnen",
     "totalPages": "Seiten gesamt",
-    "startDate": "Startdatum"
+    "startDate": "Startdatum",
+    "trackingMode": "Fortschrittsmodus",
+    "modePages": "Seiten",
+    "modePercentage": "Prozent"
   },
   "progressModal": {
     "title": "Fortschritt erfassen",
     "date": "Datum",
     "pageNumber": "Seitenzahl",
+    "percentLabel": "Prozent",
     "dragHint": "Ziehe oder scrolle auf dem Buch, um Seiten umzublättern"
   },
   "addToShelf": {

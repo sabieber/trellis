@@ -110,7 +110,8 @@
                   }}</span>
                 <span class="flex items-center gap-2">
                   <span class="badge badge-sm" :class="readingState(reading).badgeClass">{{ readingState(reading).label }}</span>
-                  <span class="t-meta group-hover:text-green-soft transition-colors duration-150">{{ $t('bookDetail.pagesProgress', { current: reading.progress, total: reading.total_pages }) }}</span>
+                  <span class="badge badge-sm">{{ reading.mode === 'percentage' ? $t('readingModal.modePercentage') : $t('readingModal.modePages') }}</span>
+                  <span class="t-meta group-hover:text-green-soft transition-colors duration-150">{{ reading.mode === 'percentage' ? `${reading.progress}%` : $t('bookDetail.pagesProgress', { current: reading.progress, total: reading.total_pages }) }}</span>
                 </span>
               </div>
               <button
@@ -218,7 +219,8 @@ export default defineComponent({
       finished_at: string | null;
       cancelled_at: string | null;
       progress: number;
-      total_pages: number
+      total_pages: number;
+      mode: string;
     }>>([]);
     const loading = ref(true);
     const showStartReadingModal = ref(false);
@@ -390,11 +392,11 @@ export default defineComponent({
       router.push({name: 'reading-detail', params: {id: readingId}});
     };
 
-    const startReadingSession = async (totalPages: number, startedAt: string) => {
+    const startReadingSession = async (mode: string, totalPages: number, startedAt: string) => {
       try {
         const response = await apiFetch('/api/books/start-reading', {
           method: 'POST',
-          body: JSON.stringify({book_id: route.params.id, total_pages: totalPages, started_at: startedAt}),
+          body: JSON.stringify({book_id: route.params.id, total_pages: totalPages, started_at: startedAt, mode}),
         });
         if (response.ok) {
           await fetchBookDetailsWrapper(route.params.id as string);
