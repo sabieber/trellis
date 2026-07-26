@@ -79,7 +79,14 @@
                 <div>
                   <p class="t-title text-base leading-tight truncate">{{ reading.title || $t('common.untitled') }}</p>
                   <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
-                    <p class="t-meta truncate">{{ reading.author || $t('common.unknownAuthor') }}</p>
+                    <p class="t-meta truncate">
+                      <span
+                          v-if="isLinkableAuthor(reading.author)"
+                          class="hover:text-green-soft hover:underline transition-colors duration-150 cursor-pointer"
+                          @click.stop.prevent="viewAuthor(reading.author)"
+                      >{{ reading.author }}</span>
+                      <span v-else>{{ $t('common.unknownAuthor') }}</span>
+                    </p>
                     <span class="badge badge-sm flex-none">{{ reading.mode === 'percentage' ? $t('readingModal.modePercentage') : $t('readingModal.modePages') }}</span>
                   </div>
                 </div>
@@ -169,6 +176,7 @@ interface ActiveReading {
 }
 
 import {bookCoverUrl} from '@/utils/coverUrl';
+import {goToAuthor, isLinkableAuthor} from '@/utils/authorRoute';
 import {useBookCovers} from '@/composables/useBookCovers';
 
 export default defineComponent({
@@ -269,6 +277,7 @@ export default defineComponent({
     };
 
     const navigateTo = (path: string) => router.push(path);
+    const viewAuthor = (author: string) => goToAuthor(router, author);
     const { resolvedCoverUrl, onResolveCover } = useBookCovers();
 
     onMounted(() => {
@@ -281,6 +290,7 @@ export default defineComponent({
       updateTarget, toastMessage, toastType,
       openUpdateModal, submitProgress, readingPercent,
       formatGoalLabel, bookCoverUrl, resolvedCoverUrl, onResolveCover, greeting, today, navigateTo,
+      viewAuthor, isLinkableAuthor,
     };
   },
 });

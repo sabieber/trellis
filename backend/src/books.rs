@@ -188,6 +188,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/books/resolve-cover", post(resolve_cover))
         .route("/api/books/rate", post(rate_book))
         .route("/api/books/set-page-count", post(set_page_count))
+        .route("/api/authors/books", post(list_author_books))
     }
 
 /// Request type for getting information about a book.
@@ -556,6 +557,58 @@ pub(crate) async fn set_page_count(
     }
 }
 
+/// Request type for listing all of a user's books by a given author. The author
+/// is a free-text string matched exactly, mirroring how the stats "Top Authors"
+/// grouping treats authors (there is no author entity).
+#[derive(Debug, Deserialize)]
+pub struct AuthorBooksRequest {
+    pub author: String,
+}
+
+/// Lists the current user's books whose `author` equals the requested string.
+pub(crate) async fn list_author_books(
+    auth: AuthUser,
+    Json(payload): Json<AuthorBooksRequest>,
+) -> impl IntoResponse {
+    let connection = &mut connect();
+
+    let results = match books
+        .filter(schema::books::dsl::user.eq(auth.0))
+        .filter(schema::books::dsl::author.eq(&payload.author))
+        .order(schema::books::dsl::added_at.desc())
+        .select(Book::as_select())
+        .load::<Book>(connection)
+    {
+        Ok(r) => r,
+        Err(e) => return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse { error: format!("Error loading books: {}", e) })),
+        ),
+    };
+
+    let json_books: Vec<_> = results
+        .into_iter()
+        .map(|book| json!({
+            "id": book.id.to_string(),
+            "title": book.title,
+            "author": book.author,
+            "isbn13": book.isbn13,
+            "isbn10": book.isbn10,
+            "google_books_id": book.google_books_id,
+            "open_library_id": book.open_library_id,
+            "added_at": book.added_at.to_string(),
+            "rating": book.rating,
+            "cover_url": book.cover_url,
+            "page_count": book.page_count,
+        }))
+        .collect();
+
+    (StatusCode::OK, Json(json!({
+        "author": payload.author,
+        "books": json_books,
+    })))
+}
+
 #[cfg(test)]
 mod tests {
     use axum::{body::Body, http::Request, routing::post, Router};
@@ -603,6 +656,15 @@ mod tests {
         let app = Router::new().route("/api/books/set-page-count", post(set_page_count));
         let response = app
             .oneshot(Request::builder().method("POST").uri("/api/books/set-page-count").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_list_author_books_requires_auth() {
+        let app = Router::new().route("/api/authors/books", post(list_author_books));
+        let response = app
+            .oneshot(Request::builder().method("POST").uri("/api/authors/books").body(Body::empty()).unwrap())
             .await.unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }

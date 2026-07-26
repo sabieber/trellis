@@ -91,6 +91,11 @@
     "byYear": "nach Jahr",
     "perYearUnit": "Jahr"
   },
+  "author": {
+    "bookCount": "{n} Bücher",
+    "avgRating": "Ø ★{r}",
+    "totalPages": "{n} Seiten"
+  },
   "shelf": {
     "added": "Hinzugefügt",
     "editName": "Umbenennen",

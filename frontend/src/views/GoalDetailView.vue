@@ -47,6 +47,7 @@
             dateField="finished_at"
             @view-book="viewBookDetail"
             @remove-book="() => {}"
+            @view-author="viewAuthor"
         />
         <ShelfGridView
             v-else-if="layoutMode === 'grid'"
@@ -88,6 +89,7 @@ import PlainProgress from '@/components/ui/PlainProgress.vue';
 import GoalProgressChart from '@/components/GoalProgressChart.vue';
 import {apiFetch} from '@/api/client';
 import {useContainerWidth} from '@/composables/useContainerWidth';
+import {goToAuthor} from '@/utils/authorRoute';
 import moment from 'moment';
 import type {ShelfBook} from '@/types/shelf';
 
@@ -222,6 +224,8 @@ export default defineComponent({
       router.push({name: 'book-detail', params: {id}});
     };
 
+    const viewAuthor = (author: string) => goToAuthor(router, author);
+
     onMounted(() => {
       fetchGoalDetail(route.params.id as string);
     });
@@ -231,7 +235,7 @@ export default defineComponent({
       goalLabel, periodDescription, sortedBooks,
       layoutMode, layoutOptions,
       listCoverWidth, gridTileWidth, spineHeight, containerWidth,
-      pageContainer, contentRef, viewBookDetail,
+      pageContainer, contentRef, viewBookDetail, viewAuthor,
     };
   },
 });

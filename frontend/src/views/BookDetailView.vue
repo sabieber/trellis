@@ -22,7 +22,17 @@
           />
           <div class="flex flex-col justify-end min-w-0">
             <h1 class="t-display text-[21px]">{{ book.title }}</h1>
-            <p class="t-meta text-sm mt-1">{{ book.authors?.join(', ') }}</p>
+            <p class="t-meta text-sm mt-1">
+              <!-- links on the enriched Google-Books author name; matches
+                   sibling books only if their stored `books.author` string agrees. -->
+              <template v-for="(a, i) in (book.authors || [])" :key="a">
+                <span v-if="i > 0">, </span>
+                <span
+                    class="hover:text-green-soft hover:underline transition-colors duration-150 cursor-pointer"
+                    @click="viewAuthor(a)"
+                >{{ a }}</span>
+              </template>
+            </p>
             <div class="mt-2">
               <Stars :rating="rating" :size="18" interactive @update="rateBook"/>
             </div>
@@ -191,6 +201,7 @@
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
+import {goToAuthor} from '@/utils/authorRoute';
 import {useI18n} from 'vue-i18n';
 import {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, ArrowTopRightOnSquareIcon} from "@heroicons/vue/24/outline";
 import {fetchBookDetail, searchBooks, resolveGoogleId} from '@/api/bookApi';
@@ -392,6 +403,8 @@ export default defineComponent({
       router.push({name: 'reading-detail', params: {id: readingId}});
     };
 
+    const viewAuthor = (author: string) => goToAuthor(router, author);
+
     const startReadingSession = async (mode: string, totalPages: number, startedAt: string) => {
       try {
         const response = await apiFetch('/api/books/start-reading', {
@@ -509,6 +522,7 @@ export default defineComponent({
       toastMessage,
       toastType,
       viewReadingDetail,
+      viewAuthor,
       startReadingSession,
       isOnShelf,
       toggleShelf,

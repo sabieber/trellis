@@ -34,7 +34,14 @@
           />
           <div class="flex-1 min-w-0">
             <div class="t-title text-sm truncate">{{ book.title }}</div>
-            <div class="t-meta truncate">{{ book.author }}</div>
+            <div class="t-meta truncate">
+              <span
+                  v-if="isLinkableAuthor(book.author)"
+                  class="hover:text-green-soft hover:underline transition-colors duration-150 cursor-pointer"
+                  @click.stop.prevent="viewAuthor(book.author)"
+              >{{ book.author }}</span>
+              <span v-else>{{ book.author }}</span>
+            </div>
           </div>
           <span v-if="metric === 'rating'" class="flex-none flex items-center gap-0.5 text-amber-500">
             <StarIcon class="size-3.5"/>
@@ -50,11 +57,13 @@
 
 <script lang="ts">
 import {computed, defineComponent, type PropType} from 'vue';
+import {useRouter} from 'vue-router';
 import {StarIcon} from '@heroicons/vue/24/solid';
 import BookCover from '@/components/ui/BookCover.vue';
 import type {BookStat} from '@/composables/useStatsBreakdown';
 import {useBookCovers} from '@/composables/useBookCovers';
 import {formatPeriod} from '@/utils/period';
+import {goToAuthor, isLinkableAuthor} from '@/utils/authorRoute';
 
 export default defineComponent({
   components: {StarIcon, BookCover},
@@ -69,9 +78,11 @@ export default defineComponent({
     loading: {type: Boolean, default: false},
   },
   setup(props) {
+    const router = useRouter();
     const periodLabel = computed(() => formatPeriod(props.mode, props.year, props.month));
     const {resolvedCoverUrl, onResolveCover} = useBookCovers();
-    return {periodLabel, resolvedCoverUrl, onResolveCover};
+    const viewAuthor = (author: string) => goToAuthor(router, author);
+    return {periodLabel, resolvedCoverUrl, onResolveCover, viewAuthor, isLinkableAuthor};
   },
 });
 </script>

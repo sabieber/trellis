@@ -1,16 +1,12 @@
 <template>
-  <PageContainer :title="shelf.name || shelf.code" :description="shelf.description" wide ref="pageContainer">
+  <PageContainer :title="authorName" wide ref="pageContainer">
     <template #title>
-      <h2 class="t-display text-2xl truncate">
-        <InlineEdit
-            :value="shelf.name"
-            :placeholder="shelf.code"
-            :save="saveName"
-            :label="$t('shelf.editName')"
-        />
-      </h2>
-      <p v-if="shelf.name" class="t-mono mt-0.5">{{ shelf.code }}</p>
-      <p v-if="shelf.description" class="t-meta mt-1">{{ shelf.description }}</p>
+      <h2 class="t-display text-2xl truncate">{{ authorName }}</h2>
+      <p v-if="!loading && books.length" class="t-meta mt-1">
+        <span>{{ $t('author.bookCount', { n: books.length }) }}</span>
+        <span v-if="avgRating !== null"> · {{ $t('author.avgRating', { r: avgRating }) }}</span>
+        <span v-if="totalPages > 0"> · {{ $t('author.totalPages', { n: totalPages.toLocaleString() }) }}</span>
+      </p>
     </template>
 
     <template #title-button>
@@ -42,7 +38,6 @@
             :books="sortedBooks"
             :cover-width="listCoverWidth"
             @view-book="viewBookDetail"
-            @remove-book="confirmRemoveBook"
             @view-author="viewAuthor"
         />
         <ShelfGridView
@@ -67,37 +62,25 @@
 
       <div v-else class="t-meta text-center py-12">{{ $t('shelf.noBooks') }}</div>
     </div>
-
-    <ConfirmDialog
-        v-if="pendingRemoveBookId"
-        :title="$t('shelf.removeBookTitle')"
-        :message="$t('shelf.removeBookMessage')"
-        :confirmLabel="$t('common.remove')"
-        @confirm="removeBookFromShelf"
-        @cancel="pendingRemoveBookId = null"
-    />
   </PageContainer>
 </template>
 
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted, watch} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
-import {useI18n} from 'vue-i18n';
 import {QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon} from "@heroicons/vue/24/outline";
 import PageContainer from '@/components/PageContainer.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
-import InlineEdit from '@/components/ui/InlineEdit.vue';
-import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import ShelfListView from '@/components/shelf/ShelfListView.vue';
 import ShelfGridView from '@/components/shelf/ShelfGridView.vue';
 import ShelfBoardView from '@/components/shelf/ShelfBoardView.vue';
 import ShelfPileView from '@/components/shelf/ShelfPileView.vue';
 import {apiFetch} from '@/api/client';
-import {apiErrorMessage} from '@/utils/apiError';
-import {goToAuthor} from '@/utils/authorRoute';
 import {useContainerWidth} from '@/composables/useContainerWidth';
+import {goToAuthor} from '@/utils/authorRoute';
 import type {ShelfBook} from '@/types/shelf';
 
+// Shared with ShelfDetailView so both remember the same layout preference.
 const LAYOUT_STORAGE_KEY = 'shelf-layout-mode';
 const MD_BREAKPOINT = 768;
 const GRID_TILE_SM = 80;
@@ -108,20 +91,19 @@ const SPINE_HEIGHT_LG = 200;
 export default defineComponent({
   components: {
     QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon,
-    PageContainer, SegmentedControl, ConfirmDialog, InlineEdit,
+    PageContainer, SegmentedControl,
     ShelfListView, ShelfGridView, ShelfBoardView, ShelfPileView,
   },
   setup() {
-    const {t} = useI18n();
     const route = useRoute();
     const router = useRouter();
     const books = ref<ShelfBook[]>([]);
     const loading = ref(true);
-    const shelf = ref<{code: string; name: string | null; description: string}>({code: '', name: null, description: ''});
     const sortBy = ref<'added_at' | 'title' | 'author'>('added_at');
     const pageContainer = ref<any>(null);
     const contentRef = ref<HTMLElement | null>(null);
-    const pendingRemoveBookId = ref<string | null>(null);
+
+    const authorName = computed(() => decodeURIComponent(route.params.name as string));
 
     const layoutOptions = [
       {value: 'list'},
@@ -141,13 +123,22 @@ export default defineComponent({
     const listCoverWidth = computed(() =>
         containerWidth.value >= MD_BREAKPOINT ? 72 : 56
     );
-
     const gridTileWidth = computed(() =>
         containerWidth.value >= MD_BREAKPOINT ? GRID_TILE_LG : GRID_TILE_SM
     );
-
     const spineHeight = computed(() =>
         containerWidth.value >= MD_BREAKPOINT ? SPINE_HEIGHT_LG : SPINE_HEIGHT_SM
+    );
+
+    const avgRating = computed(() => {
+      const rated = books.value.filter((b) => b.rating != null);
+      if (!rated.length) return null;
+      const sum = rated.reduce((acc, b) => acc + (b.rating as number), 0);
+      return (sum / rated.length).toFixed(1);
+    });
+
+    const totalPages = computed(() =>
+        books.value.reduce((acc, b) => acc + (b.page_count || 0), 0)
     );
 
     const sortedBooks = computed(() => {
@@ -162,68 +153,24 @@ export default defineComponent({
       return arr;
     });
 
-    const fetchShelfBooks = async (shelfId: string) => {
+    const fetchAuthorBooks = async (author: string) => {
+      loading.value = true;
       try {
-        const response = await apiFetch('/api/shelves/books', {
+        const response = await apiFetch('/api/authors/books', {
           method: 'POST',
-          body: JSON.stringify({shelf_id: shelfId}),
+          body: JSON.stringify({author}),
         });
         if (response.ok) {
           const data = await response.json();
           books.value = data.books;
-          shelf.value = data.shelf;
         } else {
-          console.error('Failed to fetch books:', await response.json());
+          console.error('Failed to fetch author books:', await response.json());
         }
       } catch (error) {
-        console.error('Failed to fetch books:', error);
+        console.error('Failed to fetch author books:', error);
       } finally {
         loading.value = false;
       }
-    };
-
-    const confirmRemoveBook = (bookId: string) => {
-      pendingRemoveBookId.value = bookId;
-    };
-
-    const removeBookFromShelf = async () => {
-      const bookId = pendingRemoveBookId.value;
-      if (!bookId) return;
-      pendingRemoveBookId.value = null;
-      try {
-        const response = await apiFetch('/api/shelves/remove-book', {
-          method: 'POST',
-          body: JSON.stringify({book_id: bookId, shelf_id: route.params.id}),
-        });
-        if (response.ok) {
-          pageContainer.value?.showToast({message: t('shelf.bookRemoved'), type: 'alert-success'});
-          books.value = books.value.filter((book) => book.id !== bookId);
-        } else {
-          console.error('Failed to remove book:', await response.json());
-          pageContainer.value?.showToast({message: apiErrorMessage(response.status, t), type: 'alert-error'});
-        }
-      } catch (error) {
-        console.error('Failed to remove book:', error);
-        pageContainer.value?.showToast({message: t('error.network'), type: 'alert-error'});
-      }
-    };
-
-    const saveName = async (value: string): Promise<boolean> => {
-      const name = value.trim() || null;
-      try {
-        const response = await apiFetch('/api/shelves/set-name', {
-          method: 'POST',
-          body: JSON.stringify({shelf_id: route.params.id, name}),
-        });
-        if (response.ok) {
-          shelf.value.name = name;
-          return true;
-        }
-        pageContainer.value?.showToast({message: apiErrorMessage(response.status, t), type: 'alert-error'});
-      } catch {
-        pageContainer.value?.showToast({message: t('error.network'), type: 'alert-error'});
-      }
-      return false;
     };
 
     const viewBookDetail = (id: string) => {
@@ -232,14 +179,17 @@ export default defineComponent({
 
     const viewAuthor = (author: string) => goToAuthor(router, author);
 
-    onMounted(() => fetchShelfBooks(route.params.id as string));
+    onMounted(() => fetchAuthorBooks(authorName.value));
+    // Re-fetch when navigating between authors without unmounting the view.
+    watch(authorName, (name) => fetchAuthorBooks(name));
 
     return {
-      books, sortedBooks, loading, shelf, sortBy,
+      books, sortedBooks, loading, sortBy, authorName,
+      avgRating, totalPages,
       layoutMode, layoutOptions,
       listCoverWidth, gridTileWidth, spineHeight, containerWidth,
-      pageContainer, contentRef, pendingRemoveBookId,
-      confirmRemoveBook, removeBookFromShelf, viewBookDetail, viewAuthor, saveName,
+      pageContainer, contentRef,
+      viewBookDetail, viewAuthor,
     };
   },
 });

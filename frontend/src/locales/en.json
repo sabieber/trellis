@@ -91,6 +91,11 @@
     "byYear": "by year",
     "perYearUnit": "year"
   },
+  "author": {
+    "bookCount": "{n} books",
+    "avgRating": "avg ★{r}",
+    "totalPages": "{n} pages"
+  },
   "shelf": {
     "added": "Added",
     "editName": "Rename",

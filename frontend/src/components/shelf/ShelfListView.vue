@@ -17,7 +17,13 @@
       />
       <div class="flex-1 min-w-0 flex flex-col justify-center">
         <h3 class="t-title text-[15px] md:text-base truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
-        <p class="t-meta mt-0.5">{{ book.author }}</p>
+        <p class="t-meta mt-0.5">
+          <span
+              v-if="book.author"
+              class="hover:text-green-soft hover:underline transition-colors duration-150 cursor-pointer"
+              @click.stop="$emit('viewAuthor', book.author)"
+          >{{ book.author }}</span>
+        </p>
         <p class="t-mono mt-1 hidden md:block">{{ dateLabel || $t('shelf.added') }} {{ formatDate(book) }}</p>
         <Stars v-if="book.rating" :rating="book.rating" :size="12" class="mt-0.5"/>
       </div>
@@ -51,6 +57,7 @@ const props = withDefaults(defineProps<{
 defineEmits<{
   viewBook: [id: string];
   removeBook: [id: string];
+  viewAuthor: [author: string];
 }>();
 
 const { resolvedCoverUrl, onResolveCover } = useBookCovers();
