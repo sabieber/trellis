@@ -30,8 +30,10 @@ fn normalize(value: Option<String>) -> Option<String> {
 /// source id — merge onto it) from "two distinct books that legitimately share
 /// an ISBN" (each carries its own source id, e.g. bundle editions — keep apart).
 ///
-/// `page_count` is stored on insert and backfilled onto a matched row whose
-/// `page_count` is still NULL; an existing value is never overwritten.
+/// `page_count` and the source ids are stored on insert and backfilled onto a
+/// matched row where they are still NULL; existing values are never overwritten.
+/// A refreshed `page_count` is propagated to the book's readings, which keep
+/// their own copy (see `readings::backfill_reading_pages`).
 ///
 /// All lookups and the insert run on the passed connection, so within a single
 /// transaction repeated calls for the same book converge on one row.
@@ -61,8 +63,30 @@ pub(crate) fn resolve_or_create_book(
 
     let base = || b::books.filter(b::user.eq(user_id)).into_boxed();
 
-    // Returns the matched id, backfilling page_count when the row has none.
-    let reuse = |conn: &mut PgConnection, id: Uuid| -> QueryResult<Uuid> {
+    // Returns the matched id, backfilling page_count and the source ids when the
+    // row has none. Source ids matter for rows imported before a catalog was
+    // consulted: without this they stay NULL forever, since a match found via
+    // ISBN/title never writes back what the lookup learned.
+    let (gid_backfill, olid_backfill) = (google_books_id.clone(), open_library_id.clone());
+    let reuse = move |conn: &mut PgConnection, id: Uuid| -> QueryResult<Uuid> {
+        if let Some(ref gid) = gid_backfill {
+            diesel::update(
+                b::books
+                    .filter(b::id.eq(id))
+                    .filter(b::google_books_id.is_null()),
+            )
+            .set(b::google_books_id.eq(gid))
+            .execute(conn)?;
+        }
+        if let Some(ref olid) = olid_backfill {
+            diesel::update(
+                b::books
+                    .filter(b::id.eq(id))
+                    .filter(b::open_library_id.is_null()),
+            )
+            .set(b::open_library_id.eq(olid))
+            .execute(conn)?;
+        }
         if let Some(p) = page_count {
             diesel::update(b::books.filter(b::id.eq(id)).filter(b::page_count.is_null()))
                 .set(b::page_count.eq(p))

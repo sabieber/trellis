@@ -22,6 +22,14 @@ use uuid::Uuid;
 
 const MAX_IMPORT_BYTES: usize = 5 * 1024 * 1024; // 5 MB
 
+/// What a catalog lookup contributed for one ISBN. Exactly one of the two ids is
+/// set — whichever catalog answered — plus its page count when it knows one.
+struct Enrichment {
+    google_books_id: Option<String>,
+    open_library_id: Option<String>,
+    page_count: Option<i32>,
+}
+
 pub(crate) fn register_routes(router: Router) -> Router {
     router
         .route("/api/user/register", post(register))
@@ -329,13 +337,41 @@ pub(crate) async fn import_good_reads(
 
     let gb_client = reqwest::Client::new();
     use futures::stream::StreamExt;
-    // Keeps the page count alongside the id: it comes from the same response and
-    // fills in for the rows whose "Number of Pages" is empty or 0.
-    let enrichment_map: HashMap<String, (String, Option<i32>)> = futures::stream::iter(unique_isbns)
+    // Open Library first, Google Books only when OL has no edition for the ISBN.
+    // This mirrors the OL-first policy of the search merge, and OL knows the page
+    // count for far more of a typical (non-English) library. Both lookups return
+    // the page count from the response they already fetch for the id, so filling
+    // in the rows whose "Number of Pages" is empty or 0 costs no extra request.
+    let enrichment_map: HashMap<String, Enrichment> = futures::stream::iter(unique_isbns)
         .map(|isbn| {
             let client = gb_client.clone();
             async move {
-                let found = crate::google_books_client::lookup_by_isbn(&client, &isbn).await;
+                let ol = crate::open_library_client::lookup_by_isbn(&client, &isbn).await;
+                let (open_library_id, ol_pages) = match ol {
+                    Some((id, pages)) => (Some(id), pages),
+                    None => (None, None),
+                };
+
+                // Ask Google only for what Open Library could not answer: no edition
+                // at all, or an edition without a page count (OL knows plenty of works
+                // it has no pagination for). OL still owns the identity when both hit.
+                let (google_books_id, gb_pages) = if open_library_id.is_none() || ol_pages.is_none()
+                {
+                    match crate::google_books_client::lookup_by_isbn(&client, &isbn).await {
+                        Some((id, pages)) => (Some(id), pages),
+                        None => (None, None),
+                    }
+                } else {
+                    (None, None)
+                };
+
+                let found = (open_library_id.is_some() || google_books_id.is_some()).then(|| {
+                    Enrichment {
+                        open_library_id,
+                        google_books_id,
+                        page_count: ol_pages.or(gb_pages),
+                    }
+                });
                 (isbn, found)
             }
         })
@@ -379,14 +415,13 @@ pub(crate) async fn import_good_reads(
             let isbn = if !isbn13.is_empty() { &isbn13 } else { &isbn10 };
             enrichment_map.get(isbn)
         };
-        let google_books_id = enriched.map(|(id, _)| id.clone());
 
-        // The export wins when it has a usable count; Google Books fills the gap.
+        // The export wins when it has a usable count; the catalog fills the gap.
         let page_count = record
             .number_of_pages
             .map(|p| p as i32)
             .filter(|p| *p > 0)
-            .or_else(|| enriched.and_then(|(_, pages)| *pages));
+            .or_else(|| enriched.and_then(|e| e.page_count));
 
         let gr_rating = record
             .my_rating
@@ -400,8 +435,8 @@ pub(crate) async fn import_good_reads(
             Some(record.author.clone()),
             Some(isbn13.clone()),
             Some(isbn10.clone()),
-            google_books_id,
-            None,
+            enriched.and_then(|e| e.google_books_id.clone()),
+            enriched.and_then(|e| e.open_library_id.clone()),
             added_at,
             gr_rating,
             None,

@@ -279,8 +279,11 @@ fn ed_isbns_as_values(body: &Value) -> impl Iterator<Item = Value> + '_ {
     i13.chain(i10).cloned()
 }
 
-#[allow(dead_code)]
-pub async fn lookup_id_by_isbn(client: &Client, isbn: &str) -> Option<String> {
+/// Looks up an edition by ISBN and returns its work key together with the page
+/// count from the same response. Open Library carries a page count far more often
+/// than Google Books for non-English editions, which is why the GoodReads import
+/// asks here first. `None` means Open Library has no edition for this ISBN at all.
+pub async fn lookup_by_isbn(client: &Client, isbn: &str) -> Option<(String, Option<i32>)> {
     if isbn.is_empty() {
         return None;
     }
@@ -294,9 +297,12 @@ pub async fn lookup_id_by_isbn(client: &Client, isbn: &str) -> Option<String> {
         Err(_) => return None,
     };
 
-    let works = body["works"].as_array()?;
-    let first = works.first()?;
-    first["key"].as_str().map(|k| k.to_string())
+    let pages = body["number_of_pages"]
+        .as_i64()
+        .filter(|page| *page > 0)
+        .map(|page| page as i32);
+    let work = body["works"].as_array()?.first()?["key"].as_str()?.to_string();
+    Some((work, pages))
 }
 
 /// Resolves a cover URL for a book identified by ISBN.
@@ -549,6 +555,21 @@ fn normalize_work(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn empty_isbn_lookup_returns_none() {
+        assert!(lookup_by_isbn(&Client::new(), "").await.is_none());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires network"]
+    async fn known_isbn_returns_work_key_and_pages() {
+        let (work, pages) = lookup_by_isbn(&Client::new(), "9780140328721")
+            .await
+            .expect("Fantastic Mr. Fox is on Open Library");
+        assert!(work.starts_with("/works/"), "got {}", work);
+        assert_eq!(pages, Some(96));
+    }
 
     #[test]
     fn is_ol_author_key_detects_valid_keys() {
