@@ -68,6 +68,16 @@ pub(crate) fn resolve_or_create_book(
                 .set(b::page_count.eq(p))
                 .execute(conn)?;
         }
+        // Read the count back rather than using the incoming one: the update above
+        // never overwrites, so an existing value wins and is what the readings of
+        // this book have to be aligned with.
+        if let Some(p) = b::books
+            .filter(b::id.eq(id))
+            .select(b::page_count)
+            .first::<Option<i32>>(conn)?
+        {
+            crate::readings::backfill_reading_pages(conn, id, p)?;
+        }
         Ok(id)
     };
 
@@ -552,7 +562,16 @@ pub(crate) async fn set_page_count(
     .execute(connection)
     {
         Ok(0) => (StatusCode::NOT_FOUND, Json(json!(ErrorResponse { error: "Book not found.".to_string() }))),
-        Ok(_) => (StatusCode::OK, Json(json!({ "page_count": payload.page_count }))),
+        Ok(_) => {
+            // Readings created before the book knew its page count still carry the
+            // 0 sentinel; clearing the override (None) leaves them as they are.
+            if let Some(p) = payload.page_count {
+                if let Err(e) = crate::readings::backfill_reading_pages(connection, book_id, p) {
+                    tracing::error!("Failed to backfill reading pages for book {}: {}", book_id, e);
+                }
+            }
+            (StatusCode::OK, Json(json!({ "page_count": payload.page_count })))
+        }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(ErrorResponse { error: format!("Failed to update page count: {}", e) }))),
     }
 }

@@ -14,6 +14,47 @@ use uuid::Uuid;
 
 type ApiResponse = (StatusCode, Json<serde_json::Value>);
 
+/// Propagates a book's page count onto its pages-mode readings that were created
+/// without one. `total_pages == 0` is the sentinel the GoodReads import writes
+/// when the export carries no page count (`users.rs`), and unlike the book row
+/// the reading keeps its own copy — so a page count learned later never reaches
+/// it on its own. Percentage readings are skipped: their `total_pages` is the
+/// fixed 0-100 scale, not a page count. A finished reading also gets its
+/// `progress` lifted to the new total, since "finished" means progress == total.
+pub(crate) fn backfill_reading_pages(
+    conn: &mut PgConnection,
+    book_id: Uuid,
+    page_count: i32,
+) -> QueryResult<()> {
+    if page_count <= 0 {
+        return Ok(());
+    }
+
+    use schema::readings::dsl as r;
+
+    diesel::update(
+        readings
+            .filter(r::book.eq(book_id))
+            .filter(r::total_pages.eq(0))
+            .filter(r::mode.eq(ReadingMode::Pages))
+            .filter(r::finished_at.is_not_null()),
+    )
+    .set((r::total_pages.eq(page_count), r::progress.eq(page_count)))
+    .execute(conn)?;
+
+    diesel::update(
+        readings
+            .filter(r::book.eq(book_id))
+            .filter(r::total_pages.eq(0))
+            .filter(r::mode.eq(ReadingMode::Pages))
+            .filter(r::finished_at.is_null()),
+    )
+    .set(r::total_pages.eq(page_count))
+    .execute(conn)?;
+
+    Ok(())
+}
+
 pub(crate) fn register_routes(router: Router) -> Router {
     router
         .route("/api/books/reading", post(get_reading_info))
