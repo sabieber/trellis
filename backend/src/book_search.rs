@@ -187,7 +187,7 @@ fn merge_with_library(
             .into_iter()
             .find_map(|k| key_to_idx.get(&k).copied())
         {
-            Some(idx) => enrich_from_ol(&mut results[idx], &ext),
+            Some(idx) => enrich_missing(&mut results[idx], &ext),
             None => results.push(ext),
         }
     }
@@ -378,22 +378,27 @@ fn isbn_key(book: &NormalizedBook) -> Option<String> {
     book.isbn13.clone().or_else(|| book.isbn10.clone())
 }
 
+/// Merges the two external sources, **preferring Open Library**: OL rows rank
+/// first and win identity on an ISBN collision, so a book present in both
+/// catalogs surfaces (and opens) as an Open Library book — required for series,
+/// which only OL exposes. A matching Google row backfills fields OL is missing
+/// (covers, description, ratings, …); unmatched Google rows are appended after.
 fn merge_results(google: Vec<NormalizedBook>, ol: Vec<NormalizedBook>) -> Vec<NormalizedBook> {
-    let mut results: Vec<NormalizedBook> = google;
+    let mut results: Vec<NormalizedBook> = ol;
 
-    let mut google_isbn_to_idx: HashMap<String, usize> = HashMap::new();
+    let mut ol_isbn_to_idx: HashMap<String, usize> = HashMap::new();
     for (i, book) in results.iter().enumerate() {
         if let Some(key) = isbn_key(book) {
-            google_isbn_to_idx.entry(key).or_insert(i);
+            ol_isbn_to_idx.entry(key).or_insert(i);
         }
     }
     let mut enriched: std::collections::HashSet<usize> = std::collections::HashSet::new();
 
-    for book in ol {
+    for book in google {
         if let Some(key) = isbn_key(&book) {
-            if let Some(&idx) = google_isbn_to_idx.get(&key) {
+            if let Some(&idx) = ol_isbn_to_idx.get(&key) {
                 if enriched.insert(idx) {
-                    enrich_from_ol(&mut results[idx], &book);
+                    enrich_missing(&mut results[idx], &book);
                     continue;
                 }
             }
@@ -404,30 +409,33 @@ fn merge_results(google: Vec<NormalizedBook>, ol: Vec<NormalizedBook>) -> Vec<No
     results
 }
 
-fn enrich_from_ol(target: &mut NormalizedBook, ol: &NormalizedBook) {
-    if target.cover_url.is_none() && ol.cover_url.is_some() {
-        target.cover_url = ol.cover_url.clone();
+/// Copies fields from `from` into `target` only where `target` lacks them. Used
+/// both to backfill the preferred row from the other external source and to
+/// enrich an owned library row from an external hit — hence source-agnostic.
+fn enrich_missing(target: &mut NormalizedBook, from: &NormalizedBook) {
+    if target.cover_url.is_none() && from.cover_url.is_some() {
+        target.cover_url = from.cover_url.clone();
     }
-    if target.description.is_none() && ol.description.is_some() {
-        target.description = ol.description.clone();
+    if target.description.is_none() && from.description.is_some() {
+        target.description = from.description.clone();
     }
-    if target.page_count.is_none() && ol.page_count.is_some() {
-        target.page_count = ol.page_count;
+    if target.page_count.is_none() && from.page_count.is_some() {
+        target.page_count = from.page_count;
     }
-    if target.category.is_none() && ol.category.is_some() {
-        target.category = ol.category.clone();
+    if target.category.is_none() && from.category.is_some() {
+        target.category = from.category.clone();
     }
-    if target.isbn13.is_none() && ol.isbn13.is_some() {
-        target.isbn13 = ol.isbn13.clone();
+    if target.isbn13.is_none() && from.isbn13.is_some() {
+        target.isbn13 = from.isbn13.clone();
     }
-    if target.isbn10.is_none() && ol.isbn10.is_some() {
-        target.isbn10 = ol.isbn10.clone();
+    if target.isbn10.is_none() && from.isbn10.is_some() {
+        target.isbn10 = from.isbn10.clone();
     }
-    if target.published_year.is_none() && ol.published_year.is_some() {
-        target.published_year = ol.published_year.clone();
+    if target.published_year.is_none() && from.published_year.is_some() {
+        target.published_year = from.published_year.clone();
     }
-    if target.average_rating.is_none() && ol.average_rating.is_some() {
-        target.average_rating = ol.average_rating;
+    if target.average_rating.is_none() && from.average_rating.is_some() {
+        target.average_rating = from.average_rating;
     }
 }
 
@@ -473,8 +481,13 @@ mod tests {
 
         let merged = merge_results(google, ol);
         assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0].source, "google");
+        // Open Library wins identity on an ISBN collision...
+        assert_eq!(merged[0].source, "openlibrary");
         assert_eq!(merged[0].isbn13, Some("9781234567890".into()));
+        // ...and the Google row backfills the fields OL was missing.
+        assert_eq!(merged[0].cover_url, Some("http://google.com/cover.jpg".into()));
+        assert_eq!(merged[0].description, Some("A test book.".into()));
+        assert_eq!(merged[0].average_rating, Some(4.5));
     }
 
     #[test]
@@ -575,13 +588,14 @@ mod tests {
 
     #[test]
     fn merge_enriches_first_same_source_book_only() {
+        // A single Google row shares its ISBN with two same-source (OL) rows.
         let google = vec![NormalizedBook {
             id: "google:abc".into(),
             source: "google".into(),
             source_id: "abc".into(),
             title: "Book Part 1".into(),
             authors: vec!["Author".into()],
-            cover_url: None,
+            cover_url: Some("http://google.com/cover.jpg".into()),
             published_year: None,
             page_count: None,
             category: None,
@@ -598,7 +612,7 @@ mod tests {
                 source_id: "/works/OL111W".into(),
                 title: "Book Part 1".into(),
                 authors: vec![],
-                cover_url: Some("http://ol.com/cover.jpg".into()),
+                cover_url: None,
                 published_year: None,
                 page_count: None,
                 category: None,
@@ -626,9 +640,12 @@ mod tests {
 
         let merged = merge_results(google, ol);
         assert_eq!(merged.len(), 2);
-        assert_eq!(merged[0].source, "google");
-        assert_eq!(merged[0].cover_url, Some("http://ol.com/cover.jpg".into()));
+        // Both OL rows survive (preferred source); the Google row backfills only
+        // the first, leaving the second untouched.
+        assert_eq!(merged[0].source, "openlibrary");
+        assert_eq!(merged[0].cover_url, Some("http://google.com/cover.jpg".into()));
         assert_eq!(merged[1].title, "Book Part 2");
+        assert_eq!(merged[1].cover_url, None);
     }
 
     #[test]
