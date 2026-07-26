@@ -10,6 +10,18 @@ export interface AuthorStat {
     pages: number;
 }
 
+/** A finished book highlighted in the period's book lists. */
+export interface BookStat {
+    book_id: string;
+    title: string;
+    author: string;
+    cover_url: string | null;
+    /** Star rating of the book (present in `top_rated`). */
+    rating?: number;
+    /** Readings of this book finished in the period (present in `most_read`). */
+    readings?: number;
+}
+
 /** Readings by outcome within the period. The buckets are disjoint. */
 export interface ReadingStates {
     finished: number;
@@ -27,6 +39,10 @@ export interface StatsBreakdown {
     /** Counts of finished books per 100-page band, index 0 (0–99) upward. */
     page_distribution: number[];
     top_authors: AuthorStat[];
+    /** Up to three finished books with the highest rating, best first. */
+    top_rated: BookStat[];
+    /** Up to three books with the most finished readings, most read first. */
+    most_read: BookStat[];
     reading_states: ReadingStates;
 }
 

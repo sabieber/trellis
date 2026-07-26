@@ -68,21 +68,39 @@
         />
       </div>
 
-      <PageDistributionSection
-          v-bind="period"
-          :distribution="breakdown?.page_distribution ?? []"
-          :loading="breakdownLoading"
-      />
-
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-7">
+        <PageDistributionSection
+            v-bind="period"
+            :distribution="breakdown?.page_distribution ?? []"
+            :loading="breakdownLoading"
+        />
         <ReadingStatesSection
             v-bind="period"
             :states="breakdown?.reading_states ?? null"
             :loading="breakdownLoading"
         />
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-7">
         <TopAuthorsSection
             v-bind="period"
             :authors="breakdown?.top_authors ?? []"
+            :loading="breakdownLoading"
+        />
+        <TopBooksSection
+            v-bind="period"
+            title="stats.topRated"
+            empty-text="stats.noFinished"
+            metric="rating"
+            :books="breakdown?.top_rated ?? []"
+            :loading="breakdownLoading"
+        />
+        <TopBooksSection
+            v-bind="period"
+            title="stats.mostRead"
+            empty-text="stats.noFinished"
+            metric="readings"
+            :books="breakdown?.most_read ?? []"
             :loading="breakdownLoading"
         />
       </div>
@@ -103,6 +121,7 @@ import PageDistributionSection from '@/components/stats/PageDistributionSection.
 import WeekdaySection from '@/components/stats/WeekdaySection.vue';
 import ReadingStatesSection from '@/components/stats/ReadingStatesSection.vue';
 import TopAuthorsSection from '@/components/stats/TopAuthorsSection.vue';
+import TopBooksSection from '@/components/stats/TopBooksSection.vue';
 import ChartTooltip from '@/components/stats/ChartTooltip.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import {useActivityStats} from '@/composables/useActivityStats';
@@ -120,6 +139,7 @@ export default defineComponent({
     WeekdaySection,
     ReadingStatesSection,
     TopAuthorsSection,
+    TopBooksSection,
     ChartTooltip,
     SegmentedControl,
     ChevronLeftIcon,

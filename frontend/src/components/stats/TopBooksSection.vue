@@ -1,0 +1,85 @@
+<!-- A compact ranked list of the period's standout books, used both for the
+     best-rated books (trailing star rating) and the most-read books (trailing
+     count of finished readings). -->
+<template>
+  <div class="lg:h-full lg:flex lg:flex-col">
+    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-3">
+      <div class="flex items-baseline gap-2">
+        <h2 class="t-eyebrow">{{ $t(title) }}</h2>
+        <span class="t-meta">{{ periodLabel }}</span>
+      </div>
+    </div>
+
+    <div class="bg-surface border border-line rounded-md p-4 flex-1 flex flex-col justify-center">
+      <div v-if="loading" class="flex justify-center py-14">
+        <span class="loading loading-spinner loading-sm"></span>
+      </div>
+      <div v-else-if="books.length === 0" class="t-meta text-center py-14">
+        {{ $t(emptyText) }}
+      </div>
+
+      <ol v-else class="space-y-3">
+        <li v-for="(book, index) in books" :key="index">
+          <RouterLink
+              :to="{ name: 'book-detail', params: { id: book.book_id } }"
+              class="flex items-center gap-3 -mx-2 px-2 py-1 rounded-md hover:bg-surface-2 transition-colors duration-150"
+          >
+          <BookCover
+              :title="book.title"
+              :author="book.author"
+              :cover-url="resolvedCoverUrl(book.book_id, book.cover_url ?? undefined)"
+              :book-id="book.book_id"
+              :width="34"
+              @resolve-cover="onResolveCover"
+          />
+          <div class="flex-1 min-w-0">
+            <div class="t-title text-sm truncate">{{ book.title }}</div>
+            <div class="t-meta truncate">{{ book.author }}</div>
+          </div>
+          <span v-if="metric === 'rating'" class="flex-none flex items-center gap-0.5 text-amber-500">
+            <StarIcon class="size-3.5"/>
+            <span class="stat-mono">{{ book.rating }}</span>
+          </span>
+          <span v-else class="stat-mono flex-none">{{ $t('stats.timesRead', { n: book.readings }) }}</span>
+          </RouterLink>
+        </li>
+      </ol>
+    </div>
+  </div>
+</template>
+
+<script lang="ts">
+import {computed, defineComponent, type PropType} from 'vue';
+import {StarIcon} from '@heroicons/vue/24/solid';
+import BookCover from '@/components/ui/BookCover.vue';
+import type {BookStat} from '@/composables/useStatsBreakdown';
+import {useBookCovers} from '@/composables/useBookCovers';
+import {formatPeriod} from '@/utils/period';
+
+export default defineComponent({
+  components: {StarIcon, BookCover},
+  props: {
+    mode: {type: String, required: true},
+    year: {type: Number, required: true},
+    month: {type: Number, required: true},
+    title: {type: String, required: true},
+    emptyText: {type: String, required: true},
+    metric: {type: String as PropType<'rating' | 'readings'>, required: true},
+    books: {type: Array as PropType<BookStat[]>, default: () => []},
+    loading: {type: Boolean, default: false},
+  },
+  setup(props) {
+    const periodLabel = computed(() => formatPeriod(props.mode, props.year, props.month));
+    const {resolvedCoverUrl, onResolveCover} = useBookCovers();
+    return {periodLabel, resolvedCoverUrl, onResolveCover};
+  },
+});
+</script>
+
+<style scoped>
+.stat-mono {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--color-ink-2);
+}
+</style>

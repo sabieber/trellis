@@ -371,6 +371,129 @@ fn calculate_top_authors(
     authors
 }
 
+/// A book title with its author, both already resolved to display strings.
+fn book_label(title: Option<String>, author: Option<String>) -> (String, String) {
+    let title = title
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
+        .unwrap_or_else(|| "Untitled".to_string());
+    let author = author
+        .map(|a| a.trim().to_string())
+        .filter(|a| !a.is_empty())
+        .unwrap_or_else(|| "Unknown author".to_string());
+    (title, author)
+}
+
+/// The up-to-three highest-rated distinct books finished within the period.
+/// Re-reads collapse to one entry; unrated books are ignored. Ties break by the
+/// more recent finish, then title. Returns `(title, author, rating)` triples.
+fn calculate_top_rated(
+    connection: &mut PgConnection,
+    user_id: Uuid,
+    period_start: NaiveDate,
+    period_end: NaiveDate,
+) -> Vec<(Uuid, String, String, Option<String>, i16)> {
+    let rows: Vec<(Uuid, Option<String>, Option<String>, Option<String>, Option<i16>, Option<NaiveDate>)> = readings
+        .inner_join(books)
+        .filter(schema::readings::dsl::user.eq(user_id))
+        .filter(schema::readings::dsl::finished_at.is_not_null())
+        .filter(schema::readings::dsl::finished_at.ge(period_start))
+        .filter(schema::readings::dsl::finished_at.le(period_end))
+        .filter(schema::books::dsl::rating.is_not_null())
+        .select((
+            schema::books::dsl::id,
+            schema::books::dsl::title,
+            schema::books::dsl::author,
+            schema::books::dsl::cover_url,
+            schema::books::dsl::rating,
+            schema::readings::dsl::finished_at,
+        ))
+        .load(connection)
+        .unwrap_or_default();
+
+    // Collapse re-reads to one entry per book, keeping the most recent finish.
+    let mut per_book: HashMap<Uuid, (Option<String>, Option<String>, Option<String>, i16, NaiveDate)> =
+        HashMap::new();
+    for (book_id, title, author, cover, rating, finished) in rows {
+        let (Some(rating), Some(finished)) = (rating, finished) else { continue };
+        per_book
+            .entry(book_id)
+            .and_modify(|e| {
+                if finished > e.4 {
+                    e.4 = finished;
+                }
+            })
+            .or_insert((title, author, cover, rating, finished));
+    }
+
+    let mut ranked: Vec<(Uuid, String, String, Option<String>, i16, NaiveDate)> = per_book
+        .into_iter()
+        .map(|(id, (title, author, cover, rating, finished))| {
+            let (title, author) = book_label(title, author);
+            (id, title, author, cover, rating, finished)
+        })
+        .collect();
+    ranked.sort_by(|a, b| b.4.cmp(&a.4).then(b.5.cmp(&a.5)).then(a.1.cmp(&b.1)));
+    ranked.truncate(3);
+    ranked
+        .into_iter()
+        .map(|(id, title, author, cover, rating, _)| (id, title, author, cover, rating))
+        .collect()
+}
+
+/// The up-to-three most-read distinct books of the period, ranked by the number
+/// of readings finished within it (re-reads are the point here). Ties break by
+/// the more recent finish, then title. Returns `(title, author, readings)` triples.
+fn calculate_most_read(
+    connection: &mut PgConnection,
+    user_id: Uuid,
+    period_start: NaiveDate,
+    period_end: NaiveDate,
+) -> Vec<(Uuid, String, String, Option<String>, i64)> {
+    let rows: Vec<(Uuid, Option<String>, Option<String>, Option<String>, Option<NaiveDate>)> = readings
+        .inner_join(books)
+        .filter(schema::readings::dsl::user.eq(user_id))
+        .filter(schema::readings::dsl::finished_at.is_not_null())
+        .filter(schema::readings::dsl::finished_at.ge(period_start))
+        .filter(schema::readings::dsl::finished_at.le(period_end))
+        .select((
+            schema::books::dsl::id,
+            schema::books::dsl::title,
+            schema::books::dsl::author,
+            schema::books::dsl::cover_url,
+            schema::readings::dsl::finished_at,
+        ))
+        .load(connection)
+        .unwrap_or_default();
+
+    let mut per_book: HashMap<Uuid, (Option<String>, Option<String>, Option<String>, i64, NaiveDate)> =
+        HashMap::new();
+    for (book_id, title, author, cover, finished) in rows {
+        let Some(finished) = finished else { continue };
+        let entry = per_book
+            .entry(book_id)
+            .or_insert((title, author, cover, 0, finished));
+        entry.3 += 1;
+        if finished > entry.4 {
+            entry.4 = finished;
+        }
+    }
+
+    let mut ranked: Vec<(Uuid, String, String, Option<String>, i64, NaiveDate)> = per_book
+        .into_iter()
+        .map(|(id, (title, author, cover, count, finished))| {
+            let (title, author) = book_label(title, author);
+            (id, title, author, cover, count, finished)
+        })
+        .collect();
+    ranked.sort_by(|a, b| b.4.cmp(&a.4).then(b.5.cmp(&a.5)).then(a.1.cmp(&b.1)));
+    ranked.truncate(3);
+    ranked
+        .into_iter()
+        .map(|(id, title, author, cover, count, _)| (id, title, author, cover, count))
+        .collect()
+}
+
 /// Counts the readings by outcome within the period: finished (finished in the
 /// period), abandoned (cancelled in the period) and reading (started in the
 /// period and still open). The three buckets are disjoint.
@@ -701,6 +824,9 @@ pub struct BreakdownRequest {
 ///   (0–99) up to the highest non-empty band
 /// - `top_authors`: up to five authors of finished books, each with the number of
 ///   finished `books` and their summed `pages`, most read first
+/// - `top_rated`: up to three finished books with the highest `rating`, best first
+/// - `most_read`: up to three finished books with the most finished `readings` in
+///   the period, most read first
 /// - `reading_states`: readings by outcome in the period (`finished`, `reading`,
 ///   `abandoned`)
 pub(crate) async fn breakdown(
@@ -733,12 +859,28 @@ pub(crate) async fn breakdown(
     let page_distribution =
         calculate_page_distribution(connection, auth.0, period_start, period_end);
     let top_authors = calculate_top_authors(connection, auth.0, period_start, period_end);
+    let top_rated = calculate_top_rated(connection, auth.0, period_start, period_end);
+    let most_read = calculate_most_read(connection, auth.0, period_start, period_end);
     let (finished, reading, abandoned) =
         calculate_reading_states(connection, auth.0, period_start, period_end);
 
     let authors: Vec<serde_json::Value> = top_authors
         .into_iter()
         .map(|(author, count, page_sum)| json!({"author": author, "books": count, "pages": page_sum}))
+        .collect();
+
+    let top_rated: Vec<serde_json::Value> = top_rated
+        .into_iter()
+        .map(|(id, title, author, cover, rating)| {
+            json!({"book_id": id, "title": title, "author": author, "cover_url": cover, "rating": rating})
+        })
+        .collect();
+
+    let most_read: Vec<serde_json::Value> = most_read
+        .into_iter()
+        .map(|(id, title, author, cover, count)| {
+            json!({"book_id": id, "title": title, "author": author, "cover_url": cover, "readings": count})
+        })
         .collect();
 
     (
@@ -750,6 +892,8 @@ pub(crate) async fn breakdown(
             "rating_distribution": rating_distribution,
             "page_distribution": page_distribution,
             "top_authors": authors,
+            "top_rated": top_rated,
+            "most_read": most_read,
             "reading_states": {
                 "finished": finished,
                 "reading": reading,
