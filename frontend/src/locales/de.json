@@ -80,7 +80,10 @@
     "byDayIn": "nach Tag in {label}",
     "volumeSummary": "{total} {unit} · ~{perActive} pro aktivem {per}",
     "perMonthUnit": "Monat",
-    "perDayUnit": "Tag"
+    "perDayUnit": "Tag",
+    "allTime": "Insgesamt",
+    "byYear": "nach Jahr",
+    "perYearUnit": "Jahr"
   },
   "shelf": {
     "added": "Hinzugefügt",

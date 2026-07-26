@@ -1,6 +1,7 @@
 use crate::auth::AuthUser;
 use crate::db::connect;
-use crate::goals::{calculate_books_progress, calculate_pages_progress};
+use crate::goals::{calculate_books_progress, calculate_pages_progress, estimate_pages};
+use crate::models::ReadingMode;
 use crate::schema::books::dsl::books;
 use crate::schema::reading_entries::dsl::reading_entries;
 use crate::schema::readings::dsl::readings;
@@ -42,7 +43,9 @@ fn month_period(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
 }
 
 /// Resolves the reporting period of a request. Returns an error message when
-/// the requested period is invalid or lies in the future.
+/// the requested period is invalid or lies in the future. The `"total"` mode is
+/// resolved separately by [`resolve_request_period`], since it needs the user's
+/// data to find where the span starts.
 fn resolve_period(
     mode: &str,
     year: i32,
@@ -66,8 +69,60 @@ fn resolve_period(
             }
             _ => Err("Invalid month. Must be between 1 and 12.".to_string()),
         },
-        _ => Err("Invalid mode. Must be 'year' or 'month'.".to_string()),
+        _ => Err("Invalid mode. Must be 'year', 'month', or 'total'.".to_string()),
     }
+}
+
+/// The user's earliest data point across every field the stats aggregate on:
+/// a reading's start (bounds finished/abandoned/in-progress readings too, as it
+/// is never null), a logged reading day, and a book's add date. Anchors the
+/// `"total"` period so its span stays tight — reaching back only as far as the
+/// user's oldest data, not to some arbitrary epoch — while still covering
+/// everything. Returns `None` only for an entirely empty account.
+fn earliest_activity_date(connection: &mut PgConnection, user_id: Uuid) -> Option<NaiveDate> {
+    let started: Option<NaiveDate> = readings
+        .filter(schema::readings::dsl::user.eq(user_id))
+        .select(diesel::dsl::min(schema::readings::dsl::started_at))
+        .first(connection)
+        .ok()
+        .flatten();
+    let read: Option<NaiveDate> = reading_entries
+        .filter(schema::reading_entries::dsl::user.eq(user_id))
+        .select(diesel::dsl::min(schema::reading_entries::dsl::read_at))
+        .first(connection)
+        .ok()
+        .flatten();
+    let added: Option<NaiveDate> = books
+        .filter(schema::books::dsl::user.eq(user_id))
+        .select(diesel::dsl::min(schema::books::dsl::added_at))
+        .first::<Option<chrono::DateTime<chrono::Utc>>>(connection)
+        .ok()
+        .flatten()
+        .map(|dt| dt.date_naive());
+    [started, read, added].into_iter().flatten().min()
+}
+
+/// Resolves the period for an incoming request. Delegates to [`resolve_period`]
+/// for `"year"`/`"month"` and handles `"total"` here, where the span runs from
+/// the user's first reading up to today.
+fn resolve_request_period(
+    connection: &mut PgConnection,
+    user_id: Uuid,
+    mode: &str,
+    year: i32,
+    month: Option<u32>,
+    today: NaiveDate,
+) -> Result<(NaiveDate, NaiveDate), String> {
+    if mode == "total" {
+        return Ok(total_period(earliest_activity_date(connection, user_id), today));
+    }
+    resolve_period(mode, year, month, today)
+}
+
+/// The `"total"` span: from the user's earliest data point up to today, or a
+/// zero-width today..today span for an account with no data yet.
+fn total_period(earliest: Option<NaiveDate>, today: NaiveDate) -> (NaiveDate, NaiveDate) {
+    (earliest.unwrap_or(today), today)
 }
 
 /// Counts the distinct days with logged reading entries within the period.
@@ -309,7 +364,10 @@ fn calculate_daily_pages(
 ) -> HashMap<NaiveDate, i64> {
     let mut per_day: HashMap<NaiveDate, i64> = HashMap::new();
 
-    let entries: Vec<(Uuid, NaiveDate, i32)> = match reading_entries
+    // join the book for its page count, so percentage entries convert to estimated
+    // pages the same way [`calculate_pages_progress`] does
+    let entries: Vec<(Uuid, NaiveDate, i32, ReadingMode, Option<i32>)> = match reading_entries
+        .inner_join(books)
         .filter(schema::reading_entries::dsl::user.eq(user_id))
         .filter(schema::reading_entries::dsl::read_at.le(period_end))
         .order((
@@ -321,6 +379,8 @@ fn calculate_daily_pages(
             schema::reading_entries::dsl::reading,
             schema::reading_entries::dsl::read_at,
             schema::reading_entries::dsl::progress,
+            schema::reading_entries::dsl::mode,
+            schema::books::dsl::page_count,
         ))
         .load(connection)
     {
@@ -331,13 +391,13 @@ fn calculate_daily_pages(
     let mut current_reading: Option<Uuid> = None;
     let mut previous_progress: i64 = 0;
 
-    for (reading_id, read_at, progress) in entries {
+    for (reading_id, read_at, progress, mode, page_count) in entries {
         if current_reading != Some(reading_id) {
             current_reading = Some(reading_id);
             previous_progress = 0;
         }
 
-        let progress = progress as i64;
+        let progress = estimate_pages(progress, &mode, page_count);
         if read_at >= period_start && progress > previous_progress {
             *per_day.entry(read_at).or_insert(0) += progress - previous_progress;
         }
@@ -415,11 +475,17 @@ pub(crate) async fn overview(
         )
     };
 
-    let (period_start, period_end) =
-        match resolve_period(&payload.mode, payload.year, payload.month, today) {
-            Ok(period) => period,
-            Err(message) => return bad_request(message),
-        };
+    let (period_start, period_end) = match resolve_request_period(
+        connection,
+        auth.0,
+        &payload.mode,
+        payload.year,
+        payload.month,
+        today,
+    ) {
+        Ok(period) => period,
+        Err(message) => return bad_request(message),
+    };
 
     let books_read = calculate_books_progress(connection, auth.0, period_start, period_end);
     let pages_read = calculate_pages_progress(connection, auth.0, period_start, period_end);
@@ -460,6 +526,8 @@ pub(crate) async fn overview(
             "mode": payload.mode,
             "year": payload.year,
             "month": payload.month,
+            "period_start": period_start.to_string(),
+            "period_end": period_end.to_string(),
             "books_read": books_read,
             "pages_read": pages_read,
             "books_added": books_added,
@@ -501,16 +569,22 @@ pub(crate) async fn activity(
 
     let today = chrono::Utc::now().date_naive();
 
-    let (period_start, period_end) =
-        match resolve_period(&payload.mode, payload.year, payload.month, today) {
-            Ok(period) => period,
-            Err(message) => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!(ErrorResponse { error: message })),
-                )
-            }
-        };
+    let (period_start, period_end) = match resolve_request_period(
+        connection,
+        auth.0,
+        &payload.mode,
+        payload.year,
+        payload.month,
+        today,
+    ) {
+        Ok(period) => period,
+        Err(message) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse { error: message })),
+            )
+        }
+    };
 
     let pages_per_day = calculate_daily_pages(connection, auth.0, period_start, period_end);
     let books_per_day = calculate_daily_books(connection, auth.0, period_start, period_end);
@@ -573,16 +647,22 @@ pub(crate) async fn breakdown(
 
     let today = chrono::Utc::now().date_naive();
 
-    let (period_start, period_end) =
-        match resolve_period(&payload.mode, payload.year, payload.month, today) {
-            Ok(period) => period,
-            Err(message) => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!(ErrorResponse { error: message })),
-                )
-            }
-        };
+    let (period_start, period_end) = match resolve_request_period(
+        connection,
+        auth.0,
+        &payload.mode,
+        payload.year,
+        payload.month,
+        today,
+    ) {
+        Ok(period) => period,
+        Err(message) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse { error: message })),
+            )
+        }
+    };
 
     let rating_distribution =
         calculate_rating_distribution(connection, auth.0, period_start, period_end);
@@ -643,6 +723,18 @@ mod tests {
             resolve_period("month", 2026, Some(7), today),
             Ok((date(2026, 7, 1), date(2026, 7, 31)))
         );
+    }
+
+    #[test]
+    fn test_total_period() {
+        let today = date(2026, 7, 26);
+        // Spans from the earliest data point to today.
+        assert_eq!(
+            total_period(Some(date(2022, 12, 15)), today),
+            (date(2022, 12, 15), today)
+        );
+        // Empty account collapses to a zero-width today..today span.
+        assert_eq!(total_period(None, today), (today, today));
     }
 
     #[test]

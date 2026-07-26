@@ -4,10 +4,10 @@
       <SegmentedControl
           :model-value="mode"
           @update:model-value="setMode"
-          :options="[{value: 'year', label: $t('goalModal.year')}, {value: 'month', label: $t('goalModal.month')}]"
-          class="w-44"
+          :options="[{value: 'year', label: $t('goalModal.year')}, {value: 'month', label: $t('goalModal.month')}, {value: 'total', label: $t('stats.allTime')}]"
+          class="w-64"
       />
-      <div class="flex items-center gap-1.5">
+      <div v-if="mode !== 'total'" class="flex items-center gap-1.5">
         <button
             class="flex items-center justify-center size-8 rounded-full text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
             :aria-label="$t('stats.prevPeriod')"
@@ -33,8 +33,12 @@
       <!-- Year gives the heatmap the wider 2/3 slot, month gives it to the bar chart.
            Both cards span the same three subgrid rows (header · card · footer) so their
            tops and bottoms line up even though only the bar chart carries a footer. -->
+      <!-- The daily heatmap is a per-year/per-month artifact; over the whole
+           span it makes no sense, so total mode drops it and lets the yearly
+           bar chart take the full width. -->
       <div class="grid grid-cols-1 gap-7 lg:grid-cols-3 lg:grid-rows-[auto_1fr_auto] lg:gap-y-0">
         <ActivityGridSection
+            v-if="mode !== 'total'"
             class="min-w-0 lg:row-span-3 lg:grid lg:grid-rows-subgrid"
             :class="mode === 'year' ? 'lg:col-span-2' : 'lg:col-span-1'"
             v-bind="period"
@@ -44,7 +48,7 @@
         />
         <ReadingVolumeSection
             class="min-w-0 lg:row-span-3 lg:grid lg:grid-rows-subgrid"
-            :class="mode === 'year' ? 'lg:col-span-1' : 'lg:col-span-2'"
+            :class="mode === 'year' ? 'lg:col-span-1' : mode === 'total' ? 'lg:col-span-3' : 'lg:col-span-2'"
             v-bind="period"
             :series="series"
             :loading="activityLoading"
@@ -118,12 +122,12 @@ export default defineComponent({
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
 
-    const mode = ref<'year' | 'month'>('year');
+    const mode = ref<'year' | 'month' | 'total'>('year');
     const year = ref(currentYear);
     const month = ref(currentMonth);
 
     const setMode = (value: string) => {
-      mode.value = value as 'year' | 'month';
+      mode.value = value as 'year' | 'month' | 'total';
       if (mode.value === 'month') {
         month.value = year.value === currentYear ? currentMonth : 1;
       }

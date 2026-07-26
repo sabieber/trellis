@@ -170,16 +170,26 @@ export default defineComponent({
         const height = computed(() => Math.max(HEIGHT, Math.round(containerHeight.value) || HEIGHT));
         const plotHeight = computed(() => height.value - PAD_TOP - PAD_BOTTOM);
 
-        /** One bucket per month of the year, or per day of the month. */
+        /** First calendar year of the span, in total mode. Anchors the yearly
+         *  buckets; falls back to this year when there is no activity yet. */
+        const firstYear = computed(() =>
+            props.series ? Number(props.series.start.slice(0, 4)) : props.year,
+        );
+
+        /** One bucket per month of the year, per day of the month, or — in total
+         *  mode — per calendar year from the first activity to today. */
         const buckets = computed(() => {
-            const isYear = props.mode === 'year';
-            const count = isYear ? 12 : daysInMonth(props.year, props.month);
-            const values = new Array<number>(count).fill(0);
+            const count = props.mode === 'total'
+                ? Number((props.series?.end ?? '').slice(0, 4)) - firstYear.value + 1 || 1
+                : props.mode === 'year' ? 12 : daysInMonth(props.year, props.month);
+            const values = new Array<number>(Math.max(count, 1)).fill(0);
 
             for (const day of props.series?.days ?? []) {
-                const [, month, dayOfMonth] = day.date.split('-').map(Number);
-                const index = isYear ? month - 1 : dayOfMonth - 1;
-                if (index >= 0 && index < count) {
+                const [year, month, dayOfMonth] = day.date.split('-').map(Number);
+                const index = props.mode === 'total'
+                    ? year - firstYear.value
+                    : props.mode === 'year' ? month - 1 : dayOfMonth - 1;
+                if (index >= 0 && index < values.length) {
                     values[index] += metric.value === 'pages' ? day.pages : day.books;
                 }
             }
@@ -207,10 +217,11 @@ export default defineComponent({
 
         const bars = computed(() => {
             const isYear = props.mode === 'year';
+            const isTotal = props.mode === 'total';
             const values = buckets.value;
             const bandWidth = plotWidth.value / values.length;
             const barWidth = Math.max(2, Math.min(bandWidth - 3, 20));
-            // Keep the day axis readable: label roughly every eighth day.
+            // Keep the day/year axis readable: label roughly every eighth bucket.
             const labelEvery = Math.max(1, Math.ceil(values.length / 8));
             const unitKey = metric.value === 'pages' ? 'stats.unitPages' : 'stats.unitBooks';
 
@@ -218,12 +229,16 @@ export default defineComponent({
                 const bandX = PAD_LEFT + bandWidth * index;
                 const barHeight = (value / scale.value.max) * plotHeight.value;
                 const monthLabel = moment().month(index).format('MMM');
-                const label = isYear
-                    ? bandWidth >= 26 ? monthLabel : monthLabel.charAt(0)
-                    : index % labelEvery === 0 ? `${index + 1}` : '';
-                const bucketName = isYear
-                    ? moment().year(props.year).month(index).format('MMMM YYYY')
-                    : moment().year(props.year).month(props.month - 1).date(index + 1).format('D MMM YYYY');
+                const label = isTotal
+                    ? index % labelEvery === 0 ? `${firstYear.value + index}` : ''
+                    : isYear
+                        ? bandWidth >= 26 ? monthLabel : monthLabel.charAt(0)
+                        : index % labelEvery === 0 ? `${index + 1}` : '';
+                const bucketName = isTotal
+                    ? `${firstYear.value + index}`
+                    : isYear
+                        ? moment().year(props.year).month(index).format('MMMM YYYY')
+                        : moment().year(props.year).month(props.month - 1).date(index + 1).format('D MMM YYYY');
 
                 return {
                     key: index,
@@ -242,9 +257,16 @@ export default defineComponent({
         const labelledBars = computed(() => bars.value.filter((bar) => bar.label !== ''));
 
         const bucketLabel = computed(() =>
-            props.mode === 'year'
-                ? t('stats.byMonthIn', {year: props.year})
-                : t('stats.byDayIn', {label: moment().year(props.year).month(props.month - 1).format('MMM YYYY')}),
+            props.mode === 'total'
+                ? t('stats.byYear')
+                : props.mode === 'year'
+                    ? t('stats.byMonthIn', {year: props.year})
+                    : t('stats.byDayIn', {label: moment().year(props.year).month(props.month - 1).format('MMM YYYY')}),
+        );
+
+        const perUnitKey = computed(() =>
+            props.mode === 'total' ? 'stats.perYearUnit'
+                : props.mode === 'year' ? 'stats.perMonthUnit' : 'stats.perDayUnit',
         );
 
         const summary = computed(() => {
@@ -253,7 +275,7 @@ export default defineComponent({
                 total: total.value.toLocaleString(),
                 unit: t(metric.value === 'pages' ? 'stats.unitPages' : 'stats.unitBooks', total.value),
                 perActive: Math.round(total.value / active).toLocaleString(),
-                per: t(props.mode === 'year' ? 'stats.perMonthUnit' : 'stats.perDayUnit'),
+                per: t(perUnitKey.value),
             });
         });
 

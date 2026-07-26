@@ -1,6 +1,6 @@
 use crate::auth::AuthUser;
 use crate::db::connect;
-use crate::models::{ReadingEntry, ReadingGoal, ReadingGoalTimeframe, ReadingGoalType};
+use crate::models::{ReadingEntry, ReadingGoal, ReadingGoalTimeframe, ReadingGoalType, ReadingMode};
 use crate::schema::books::dsl::books;
 use crate::schema::reading_entries::dsl::reading_entries;
 use crate::schema::reading_goals::dsl::reading_goals;
@@ -70,24 +70,45 @@ pub(crate) fn calculate_books_progress(
     count
 }
 
+/// Converts a reading's mode-native progress into estimated book pages. Pages-mode
+/// progress is already a page count; percentage-mode progress (0-100) is scaled by
+/// the book's page count. Returns 0 when a percentage reading has no known page
+/// count, so it simply contributes no pages until one is set (then retroactively).
+pub(crate) fn estimate_pages(progress: i32, mode: &ReadingMode, page_count: Option<i32>) -> i64 {
+    match mode {
+        ReadingMode::Pages => progress as i64,
+        ReadingMode::Percentage => match page_count {
+            Some(pc) if pc > 0 => ((progress as f64 / 100.0) * pc as f64).round() as i64,
+            _ => 0,
+        },
+    }
+}
+
 pub(crate) fn calculate_pages_progress(
     connection: &mut PgConnection,
     user_id: Uuid,
     period_start: NaiveDate,
     period_end: NaiveDate,
 ) -> i64 {
-    let user_readings: Vec<Uuid> = match readings
-        .select(schema::readings::dsl::id)
+    // mode + book page count per reading, so percentage readings can be converted
+    // to estimated pages on the fly
+    let user_readings: Vec<(Uuid, ReadingMode, Option<i32>)> = match readings
+        .inner_join(books)
+        .select((
+            schema::readings::dsl::id,
+            schema::readings::dsl::mode,
+            schema::books::dsl::page_count,
+        ))
         .filter(schema::readings::dsl::user.eq(user_id))
-        .load::<Uuid>(connection)
+        .load(connection)
     {
-        Ok(ids) => ids,
+        Ok(r) => r,
         Err(_) => return 0,
     };
 
     let mut total_pages: i64 = 0;
 
-    for reading_id in &user_readings {
+    for (reading_id, mode, page_count) in &user_readings {
         let entries: Vec<ReadingEntry> = match reading_entries
             .filter(schema::reading_entries::dsl::reading.eq(reading_id))
             .filter(schema::reading_entries::dsl::user.eq(user_id))
@@ -102,7 +123,7 @@ pub(crate) fn calculate_pages_progress(
 
         for entry in &entries {
             if entry.read_at < period_start {
-                prev_progress = entry.progress as i64;
+                prev_progress = estimate_pages(entry.progress, mode, *page_count);
             } else {
                 break;
             }
@@ -110,7 +131,7 @@ pub(crate) fn calculate_pages_progress(
 
         for entry in &entries {
             if entry.read_at >= period_start && entry.read_at <= period_end {
-                let current = entry.progress as i64;
+                let current = estimate_pages(entry.progress, mode, *page_count);
                 if current > prev_progress {
                     total_pages += current - prev_progress;
                 }
@@ -516,5 +537,27 @@ pub(crate) async fn delete_goal(
                 error: format!("Error deleting goal: {}", e)
             })),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::estimate_pages;
+    use crate::models::ReadingMode;
+
+    #[test]
+    fn estimate_pages_converts_by_mode() {
+        // pages mode: progress is already a page count, page count is ignored
+        assert_eq!(estimate_pages(42, &ReadingMode::Pages, Some(300)), 42);
+        assert_eq!(estimate_pages(42, &ReadingMode::Pages, None), 42);
+
+        // percentage mode: scaled by the book's page count, rounded
+        assert_eq!(estimate_pages(50, &ReadingMode::Percentage, Some(300)), 150);
+        assert_eq!(estimate_pages(33, &ReadingMode::Percentage, Some(300)), 99);
+        assert_eq!(estimate_pages(100, &ReadingMode::Percentage, Some(280)), 280);
+
+        // percentage mode without a known page count contributes nothing
+        assert_eq!(estimate_pages(50, &ReadingMode::Percentage, None), 0);
+        assert_eq!(estimate_pages(50, &ReadingMode::Percentage, Some(0)), 0);
     }
 }

@@ -89,6 +89,8 @@ interface PeriodOverview {
   mode: string;
   year: number;
   month: number | null;
+  period_start: string;
+  period_end: string;
   books_read: number;
   pages_read: number;
   books_added: number;
@@ -125,21 +127,21 @@ export default defineComponent({
     const periodLabel = computed(() => formatPeriod(props.mode, props.year, props.month));
 
     const finishedInLabel = computed(() =>
-        props.mode === 'year' ? `${props.year}` : moment().month(props.month - 1).format('MMM'),
+        props.mode === 'total' ? formatPeriod('total', props.year, props.month)
+            : props.mode === 'year' ? `${props.year}`
+                : moment().month(props.month - 1).format('MMM'),
     );
 
+    // Averaged over the period the server actually reported on: for total mode
+    // that runs from the first reading, not some fixed calendar boundary.
     const pagesPerDay = computed(() => {
       if (!stats.value) return 0;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const start = props.mode === 'year'
-          ? new Date(props.year, 0, 1)
-          : new Date(props.year, props.month - 1, 1);
-      const end = props.mode === 'year'
-          ? new Date(props.year, 11, 31)
-          : new Date(props.year, props.month, 0);
+      const start = new Date(stats.value.period_start);
+      const end = new Date(stats.value.period_end);
       const effectiveEnd = end < today ? end : today;
-      const days = Math.floor((effectiveEnd.getTime() - start.getTime()) / 86_400_000) + 1;
+      const days = Math.max(1, Math.floor((effectiveEnd.getTime() - start.getTime()) / 86_400_000) + 1);
       return Math.round(stats.value.pages_read / days);
     });
 
