@@ -268,6 +268,36 @@ fn calculate_rating_distribution(
     distribution
 }
 
+/// Buckets the books finished within the period by their page count into 100-page
+/// bands: index 0 is 0–99, index 1 is 100–199, and so on. The returned vector runs
+/// up to the highest non-empty band (empty when nothing was finished), so callers
+/// render a continuous 0..=max axis. Re-reads count separately, like `books_read`.
+fn calculate_page_distribution(
+    connection: &mut PgConnection,
+    user_id: Uuid,
+    period_start: NaiveDate,
+    period_end: NaiveDate,
+) -> Vec<i64> {
+    let pages: Vec<i32> = readings
+        .filter(schema::readings::dsl::user.eq(user_id))
+        .filter(schema::readings::dsl::finished_at.is_not_null())
+        .filter(schema::readings::dsl::finished_at.ge(period_start))
+        .filter(schema::readings::dsl::finished_at.le(period_end))
+        .select(schema::readings::dsl::total_pages)
+        .load(connection)
+        .unwrap_or_default();
+
+    let mut buckets: Vec<i64> = Vec::new();
+    for pages in pages {
+        let index = (pages.max(0) / 100) as usize;
+        if index >= buckets.len() {
+            buckets.resize(index + 1, 0);
+        }
+        buckets[index] += 1;
+    }
+    buckets
+}
+
 /// Counts the distinct authors of the books finished within the period. Books
 /// without an author collapse into a single "unknown" bucket, mirroring the
 /// grouping of [`calculate_top_authors`].
@@ -667,6 +697,8 @@ pub struct BreakdownRequest {
 /// This route accepts the same JSON payload as the overview and responds with:
 /// - `rating_distribution`: counts of finished books per star rating, index 0
 ///   (one star) to 4 (five stars)
+/// - `page_distribution`: counts of finished books per 100-page band, index 0
+///   (0–99) up to the highest non-empty band
 /// - `top_authors`: up to five authors of finished books, each with the number of
 ///   finished `books` and their summed `pages`, most read first
 /// - `reading_states`: readings by outcome in the period (`finished`, `reading`,
@@ -698,6 +730,8 @@ pub(crate) async fn breakdown(
 
     let rating_distribution =
         calculate_rating_distribution(connection, auth.0, period_start, period_end);
+    let page_distribution =
+        calculate_page_distribution(connection, auth.0, period_start, period_end);
     let top_authors = calculate_top_authors(connection, auth.0, period_start, period_end);
     let (finished, reading, abandoned) =
         calculate_reading_states(connection, auth.0, period_start, period_end);
@@ -714,6 +748,7 @@ pub(crate) async fn breakdown(
             "year": payload.year,
             "month": payload.month,
             "rating_distribution": rating_distribution,
+            "page_distribution": page_distribution,
             "top_authors": authors,
             "reading_states": {
                 "finished": finished,

@@ -24,6 +24,8 @@ export interface StatsBreakdown {
     month: number | null;
     /** Counts of finished books per star rating, index 0 (one star) to 4 (five stars). */
     rating_distribution: number[];
+    /** Counts of finished books per 100-page band, index 0 (0–99) upward. */
+    page_distribution: number[];
     top_authors: AuthorStat[];
     reading_states: ReadingStates;
 }

@@ -68,6 +68,12 @@
         />
       </div>
 
+      <PageDistributionSection
+          v-bind="period"
+          :distribution="breakdown?.page_distribution ?? []"
+          :loading="breakdownLoading"
+      />
+
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-7">
         <ReadingStatesSection
             v-bind="period"
@@ -93,6 +99,7 @@ import ActivityGridSection from '@/components/stats/ActivityGridSection.vue';
 import PeriodOverviewSection from '@/components/stats/PeriodOverviewSection.vue';
 import ReadingVolumeSection from '@/components/stats/ReadingVolumeSection.vue';
 import RatingDistributionSection from '@/components/stats/RatingDistributionSection.vue';
+import PageDistributionSection from '@/components/stats/PageDistributionSection.vue';
 import WeekdaySection from '@/components/stats/WeekdaySection.vue';
 import ReadingStatesSection from '@/components/stats/ReadingStatesSection.vue';
 import TopAuthorsSection from '@/components/stats/TopAuthorsSection.vue';
@@ -109,6 +116,7 @@ export default defineComponent({
     PeriodOverviewSection,
     ReadingVolumeSection,
     RatingDistributionSection,
+    PageDistributionSection,
     WeekdaySection,
     ReadingStatesSection,
     TopAuthorsSection,
