@@ -33,6 +33,12 @@
           :subtext="$t('stats.newInLibrary')"
       />
       <StatCard
+          :icon="UserGroupIcon"
+          :label="$t('stats.authorsRead')"
+          :value="stats.authors_read"
+          :subtext="$t('stats.finishedIn', { label: finishedInLabel })"
+      />
+      <StatCard
           :icon="CalendarDaysIcon"
           :label="$t('stats.readingDays')"
           :value="stats.reading_days"
@@ -79,6 +85,7 @@ import {
   PlusCircleIcon,
   ScaleIcon,
   StarIcon,
+  UserGroupIcon,
 } from '@heroicons/vue/24/outline';
 import StatCard from '@/components/stats/StatCard.vue';
 import {usePeriodResource} from '@/composables/usePeriodResource';
@@ -95,6 +102,7 @@ interface PeriodOverview {
   pages_read: number;
   books_added: number;
   reading_days: number;
+  authors_read: number;
   reading_streak_days: number;
   average_rating: number | null;
   avg_days_to_finish: number | null;
@@ -162,6 +170,7 @@ export default defineComponent({
       PlusCircleIcon,
       ScaleIcon,
       StarIcon,
+      UserGroupIcon,
     };
   },
 });

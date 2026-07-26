@@ -268,6 +268,36 @@ fn calculate_rating_distribution(
     distribution
 }
 
+/// Counts the distinct authors of the books finished within the period. Books
+/// without an author collapse into a single "unknown" bucket, mirroring the
+/// grouping of [`calculate_top_authors`].
+fn calculate_authors_read(
+    connection: &mut PgConnection,
+    user_id: Uuid,
+    period_start: NaiveDate,
+    period_end: NaiveDate,
+) -> i64 {
+    let authors: Vec<Option<String>> = readings
+        .inner_join(books)
+        .filter(schema::readings::dsl::user.eq(user_id))
+        .filter(schema::readings::dsl::finished_at.is_not_null())
+        .filter(schema::readings::dsl::finished_at.ge(period_start))
+        .filter(schema::readings::dsl::finished_at.le(period_end))
+        .select(schema::books::dsl::author)
+        .load(connection)
+        .unwrap_or_default();
+
+    authors
+        .into_iter()
+        .map(|a| {
+            a.map(|a| a.trim().to_string())
+                .filter(|a| !a.is_empty())
+                .unwrap_or_else(|| "Unknown author".to_string())
+        })
+        .collect::<HashSet<String>>()
+        .len() as i64
+}
+
 /// The authors of the readings finished within the period, ranked by finished
 /// books (re-reads count separately, like `books_read`) and capped at five.
 /// Books without an author collapse into an "Unknown author" bucket.
@@ -495,6 +525,7 @@ pub(crate) async fn overview(
     let average_rating = calculate_average_rating(connection, auth.0, period_start, period_end);
     let avg_days_to_finish =
         calculate_avg_days_to_finish(connection, auth.0, period_start, period_end);
+    let authors_read = calculate_authors_read(connection, auth.0, period_start, period_end);
 
     let books_added: i64 = match books
         .filter(schema::books::dsl::user.eq(auth.0))
@@ -532,6 +563,7 @@ pub(crate) async fn overview(
             "pages_read": pages_read,
             "books_added": books_added,
             "reading_days": reading_days,
+            "authors_read": authors_read,
             "reading_streak_days": reading_streak_days,
             "average_rating": average_rating.map(|r| (r * 10.0).round() / 10.0),
             "avg_days_to_finish": avg_days_to_finish.map(|d| (d * 10.0).round() / 10.0),
