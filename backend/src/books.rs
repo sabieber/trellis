@@ -437,7 +437,7 @@ pub(crate) async fn resolve_cover(
     if resolved.is_none() {
         if let Some(ref ol_id) = book.open_library_id {
             if let Some(nb) = crate::open_library_client::get_work(&client, ol_id).await {
-                resolved = nb.cover_url;
+                resolved = nb.base.cover_url;
             }
         }
     }

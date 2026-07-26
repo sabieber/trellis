@@ -38,45 +38,60 @@
           <SegmentedControl v-model="activeTab" :options="tabs" class="w-full"/>
         </div>
 
-        <div v-if="activeTab === 'Info'">
-          <template v-if="book.description">
+        <!-- Description fills the left column (2/3); details & external links sit
+             in a rail (1/3) on the right. Stacks to one column below lg. The rail
+             is a single flex column (one grid cell) so it stays packed at the top
+             regardless of the description's length. -->
+        <div v-if="activeTab === 'Info'" class="lg:grid lg:grid-cols-3 lg:gap-x-10 lg:items-start">
+          <div v-if="book.description" class="min-w-0 lg:col-span-2 lg:col-start-1 lg:row-start-1">
             <h2 class="t-eyebrow mb-2">{{ $t('bookDetail.about') }}</h2>
-            <p class="text-ink-dim text-sm leading-relaxed mb-5" v-html="book.description"></p>
-          </template>
-          <h2 class="t-eyebrow mb-1">{{ $t('bookDetail.details') }}</h2>
-          <div class="flex flex-col">
-            <div v-if="book.category" class="flex justify-between py-3 border-b border-line-soft">
-              <span class="t-meta">{{ $t('bookDetail.genre') }}</span>
-              <span class="text-sm font-semibold text-green-soft">{{ book.category }}</span>
-            </div>
-            <div v-if="book.published_year" class="flex justify-between py-3 border-b border-line-soft">
-              <span class="t-meta">{{ $t('bookDetail.published') }}</span>
-              <span class="text-sm font-semibold text-ink">{{ book.published_year }}</span>
-            </div>
-            <div class="flex justify-between py-3 border-b border-line-soft">
-              <span class="t-meta">{{ $t('common.pages') }}</span>
-              <InlineEdit
-                  class="t-mono text-ink!"
-                  :value="displayedPageCount"
-                  type="number"
-                  :label="$t('bookDetail.editPageCount')"
-                  :validate="isValidPageCount"
-                  :save="savePageCount"
-              />
-            </div>
+            <div
+                class="text-ink-dim text-sm leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0 [&_a]:text-green-soft [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-green"
+                v-html="book.description"
+            ></div>
           </div>
-          <Button v-if="sourceUrl" variant="ghost" block class="mt-5" @click="openExternal(sourceUrl)">
-            <ArrowTopRightOnSquareIcon class="size-4"/>
-            {{ $t('bookDetail.viewOn', { source: book.source === 'google' ? 'Google Books' : 'Open Library' }) }}
-          </Button>
-          <Button v-if="goodreadsUrl" variant="ghost" block class="mt-2" @click="openExternal(goodreadsUrl)">
-            <ArrowTopRightOnSquareIcon class="size-4"/>
-            {{ $t('bookDetail.viewOn', { source: 'Goodreads' }) }}
-          </Button>
-          <Button v-if="amazonUrl" variant="ghost" block class="mt-2" @click="openExternal(amazonUrl)">
-            <ArrowTopRightOnSquareIcon class="size-4"/>
-            {{ $t('bookDetail.viewOn', { source: 'Amazon' }) }}
-          </Button>
+
+          <aside class="mt-8 lg:mt-0 lg:col-start-3 lg:row-start-1 flex flex-col gap-5">
+            <div>
+              <h2 class="t-eyebrow mb-1">{{ $t('bookDetail.details') }}</h2>
+              <div class="flex flex-col">
+                <div v-if="book.category" class="flex justify-between py-3 border-b border-line-soft">
+                  <span class="t-meta">{{ $t('bookDetail.genre') }}</span>
+                  <span class="text-sm font-semibold text-green-soft">{{ book.category }}</span>
+                </div>
+                <div v-if="book.published_year" class="flex justify-between py-3 border-b border-line-soft">
+                  <span class="t-meta">{{ $t('bookDetail.published') }}</span>
+                  <span class="text-sm font-semibold text-ink">{{ book.published_year }}</span>
+                </div>
+                <div class="flex justify-between py-3 border-b border-line-soft">
+                  <span class="t-meta">{{ $t('common.pages') }}</span>
+                  <InlineEdit
+                      class="t-mono text-ink!"
+                      :value="displayedPageCount"
+                      type="number"
+                      :label="$t('bookDetail.editPageCount')"
+                      :validate="isValidPageCount"
+                      :save="savePageCount"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div v-if="sourceUrl || goodreadsUrl || amazonUrl" class="flex flex-col gap-2">
+              <Button v-if="sourceUrl" variant="ghost" block @click="openExternal(sourceUrl)">
+                <ArrowTopRightOnSquareIcon class="size-4"/>
+                {{ $t('bookDetail.viewOn', { source: book.source === 'google' ? 'Google Books' : 'Open Library' }) }}
+              </Button>
+              <Button v-if="goodreadsUrl" variant="ghost" block @click="openExternal(goodreadsUrl)">
+                <ArrowTopRightOnSquareIcon class="size-4"/>
+                {{ $t('bookDetail.viewOn', { source: 'Goodreads' }) }}
+              </Button>
+              <Button v-if="amazonUrl" variant="ghost" block @click="openExternal(amazonUrl)">
+                <ArrowTopRightOnSquareIcon class="size-4"/>
+                {{ $t('bookDetail.viewOn', { source: 'Amazon' }) }}
+              </Button>
+            </div>
+          </aside>
         </div>
 
         <div v-else-if="activeTab === 'Log'">

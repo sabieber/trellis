@@ -33,6 +33,22 @@ pub struct NormalizedBook {
     pub isbn10: Option<String>,
 }
 
+/// Detail-only payload: the lean list `NormalizedBook` plus the richer fields we
+/// only fetch when a single book is opened. `#[serde(flatten)]` merges the base
+/// fields to the top level, so the frontend sees one flat object.
+#[derive(Debug, Clone, Serialize)]
+pub struct DetailBook {
+    #[serde(flatten)]
+    pub base: NormalizedBook,
+    pub subtitle: Option<String>,
+    pub publisher: Option<String>,
+    pub published_date: Option<String>,
+    pub language: Option<String>,
+    pub categories: Vec<String>,
+    pub ratings_count: Option<u32>,
+    pub info_link: Option<String>,
+}
+
 pub(crate) fn register_routes(router: Router) -> Router {
     router
         .route("/api/books/search", get(unified_search))
@@ -176,7 +192,7 @@ pub(crate) async fn external_detail(
 ) -> impl IntoResponse {
     let client = Client::new();
 
-    let result = match source.as_str() {
+    let result: Option<DetailBook> = match source.as_str() {
         "google" => google_detail(&client, &id).await,
         "openlibrary" => crate::open_library_client::get_work(&client, &id).await,
         _ => None,
@@ -214,7 +230,7 @@ async fn google_search(client: Client, query: String) -> Vec<NormalizedBook> {
     items.iter().filter_map(normalize_google_item).collect()
 }
 
-async fn google_detail(client: &Client, volume_id: &str) -> Option<NormalizedBook> {
+async fn google_detail(client: &Client, volume_id: &str) -> Option<DetailBook> {
     let mut request = client.get(format!(
         "https://www.googleapis.com/books/v1/volumes/{}",
         volume_id
@@ -230,7 +246,27 @@ async fn google_detail(client: &Client, volume_id: &str) -> Option<NormalizedBoo
         Ok(b) => b,
         Err(_) => return None,
     };
-    normalize_google_item(&body)
+    let base = normalize_google_item(&body)?;
+    let vi = &body["volumeInfo"];
+
+    let categories: Vec<String> = vi["categories"]
+        .as_array()
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+
+    Some(DetailBook {
+        base,
+        subtitle: vi["subtitle"].as_str().map(String::from),
+        publisher: vi["publisher"].as_str().map(String::from),
+        published_date: vi["publishedDate"].as_str().map(String::from),
+        language: vi["language"].as_str().map(String::from),
+        categories,
+        ratings_count: vi["ratingsCount"].as_u64().map(|c| c as u32),
+        info_link: vi["infoLink"]
+            .as_str()
+            .or_else(|| vi["canonicalVolumeLink"].as_str())
+            .map(String::from),
+    })
 }
 
 fn normalize_google_item(item: &Value) -> Option<NormalizedBook> {

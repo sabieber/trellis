@@ -111,8 +111,14 @@
   },
   "searchDetail": {
     "avgRating": "{rating} Ø",
+    "ratingsCount": "{count} Bewertungen",
     "addToLibrary": "Zur Bibliothek hinzufügen",
-    "addToShelf": "Zum Regal hinzufügen"
+    "details": "Details",
+    "publisher": "Verlag",
+    "published": "Veröffentlicht",
+    "language": "Sprache",
+    "isbn": "ISBN",
+    "viewSource": "Auf {source} ansehen"
   },
   "bookDetail": {
     "tabInfo": "Info",
@@ -162,6 +168,7 @@
   },
   "addToShelf": {
     "title": "Zum Regal hinzufügen",
+    "confirm": "Hinzufügen",
     "noShelves": "Keine Regale gefunden.",
     "added": "Buch erfolgreich zum Regal hinzugefügt.",
     "addFailed": "Buch konnte nicht zum Regal hinzugefügt werden."

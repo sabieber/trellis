@@ -111,8 +111,14 @@
   },
   "searchDetail": {
     "avgRating": "{rating} avg",
+    "ratingsCount": "{count} ratings",
     "addToLibrary": "Add to Library",
-    "addToShelf": "Add to shelf"
+    "details": "Details",
+    "publisher": "Publisher",
+    "published": "Published",
+    "language": "Language",
+    "isbn": "ISBN",
+    "viewSource": "View on {source}"
   },
   "bookDetail": {
     "tabInfo": "Info",
@@ -162,6 +168,7 @@
   },
   "addToShelf": {
     "title": "Add to Shelf",
+    "confirm": "Add",
     "noShelves": "No shelves found.",
     "added": "Book added to shelf successfully.",
     "addFailed": "Failed to add book to shelf."

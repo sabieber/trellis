@@ -1,8 +1,8 @@
-<!-- Filter pill. Active state = green tint, never solid fill. -->
+<!-- Tag / label pill (non-interactive). Active state = green tint, never solid fill. -->
 <template>
-  <button class="chip" :class="{ 'is-active': active }">
+  <span class="chip" :class="{ 'is-active': active }">
     <slot></slot>
-  </button>
+  </span>
 </template>
 
 <script setup lang="ts">
@@ -23,13 +23,6 @@ withDefaults(defineProps<{ active?: boolean }>(), {active: false});
   border: 1px solid #38321f;
   background: #221f17;
   white-space: nowrap;
-  cursor: pointer;
-  transition: 0.15s;
-}
-
-.chip:hover {
-  border-color: rgb(236 226 204 / 0.12);
-  color: #ece2cc;
 }
 
 .chip.is-active {
