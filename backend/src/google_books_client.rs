@@ -9,6 +9,15 @@ pub fn cover_url_from_id(google_books_id: &str) -> String {
 }
 
 pub async fn lookup_id_by_isbn(client: &Client, isbn: &str) -> Option<String> {
+    lookup_by_isbn(client, isbn).await.map(|(id, _)| id)
+}
+
+/// Looks up a volume by ISBN and returns its id together with the page count from
+/// the same response. The GoodReads export often omits "Number of Pages", and the
+/// import already makes this request for the id — taking the page count along
+/// costs no extra call. `None` for the page count means Google Books does not know
+/// it either (common for small non-English publishers).
+pub async fn lookup_by_isbn(client: &Client, isbn: &str) -> Option<(String, Option<i32>)> {
     if isbn.is_empty() {
         return None;
     }
@@ -43,7 +52,13 @@ pub async fn lookup_id_by_isbn(client: &Client, isbn: &str) -> Option<String> {
             Err(_) if attempt < max_retries => continue,
             Err(_) => return None,
         };
-        return json["items"][0]["id"].as_str().map(|s| s.to_string());
+        return json["items"][0]["id"].as_str().map(|id| {
+            let pages = json["items"][0]["volumeInfo"]["pageCount"]
+                .as_i64()
+                .filter(|p| *p > 0)
+                .map(|p| p as i32);
+            (id.to_string(), pages)
+        });
     }
     None
 }

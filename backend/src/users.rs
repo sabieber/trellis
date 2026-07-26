@@ -329,16 +329,18 @@ pub(crate) async fn import_good_reads(
 
     let gb_client = reqwest::Client::new();
     use futures::stream::StreamExt;
-    let enrichment_map: HashMap<String, String> = futures::stream::iter(unique_isbns)
+    // Keeps the page count alongside the id: it comes from the same response and
+    // fills in for the rows whose "Number of Pages" is empty or 0.
+    let enrichment_map: HashMap<String, (String, Option<i32>)> = futures::stream::iter(unique_isbns)
         .map(|isbn| {
             let client = gb_client.clone();
             async move {
-                let id = crate::google_books_client::lookup_id_by_isbn(&client, &isbn).await;
-                (isbn, id)
+                let found = crate::google_books_client::lookup_by_isbn(&client, &isbn).await;
+                (isbn, found)
             }
         })
         .buffer_unordered(5)
-        .filter_map(|(isbn, id)| async move { id.map(|id| (isbn, id)) })
+        .filter_map(|(isbn, found)| async move { found.map(|found| (isbn, found)) })
         .collect()
         .await;
 
@@ -373,12 +375,23 @@ pub(crate) async fn import_good_reads(
             }
         }
 
-        let google_books_id = {
+        let enriched = {
             let isbn = if !isbn13.is_empty() { &isbn13 } else { &isbn10 };
-            enrichment_map.get(isbn).cloned()
+            enrichment_map.get(isbn)
         };
+        let google_books_id = enriched.map(|(id, _)| id.clone());
 
-        let gr_rating = record.my_rating.filter(|r| *r >= 1.0 && *r <= 5.0).map(|r| r as i16);
+        // The export wins when it has a usable count; Google Books fills the gap.
+        let page_count = record
+            .number_of_pages
+            .map(|p| p as i32)
+            .filter(|p| *p > 0)
+            .or_else(|| enriched.and_then(|(_, pages)| *pages));
+
+        let gr_rating = record
+            .my_rating
+            .filter(|r| *r >= 1.0 && *r <= 5.0)
+            .map(|r| r as i16);
 
         let book_id = match crate::books::resolve_or_create_book(
             connection,
@@ -392,7 +405,7 @@ pub(crate) async fn import_good_reads(
             added_at,
             gr_rating,
             None,
-            record.number_of_pages.map(|p| p as i32),
+            page_count,
         ) {
             Ok(id) => id,
             Err(e) => {
@@ -456,7 +469,7 @@ pub(crate) async fn import_good_reads(
             .unwrap_or(false);
 
             if !already_has_reading {
-                let total_pages = record.number_of_pages.unwrap_or(0) as i32;
+                let total_pages = page_count.unwrap_or(0);
                 let added = parse_goodreads_date(&record.date_added);
 
                 // "read" creates one reading per read (Read Count, min 1);
