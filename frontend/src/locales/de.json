@@ -105,7 +105,10 @@
     "bookRemoved": "Buch erfolgreich aus dem Regal entfernt."
   },
   "goalDetail": {
-    "noBooks": "In diesem Zeitraum noch keine Bücher beendet."
+    "noBooks": "In diesem Zeitraum noch keine Bücher beendet.",
+    "progressChart": "Fortschritt",
+    "goalTarget": "Ziel {target}",
+    "progressAt": "{bucket} — {value} / {target} {unit}"
   },
   "readingDetail": {
     "title": "Lesetagebuch",

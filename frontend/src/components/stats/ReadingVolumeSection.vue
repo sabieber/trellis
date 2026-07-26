@@ -91,6 +91,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import {useContainerWidth} from '@/composables/useContainerWidth';
 import {useChartTooltip} from '@/composables/useChartTooltip';
 import {daysInMonth} from '@/utils/activityHeat';
+import {niceScale} from '@/utils/niceScale';
 import type {ActivitySeries} from '@/composables/useActivityStats';
 
 const HEIGHT = 208;
@@ -98,23 +99,6 @@ const PAD_LEFT = 36;
 const PAD_RIGHT = 4;
 const PAD_TOP = 10;
 const PAD_BOTTOM = 24;
-
-/**
- * Rounds the axis up to a readable maximum and returns the matching tick step,
- * preferring 1/2/5 multiples. Book counts stay on whole numbers.
- */
-function niceScale(max: number, integerOnly: boolean): { max: number; step: number } {
-    if (max <= 0) return {max: 1, step: 1};
-
-    const rough = max / 5;
-    const magnitude = 10 ** Math.floor(Math.log10(rough));
-    const normalized = rough / magnitude;
-    const factor = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
-    let step = factor * magnitude;
-    if (integerOnly) step = Math.max(1, Math.round(step));
-
-    return {max: Math.ceil(max / step) * step, step};
-}
 
 /** Path of a bar with rounded top corners. */
 function barPath(x: number, y: number, barWidth: number, barHeight: number): string {

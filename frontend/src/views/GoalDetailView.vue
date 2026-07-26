@@ -26,6 +26,13 @@
       <PlainProgress :pct="goal.percentage"/>
     </div>
 
+    <!-- Only year/month goals: the activity endpoint has no 'week' bucketing. -->
+    <GoalProgressChart
+        v-if="goal && (goal.timeframe === 'year' || goal.timeframe === 'month')"
+        :goal="goal"
+        class="mb-6"
+    />
+
     <div ref="contentRef">
       <div v-if="loading" class="flex justify-center py-12">
         <span class="loading loading-spinner loading-lg"></span>
@@ -78,6 +85,7 @@ import ShelfGridView from '@/components/shelf/ShelfGridView.vue';
 import ShelfBoardView from '@/components/shelf/ShelfBoardView.vue';
 import ShelfPileView from '@/components/shelf/ShelfPileView.vue';
 import PlainProgress from '@/components/ui/PlainProgress.vue';
+import GoalProgressChart from '@/components/GoalProgressChart.vue';
 import {apiFetch} from '@/api/client';
 import {useContainerWidth} from '@/composables/useContainerWidth';
 import moment from 'moment';
@@ -111,7 +119,7 @@ export default defineComponent({
     QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon,
     PageContainer, SegmentedControl,
     ShelfListView, ShelfGridView, ShelfBoardView, ShelfPileView,
-    PlainProgress,
+    PlainProgress, GoalProgressChart,
   },
   setup() {
     const {t, locale} = useI18n();

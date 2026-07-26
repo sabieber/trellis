@@ -105,7 +105,10 @@
     "bookRemoved": "Book removed from shelf successfully."
   },
   "goalDetail": {
-    "noBooks": "No books finished in this period yet."
+    "noBooks": "No books finished in this period yet.",
+    "progressChart": "Progress",
+    "goalTarget": "goal {target}",
+    "progressAt": "{bucket} — {value} / {target} {unit}"
   },
   "readingDetail": {
     "title": "Reading journal",
