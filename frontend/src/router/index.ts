@@ -87,6 +87,14 @@ const router = createRouter({
       }
     },
     {
+      path: '/calendar',
+      name: 'calendar',
+      component: () => import('@/views/CalendarView.vue'),
+      meta: {
+        requiresAuth: true
+      }
+    },
+    {
       path: '/stats',
       name: 'stats',
       component: StatsView,

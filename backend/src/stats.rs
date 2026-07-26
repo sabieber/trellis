@@ -20,6 +20,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/stats/overview", post(overview))
         .route("/api/stats/activity", post(activity))
         .route("/api/stats/breakdown", post(breakdown))
+        .route("/api/stats/calendar", post(calendar))
 }
 
 fn year_period(year: i32) -> (NaiveDate, NaiveDate) {
@@ -807,6 +808,220 @@ pub(crate) async fn activity(
     )
 }
 
+/// Request type for the reading calendar.
+#[derive(Debug, Deserialize)]
+pub struct CalendarRequest {
+    pub year: i32,
+    pub month: u32,
+}
+
+/// Returns the books read on each day of a month for the authenticated user.
+///
+/// This route accepts a JSON payload with a `year` and a `month` (1-12). Unlike
+/// the stats endpoints it accepts future months as well, since the calendar is
+/// freely navigable and simply renders them empty.
+///
+/// The response contains the requested `year` and `month` plus the `days` that
+/// saw activity, ascending by date. Days without activity are omitted:
+/// - `date`: The day in `YYYY-MM-DD` format.
+/// - `pages`: Pages logged across all books on that day.
+/// - `books`: The books read that day, in the order they were first logged, each
+///   with `book_id`, `reading_id`, `title`, `author`, `cover_url`, `rating`, the
+///   `pages` logged for it that day and whether the reading `finished` that day.
+pub(crate) async fn calendar(
+    auth: AuthUser,
+    Json(payload): Json<CalendarRequest>,
+) -> impl IntoResponse {
+    if !(1..=12).contains(&payload.month) || payload.year < 1970 || payload.year > 9999 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!(ErrorResponse {
+                error: "Invalid period.".to_string()
+            })),
+        );
+    }
+
+    let connection = &mut connect();
+    let (period_start, period_end) = month_period(payload.year, payload.month);
+
+    // Same shape as [`calculate_daily_pages`]: progress is cumulative per reading,
+    // so entries before the month are needed as the baseline for its first delta.
+    // The book and reading are joined in for the cover data and the finish date.
+    type Row = (
+        Uuid,
+        NaiveDate,
+        i32,
+        ReadingMode,
+        Uuid,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<i32>,
+        Option<i16>,
+        Option<NaiveDate>,
+    );
+
+    let entries: Vec<Row> = match reading_entries
+        .inner_join(books)
+        .inner_join(readings)
+        .filter(schema::reading_entries::dsl::user.eq(auth.0))
+        .filter(schema::reading_entries::dsl::read_at.le(period_end))
+        .order((
+            schema::reading_entries::dsl::reading.asc(),
+            schema::reading_entries::dsl::read_at.asc(),
+            schema::reading_entries::dsl::created_at.asc(),
+        ))
+        .select((
+            schema::reading_entries::dsl::reading,
+            schema::reading_entries::dsl::read_at,
+            schema::reading_entries::dsl::progress,
+            schema::reading_entries::dsl::mode,
+            schema::books::dsl::id,
+            schema::books::dsl::title,
+            schema::books::dsl::author,
+            schema::books::dsl::cover_url,
+            schema::books::dsl::page_count,
+            schema::books::dsl::rating,
+            schema::readings::dsl::finished_at,
+        ))
+        .load(connection)
+    {
+        Ok(e) => e,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!(ErrorResponse {
+                    error: format!("Error loading calendar: {}", e)
+                })),
+            )
+        }
+    };
+
+    // Books per day, keeping the order they were first logged in. A reading can
+    // have several entries on one day, so their pages are folded into one book.
+    let mut per_day: HashMap<NaiveDate, Vec<serde_json::Value>> = HashMap::new();
+    let mut positions: HashMap<(NaiveDate, Uuid), usize> = HashMap::new();
+    let mut current_reading: Option<Uuid> = None;
+    let mut previous_progress: i64 = 0;
+
+    for (
+        reading_id,
+        read_at,
+        progress,
+        mode,
+        book_id,
+        title,
+        author,
+        cover_url,
+        page_count,
+        rating,
+        finished_at,
+    ) in entries
+    {
+        if current_reading != Some(reading_id) {
+            current_reading = Some(reading_id);
+            previous_progress = 0;
+        }
+
+        let progress = estimate_pages(progress, &mode, page_count);
+        let pages = progress - previous_progress;
+        previous_progress = progress;
+
+        if read_at < period_start || pages <= 0 {
+            continue;
+        }
+
+        let day = per_day.entry(read_at).or_default();
+        match positions.get(&(read_at, reading_id)) {
+            Some(&position) => {
+                day[position]["pages"] =
+                    json!(day[position]["pages"].as_i64().unwrap_or(0) + pages);
+            }
+            None => {
+                positions.insert((read_at, reading_id), day.len());
+                day.push(json!({
+                    "book_id": book_id,
+                    "reading_id": reading_id,
+                    "title": title,
+                    "author": author,
+                    "cover_url": cover_url,
+                    "rating": rating,
+                    "pages": pages,
+                    "finished": finished_at == Some(read_at),
+                }));
+            }
+        }
+    }
+
+    // Readings finished in the month that never got a progress entry — imported
+    // libraries are all of this shape. Like [`calculate_daily_books`] they count
+    // on their finish day regardless of entries, just without any pages to show.
+    let finished: Vec<(Uuid, NaiveDate, Uuid, Option<String>, Option<String>, Option<String>, Option<i16>)> =
+        match readings
+            .inner_join(books)
+            .filter(schema::readings::dsl::user.eq(auth.0))
+            .filter(schema::readings::dsl::finished_at.ge(period_start))
+            .filter(schema::readings::dsl::finished_at.le(period_end))
+            .select((
+                schema::readings::dsl::id,
+                schema::readings::dsl::finished_at.assume_not_null(),
+                schema::books::dsl::id,
+                schema::books::dsl::title,
+                schema::books::dsl::author,
+                schema::books::dsl::cover_url,
+                schema::books::dsl::rating,
+            ))
+            .load(connection)
+        {
+            Ok(f) => f,
+            Err(_) => Vec::new(),
+        };
+
+    for (reading_id, date, book_id, title, author, cover_url, rating) in finished {
+        let day = per_day.entry(date).or_default();
+        match positions.get(&(date, reading_id)) {
+            Some(&position) => day[position]["finished"] = json!(true),
+            None => {
+                positions.insert((date, reading_id), day.len());
+                day.push(json!({
+                    "book_id": book_id,
+                    "reading_id": reading_id,
+                    "title": title,
+                    "author": author,
+                    "cover_url": cover_url,
+                    "rating": rating,
+                    "pages": 0,
+                    "finished": true,
+                }));
+            }
+        }
+    }
+
+    let mut dates: Vec<NaiveDate> = per_day.keys().copied().collect();
+    dates.sort_unstable();
+
+    let days: Vec<serde_json::Value> = dates
+        .into_iter()
+        .map(|date| {
+            let day = per_day.remove(&date).unwrap_or_default();
+            let pages: i64 = day
+                .iter()
+                .map(|book| book["pages"].as_i64().unwrap_or(0))
+                .sum();
+            json!({"date": date.to_string(), "pages": pages, "books": day})
+        })
+        .collect();
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "year": payload.year,
+            "month": payload.month,
+            "days": days,
+        })),
+    )
+}
+
 /// Request type for the stats breakdown.
 #[derive(Debug, Deserialize)]
 pub struct BreakdownRequest {
@@ -967,6 +1182,22 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/api/stats/overview")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_calendar_requires_auth() {
+        let app = Router::new().route("/api/stats/calendar", post(calendar));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/stats/calendar")
                     .body(Body::empty())
                     .unwrap(),
             )

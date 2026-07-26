@@ -26,7 +26,8 @@
     "bookNotFound": "Book not found.",
     "save": "Save",
     "edit": "Edit",
-    "starsAria": "{rating} out of 5 stars"
+    "starsAria": "{rating} out of 5 stars",
+    "close": "Close"
   },
   "stats": {
     "title": "Statistics",
@@ -267,7 +268,8 @@
     "goals": "Goals",
     "stats": "Stats",
     "profile": "Profile",
-    "more": "More"
+    "more": "More",
+    "calendar": "Calendar"
   },
   "error": {
     "network": "Failed to connect to the server!",
@@ -297,5 +299,13 @@
     "newToTrellis": "New to trellis?",
     "alreadyGrowing": "Already growing a library?",
     "createAnAccount": "Create an account"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "description": "Day by day.",
+    "dayAria": "{date}, {n} book | {date}, {n} books",
+    "dayTotal": "{pages} pages across {n} book | {pages} pages across {n} books",
+    "finished": "Finished",
+    "dayBooks": "{n} book | {n} books"
   }
 }

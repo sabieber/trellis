@@ -111,6 +111,7 @@ import {
   UserIcon,
   ChartBarIcon,
   ChartPieIcon,
+  CalendarDaysIcon,
   EllipsisHorizontalIcon,
 } from "@heroicons/vue/24/outline";
 import {useAuthStore} from '@/stores/auth';
@@ -135,12 +136,14 @@ export default defineComponent({
       {to: "/library", label: "nav.library", icon: BookOpenIcon},
       {to: "/search", label: "nav.search", icon: MagnifyingGlassIcon},
       {to: "/goals", label: "nav.goals", icon: ChartBarIcon},
+      {to: "/calendar", label: "nav.calendar", icon: CalendarDaysIcon},
       {to: "/stats", label: "nav.stats", icon: ChartPieIcon},
       {to: "/profile", label: "nav.profile", icon: UserIcon},
     ];
 
-    // Mobile dock has less room, so Stats/Profile collapse into a "More" dropdown there.
+    // Mobile dock has less room, so Calendar/Stats/Profile collapse into a "More" dropdown there.
     const moreNavItems = [
+      {to: "/calendar", label: "nav.calendar", icon: CalendarDaysIcon},
       {to: "/stats", label: "nav.stats", icon: ChartPieIcon},
       {to: "/profile", label: "nav.profile", icon: UserIcon},
     ];
