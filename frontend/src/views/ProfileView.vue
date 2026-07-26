@@ -21,6 +21,13 @@
             <span v-else>{{ $t('profile.upload') }}</span>
           </Button>
         </div>
+        <label class="flex items-start gap-3 mt-3 cursor-pointer">
+          <input type="checkbox" v-model="deriveReadingDays" class="checkbox checkbox-sm mt-0.5"/>
+          <span>
+            <span class="text-sm font-medium text-ink">{{ $t('profile.deriveReadingDays') }}</span>
+            <span class="t-meta block">{{ $t('profile.deriveReadingDaysDesc') }}</span>
+          </span>
+        </label>
         <div v-if="importResult" :class="['mt-4 p-3 rounded-md border', importResult.success ? 'bg-success/10 border-success/30' : 'bg-error/10 border-error/30']">
           <div class="flex items-center gap-2">
             <span :class="importResult.success ? 'text-success' : 'text-error'">{{ importResult.message }}</span>
@@ -66,6 +73,7 @@ export default defineComponent({
     const selectedFile = ref<File | null>(null);
     const isUploading = ref(false);
     const importResult = ref<{ success: boolean; message: string } | null>(null);
+    const deriveReadingDays = ref(false);
     const auth = useAuthStore();
 
     const logout = () => {
@@ -90,6 +98,9 @@ export default defineComponent({
       importResult.value = null;
       const formData = new FormData();
       formData.append('file', selectedFile.value);
+      if (deriveReadingDays.value) {
+        formData.append('derive_reading_days', 'true');
+      }
 
       try {
         const response = await apiFetch('/api/user/import-good-reads', {
@@ -105,7 +116,8 @@ export default defineComponent({
             readings: d.readings_created,
           });
           const failed = d.books_failed > 0 ? ' ' + t('profile.importFailed', {failed: d.books_failed}) : '';
-          importResult.value = { success: true, message: summary + failed };
+          const days = d.entries_created > 0 ? ' ' + t('profile.importReadingDays', {days: d.entries_created}) : '';
+          importResult.value = { success: true, message: summary + days + failed };
         } else {
           console.error('Failed to import file:', await response.json());
           importResult.value = { success: false, message: t('profile.importError') };
@@ -118,7 +130,7 @@ export default defineComponent({
       }
     };
 
-    return {logout, pageContainer, handleFileChange, uploadFile, isUploading, importResult, language, languageOptions};
+    return {logout, pageContainer, handleFileChange, uploadFile, isUploading, importResult, deriveReadingDays, language, languageOptions};
   }
 });
 </script>

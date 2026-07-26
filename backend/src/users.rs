@@ -180,6 +180,10 @@ pub(crate) async fn login(Json(payload): Json<LoginRequest>) -> impl IntoRespons
 ///
 /// This route accepts a multipart form data with the following structure:
 /// - `file`: The CSV file to import.
+/// - `derive_reading_days` (optional, `"true"`): also log each finished book as
+///   read in full on its "Date Read", so imported readings show up in the stats
+///   that are derived from reading entries. Off by default — it writes progress
+///   that was never actually logged.
 ///
 /// Authentication is required via JWT token in the Authorization header.
 pub(crate) async fn import_good_reads(
@@ -188,6 +192,7 @@ pub(crate) async fn import_good_reads(
 ) -> impl IntoResponse {
     let user_uuid = auth.0;
     let mut file_data = None;
+    let mut derive_reading_days = false;
 
     loop {
         let field = match multipart.next_field().await {
@@ -216,6 +221,8 @@ pub(crate) async fn import_good_reads(
                     );
                 }
             }
+        } else if field_name == "derive_reading_days" {
+            derive_reading_days = matches!(field.text().await.as_deref(), Ok("true") | Ok("1"));
         }
     }
 
@@ -384,6 +391,7 @@ pub(crate) async fn import_good_reads(
     let mut books_skipped = 0usize;
     let mut books_failed = 0usize;
     let mut readings_created = 0usize;
+    let mut entries_created = 0usize;
 
     for record in &records {
         // GoodReads "Date Added" drives the timestamp for the book row and its
@@ -493,6 +501,17 @@ pub(crate) async fn import_good_reads(
         // yields finished reading(s); "currently-reading" yields a single open
         // reading so the book surfaces on the home page. Skip if the book
         // already has a reading, so re-importing stays idempotent.
+        //
+        // Imported readings get no `reading_entries` on their own, only a finish
+        // date, which leaves everything derived from entries blank. The optional
+        // `derive_reading_days` below fills that in where the export has a real
+        // "Date Read"; books without one keep showing via the calendar's
+        // finished-readings fallback.
+        //
+        // Books imported before the `page_count` migration (2026-07-22) have a
+        // NULL page count and readings stuck at `total_pages = 0`; re-running the
+        // import repairs both (see `resolve_or_create_book`), so those libraries
+        // heal on the next import rather than needing a migration.
         let exclusive = record.exclusive_shelf.trim();
         if exclusive == "read" || exclusive == "currently-reading" {
             let already_has_reading: bool = diesel::select(diesel::dsl::exists(
@@ -571,6 +590,24 @@ pub(crate) async fn import_good_reads(
                     }
                 }
             }
+
+            // Opt-in: turn the finish date into an actual logged reading day, for
+            // readings created just now as well as ones from an earlier import.
+            // Only with a real "Date Read" — see `synthesise_finished_entries`.
+            if derive_reading_days && exclusive == "read" {
+                if let Some(finish) = record.date_read.as_deref().and_then(parse_goodreads_date) {
+                    match crate::readings::synthesise_finished_entries(
+                        connection, user_uuid, book_id, finish,
+                    ) {
+                        Ok(n) => entries_created += n,
+                        Err(e) => tracing::error!(
+                            "Error deriving reading days for book '{}': {}",
+                            record.title,
+                            e
+                        ),
+                    }
+                }
+            }
         }
     }
 
@@ -582,6 +619,7 @@ pub(crate) async fn import_good_reads(
             "books_skipped": books_skipped,
             "books_failed": books_failed,
             "readings_created": readings_created,
+            "entries_created": entries_created,
         })),
     )
 }

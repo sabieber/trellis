@@ -55,6 +55,73 @@ pub(crate) fn backfill_reading_pages(
     Ok(())
 }
 
+/// Logs a finished reading as read in full on `finish`, for every reading of this
+/// book that has no `reading_entries` yet. The GoodReads import creates readings
+/// with a finish date but no entries, and everything derived from entries —
+/// reading days, streak, pages goals, daily pages in the heatmap and calendar —
+/// is blank without them.
+///
+/// Only called for records whose export carries a real "Date Read": the import's
+/// own fallback chain collapses a missing one to "Date Added", which would pile a
+/// whole import batch onto a single day and invent reading days that never
+/// happened. Readings without a known page count are skipped as well — a
+/// zero-progress entry adds no pages and would block a correct entry later, once
+/// the page count is known.
+///
+/// Returns the number of entries created. Idempotent: a reading that already has
+/// an entry is left alone, so re-importing does not duplicate.
+pub(crate) fn synthesise_finished_entries(
+    conn: &mut PgConnection,
+    user_id: Uuid,
+    book_id: Uuid,
+    finish: chrono::NaiveDate,
+) -> QueryResult<usize> {
+    use schema::readings::dsl as r;
+
+    let candidates: Vec<(Uuid, i32, ReadingMode)> = readings
+        .filter(r::user.eq(user_id))
+        .filter(r::book.eq(book_id))
+        .filter(r::finished_at.is_not_null())
+        .filter(r::total_pages.gt(0))
+        .select((r::id, r::total_pages, r::mode))
+        .load(conn)?;
+
+    let now = chrono::Utc::now().naive_utc();
+    let mut created = 0;
+
+    for (reading_id, total_pages, mode) in candidates {
+        let has_entry: bool = diesel::select(diesel::dsl::exists(
+            reading_entries.filter(schema::reading_entries::dsl::reading.eq(reading_id)),
+        ))
+        .get_result(conn)?;
+        if has_entry {
+            continue;
+        }
+
+        let entry = ReadingEntry {
+            id: Uuid::new_v4(),
+            reading: reading_id,
+            book: book_id,
+            user: user_id,
+            // Percentage readings track 0-100, so "read in full" is 100 there.
+            progress: match mode {
+                ReadingMode::Pages => total_pages,
+                ReadingMode::Percentage => 100,
+            },
+            mode,
+            read_at: finish,
+            created_at: now,
+            updated_at: now,
+        };
+        diesel::insert_into(reading_entries)
+            .values(&entry)
+            .execute(conn)?;
+        created += 1;
+    }
+
+    Ok(created)
+}
+
 pub(crate) fn register_routes(router: Router) -> Router {
     router
         .route("/api/books/reading", post(get_reading_info))

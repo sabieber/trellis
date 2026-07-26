@@ -288,7 +288,10 @@
     "selectFileFirst": "Bitte wähle zuerst eine Datei aus.",
     "importSummary": "Import abgeschlossen. {added} Bücher hinzugefügt, {skipped} bereits vorhanden, {readings} Lesungen erstellt.",
     "importFailed": "{failed} konnten nicht eingefügt werden.",
-    "importError": "Datei konnte nicht importiert werden."
+    "importError": "Datei konnte nicht importiert werden.",
+    "deriveReadingDays": "Lesetage aus dem Abschlussdatum ableiten",
+    "deriveReadingDaysDesc": "Bücher mit einem \"Date Read\" gelten als an diesem Tag vollständig gelesen und tauchen so in Statistik, Lesestreak und Kalender auf. Bücher ohne Datum bleiben unverändert.",
+    "importReadingDays": "{days} Lesetage abgeleitet."
   },
   "auth": {
     "tagline": "eine Bibliothek zum Wachsen",

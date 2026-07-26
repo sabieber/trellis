@@ -288,7 +288,10 @@
     "selectFileFirst": "Please select a file first.",
     "importSummary": "Import complete. {added} books added, {skipped} already present, {readings} readings created.",
     "importFailed": "{failed} failed to insert.",
-    "importError": "Failed to import file."
+    "importError": "Failed to import file.",
+    "deriveReadingDays": "Derive reading days from finish dates",
+    "deriveReadingDaysDesc": "Books with a \"Date Read\" count as fully read on that day, so they show up in statistics, reading streak and calendar. Books without a date are left untouched.",
+    "importReadingDays": "{days} reading days derived."
   },
   "auth": {
     "tagline": "a garden library",
