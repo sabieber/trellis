@@ -96,6 +96,10 @@
     "avgRating": "avg ★{r}",
     "totalPages": "{n} pages"
   },
+  "series": {
+    "bookCount": "{n} books",
+    "empty": "No books found in this series"
+  },
   "shelf": {
     "added": "Added",
     "editName": "Rename",
@@ -141,6 +145,7 @@
     "tabInfo": "Info",
     "tabLog": "Log",
     "tabShelves": "Shelves",
+    "seriesEntry": "{name} #{position}",
     "about": "About",
     "details": "Details",
     "genre": "Genre",

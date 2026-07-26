@@ -11,6 +11,7 @@ import GoalsView from "@/views/GoalsView.vue";
 import GoalDetailView from "@/views/GoalDetailView.vue";
 import StatsView from "@/views/StatsView.vue";
 import AuthorDetailView from "@/views/AuthorDetailView.vue";
+import SeriesDetailView from "@/views/SeriesDetailView.vue";
 import { useAuthStore } from '@/stores/auth';
 
 const router = createRouter({
@@ -97,6 +98,14 @@ const router = createRouter({
       path: '/author/:name',
       name: 'author-detail',
       component: AuthorDetailView,
+      meta: {
+        requiresAuth: true
+      }
+    },
+    {
+      path: '/series/:key',
+      name: 'series-detail',
+      component: SeriesDetailView,
       meta: {
         requiresAuth: true
       }

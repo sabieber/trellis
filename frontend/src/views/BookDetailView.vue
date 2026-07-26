@@ -41,6 +41,14 @@
               <span v-if="displayedPageCount"> · {{ $t('search.pagesAbbr', { count: displayedPageCount }) }}</span>
               <span v-if="book.category"> · {{ book.category }}</span>
             </p>
+            <p v-if="book.series" class="t-meta mt-1">
+              <span
+                  class="hover:text-green-soft hover:underline transition-colors duration-150 cursor-pointer"
+                  @click="viewSeries(book.series.key)"
+              >{{ book.series.position
+                    ? $t('bookDetail.seriesEntry', { name: book.series.name, position: book.series.position })
+                    : book.series.name }}</span>
+            </p>
           </div>
         </div>
 
@@ -202,6 +210,7 @@
 import {defineComponent, ref, computed, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {goToAuthor} from '@/utils/authorRoute';
+import {goToSeries} from '@/utils/seriesRoute';
 import {useI18n} from 'vue-i18n';
 import {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, ArrowTopRightOnSquareIcon} from "@heroicons/vue/24/outline";
 import {fetchBookDetail, searchBooks, resolveGoogleId} from '@/api/bookApi';
@@ -405,6 +414,8 @@ export default defineComponent({
 
     const viewAuthor = (author: string) => goToAuthor(router, author);
 
+    const viewSeries = (key: string) => goToSeries(router, key);
+
     const startReadingSession = async (mode: string, totalPages: number, startedAt: string) => {
       try {
         const response = await apiFetch('/api/books/start-reading', {
@@ -523,6 +534,7 @@ export default defineComponent({
       toastType,
       viewReadingDetail,
       viewAuthor,
+      viewSeries,
       startReadingSession,
       isOnShelf,
       toggleShelf,

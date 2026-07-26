@@ -47,6 +47,19 @@ pub struct DetailBook {
     pub categories: Vec<String>,
     pub ratings_count: Option<u32>,
     pub info_link: Option<String>,
+    // Only Open Library exposes a resolvable series entity (name + members);
+    // Google's `seriesInfo` gives an opaque id with no name, so Google detail
+    // leaves this None.
+    pub series: Option<SeriesRef>,
+}
+
+/// A book's membership in a series: the Open Library series key (e.g. `OL326110L`),
+/// its display name, and the book's position within it when known.
+#[derive(Debug, Clone, Serialize)]
+pub struct SeriesRef {
+    pub key: String,
+    pub name: String,
+    pub position: Option<String>,
 }
 
 pub(crate) fn register_routes(router: Router) -> Router {
@@ -54,6 +67,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/books/search", get(unified_search))
         .route("/api/books/trending", get(trending))
         .route("/api/books/external/{source}/{id}", get(external_detail))
+        .route("/api/series/{key}", get(series_detail))
 }
 
 #[derive(Deserialize)]
@@ -266,7 +280,29 @@ async fn google_detail(client: &Client, volume_id: &str) -> Option<DetailBook> {
             .as_str()
             .or_else(|| vi["canonicalVolumeLink"].as_str())
             .map(String::from),
+        series: None,
     })
+}
+
+/// Lists the books in an Open Library series, keyed by its series id (e.g.
+/// `OL326110L`). Returns the series name and members; members are sorted by
+/// publication year — a reasonable default, since Open Library's search facet
+/// doesn't return true series order.
+pub(crate) async fn series_detail(
+    _auth: AuthUser,
+    Path(key): Path<String>,
+) -> impl IntoResponse {
+    let client = Client::new();
+    match crate::open_library_client::get_series(&client, &key).await {
+        Some((name, books)) => {
+            (StatusCode::OK, Json(json!({ "name": name, "books": books }))).into_response()
+        }
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "Series not found" })),
+        )
+            .into_response(),
+    }
 }
 
 fn normalize_google_item(item: &Value) -> Option<NormalizedBook> {

@@ -20,4 +20,11 @@ export interface BookSearchResult {
   categories?: string[]
   ratings_count?: number | null
   info_link?: string | null
+  series?: SeriesRef | null
+}
+
+export interface SeriesRef {
+  key: string
+  name: string
+  position: string | null
 }

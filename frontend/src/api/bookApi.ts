@@ -44,6 +44,20 @@ export const fetchBookDetail = async (
   }
 }
 
+export const fetchSeries = async (
+  key: string
+): Promise<{ name: string; books: BookSearchResult[] } | null> => {
+  try {
+    const response = await apiFetch(`/api/series/${encodeURIComponent(key)}`)
+    if (response.ok) {
+      return await response.json()
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 export const resolveGoogleId = async (bookId: string): Promise<string | null> => {
   try {
     const response = await apiFetch('/api/books/resolve-google-id', {

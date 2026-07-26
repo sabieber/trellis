@@ -96,6 +96,10 @@
     "avgRating": "Ø ★{r}",
     "totalPages": "{n} Seiten"
   },
+  "series": {
+    "bookCount": "{n} Bücher",
+    "empty": "Keine Bücher in dieser Reihe gefunden"
+  },
   "shelf": {
     "added": "Hinzugefügt",
     "editName": "Umbenennen",
@@ -141,6 +145,7 @@
     "tabInfo": "Info",
     "tabLog": "Verlauf",
     "tabShelves": "Regale",
+    "seriesEntry": "{name} #{position}",
     "about": "Über",
     "details": "Details",
     "genre": "Genre",

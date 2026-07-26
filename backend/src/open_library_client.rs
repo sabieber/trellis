@@ -1,4 +1,4 @@
-use crate::book_search::{DetailBook, NormalizedBook};
+use crate::book_search::{DetailBook, NormalizedBook, SeriesRef};
 use reqwest::Client;
 use serde_json::Value;
 
@@ -93,15 +93,75 @@ pub async fn get_work(client: &Client, work_key: &str) -> Option<DetailBook> {
         .map(String::from)
         .unwrap_or_else(|| format!("{}/works/{}/editions.json?limit=1", OL_BASE, key.trim_start_matches("works/")));
 
-    let (author_names, edition, ratings) = tokio::join!(
+    // A work's `series` is an array whose first entry is `{series: {key}, position}`
+    // (older records use plain strings, which yield no resolvable key — skipped).
+    let series_first = body["series"].as_array().and_then(|a| a.first());
+    let series_key = series_first
+        .and_then(|s| s["series"]["key"].as_str())
+        .map(|k| k.trim_start_matches("/series/").to_string());
+    let series_position = series_first.and_then(|s| {
+        s["position"]
+            .as_str()
+            .map(String::from)
+            .or_else(|| s["position"].as_i64().map(|n| n.to_string()))
+    });
+
+    let (author_names, edition, ratings, series_name) = tokio::join!(
         fetch_author_names(client, &author_keys),
         fetch_edition_meta(client, &editions_url),
         fetch_work_ratings(client, key),
+        fetch_series_name(client, series_key.as_deref()),
     );
 
     let authors = if author_names.is_empty() { None } else { Some(author_names) };
 
-    normalize_work(&body, work_key, authors, edition, ratings)
+    let series = match (series_key, series_name) {
+        (Some(key), Some(name)) => Some(SeriesRef { key, name, position: series_position }),
+        _ => None,
+    };
+
+    normalize_work(&body, work_key, authors, edition, ratings, series)
+}
+
+/// Resolves an Open Library series id (e.g. `OL326110L`) to its display name.
+/// None when the key is absent or the lookup fails.
+async fn fetch_series_name(client: &Client, key: Option<&str>) -> Option<String> {
+    let key = key?;
+    let url = format!("{}/series/{}.json", OL_BASE, key);
+    let resp = client.get(&url).send().await.ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    let body: Value = resp.json().await.ok()?;
+    body["name"].as_str().map(String::from)
+}
+
+/// Fetches a series' name and its member books (via the `series_key` search
+/// facet). Members are sorted by publication year; Open Library's search doesn't
+/// return true reading order.
+/// ponytail: year sort, upgrade to per-work `position` if members land out of order.
+pub async fn get_series(client: &Client, series_key: &str) -> Option<(String, Vec<NormalizedBook>)> {
+    let key = series_key.trim_start_matches("/series/").trim_start_matches('/');
+    let name = fetch_series_name(client, Some(key)).await?;
+
+    let url = format!("{}/search.json", OL_BASE);
+    let resp = client
+        .get(&url)
+        .query(&[("q", format!("series_key:{}", key).as_str()), ("limit", "50")])
+        .send()
+        .await
+        .ok()?;
+    if !resp.status().is_success() {
+        return Some((name, vec![]));
+    }
+    let body: Value = resp.json().await.ok()?;
+    let mut books: Vec<NormalizedBook> = body["docs"]
+        .as_array()
+        .map(|docs| docs.iter().filter_map(normalize_search_doc).collect())
+        .unwrap_or_default();
+    books.sort_by(|a, b| a.published_year.cmp(&b.published_year));
+
+    Some((name, books))
 }
 
 /// Fetches the community rating summary for a work (`(average, count)`). This is
@@ -413,6 +473,7 @@ fn normalize_work(
     resolved_authors: Option<Vec<String>>,
     edition: EditionMeta,
     ratings: (Option<f64>, Option<u32>),
+    series: Option<SeriesRef>,
 ) -> Option<DetailBook> {
     let title = body["title"].as_str()?.to_string();
     let source_id = body["key"]
@@ -481,6 +542,7 @@ fn normalize_work(
         categories: subjects,
         ratings_count: ratings.1,
         info_link: Some(format!("{}{}", OL_BASE, source_id)),
+        series,
     })
 }
 
