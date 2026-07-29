@@ -6,6 +6,17 @@
         <div class="t-meta mt-1">{{ today }}</div>
       </div>
 
+      <!-- Reading streak section -->
+      <div v-if="streak">
+        <h2 class="t-eyebrow mb-3">{{ $t('home.readingStreak') }}</h2>
+        <StreakBed
+            :current-days="streak.current_days"
+            :longest-days="streak.longest_days"
+            :current-weeks="streak.current_weeks"
+            :week="streak.week"
+        />
+      </div>
+
       <!-- Goals section -->
       <div>
         <div class="flex justify-between items-center mb-3">
@@ -147,6 +158,7 @@ import TrackProgressModal from '@/components/TrackProgressModal.vue';
 import Button from '@/components/ui/Button.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import VineProgress from '@/components/ui/VineProgress.vue';
+import StreakBed, {type StreakDay} from '@/components/StreakBed.vue';
 import {apiFetch} from '@/api/client';
 import PlainProgress from "@/components/ui/PlainProgress.vue";
 
@@ -159,6 +171,14 @@ interface Goal {
   percentage: number;
   period_start: string;
   period_end: string;
+}
+
+interface Streak {
+  current_days: number;
+  longest_days: number;
+  current_weeks: number;
+  longest_weeks: number;
+  week: StreakDay[];
 }
 
 interface ActiveReading {
@@ -180,13 +200,14 @@ import {goToAuthor, isLinkableAuthor} from '@/utils/authorRoute';
 import {useBookCovers} from '@/composables/useBookCovers';
 
 export default defineComponent({
-  components: {RouterLink, ChevronRightIcon, TrackProgressModal, Button, PlainProgress, BookCover, VineProgress},
+  components: {RouterLink, ChevronRightIcon, TrackProgressModal, Button, PlainProgress, BookCover, VineProgress, StreakBed},
   setup() {
     const {t, locale} = useI18n();
     const auth = useAuthStore();
     const router = useRouter();
     const goals = ref<Goal[]>([]);
     const goalsLoading = ref(false);
+    const streak = ref<Streak | null>(null);
     const activeReadings = ref<ActiveReading[]>([]);
     const readingsLoading = ref(false);
     const updateTarget = ref<ActiveReading | null>(null);
@@ -224,6 +245,18 @@ export default defineComponent({
       }
     };
 
+    const fetchStreak = async () => {
+      if (!auth.isAuthenticated) return;
+      try {
+        const res = await apiFetch('/api/stats/streak', {method: 'POST'});
+        if (res.ok) {
+          streak.value = await res.json();
+        }
+      } catch (e) {
+        console.error('Failed to fetch streak:', e);
+      }
+    };
+
     const fetchActiveReadings = async () => {
       if (!auth.isAuthenticated) return;
       readingsLoading.value = true;
@@ -254,7 +287,8 @@ export default defineComponent({
         if (res.ok) {
           updateTarget.value = null;
           showToast(t('home.progressUpdated'), 'alert-success');
-          await fetchActiveReadings();
+          // Logging progress can plant today's seedling, so the bed reloads too.
+          await Promise.all([fetchActiveReadings(), fetchStreak()]);
         } else {
           showToast(apiErrorMessage(res.status, t), 'alert-error');
         }
@@ -282,11 +316,12 @@ export default defineComponent({
 
     onMounted(() => {
       fetchGoals();
+      fetchStreak();
       fetchActiveReadings();
     });
 
     return {
-      auth, goals, goalsLoading, activeReadings, readingsLoading,
+      auth, goals, goalsLoading, streak, activeReadings, readingsLoading,
       updateTarget, toastMessage, toastType,
       openUpdateModal, submitProgress, readingPercent,
       formatGoalLabel, bookCoverUrl, resolvedCoverUrl, onResolveCover, greeting, today, navigateTo,

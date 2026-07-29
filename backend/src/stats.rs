@@ -21,6 +21,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/stats/activity", post(activity))
         .route("/api/stats/breakdown", post(breakdown))
         .route("/api/stats/calendar", post(calendar))
+        .route("/api/stats/streak", post(streak))
 }
 
 fn year_period(year: i32) -> (NaiveDate, NaiveDate) {
@@ -147,37 +148,78 @@ fn calculate_reading_days(
     }
 }
 
-/// Counts the consecutive days with logged reading entries as of the reference
-/// date (a streak stays alive until a full day is missed). For past periods
-/// this is the streak that was active at the end of the period.
-fn calculate_reading_streak(connection: &mut PgConnection, user_id: Uuid, reference: NaiveDate) -> i64 {
-    let dates: Vec<NaiveDate> = match reading_entries
+/// All distinct days on which the user logged reading progress.
+fn reading_day_set(connection: &mut PgConnection, user_id: Uuid) -> HashSet<NaiveDate> {
+    match reading_entries
         .filter(schema::reading_entries::dsl::user.eq(user_id))
         .select(schema::reading_entries::dsl::read_at)
         .distinct()
-        .load(connection)
+        .load::<NaiveDate>(connection)
     {
-        Ok(d) => d,
-        Err(_) => return 0,
-    };
+        Ok(dates) => dates.into_iter().collect(),
+        Err(_) => HashSet::new(),
+    }
+}
 
-    let days: HashSet<NaiveDate> = dates.into_iter().collect();
-    let day_before = reference - TimeDelta::days(1);
+/// Counts the marks running consecutively back from the reference, where `step`
+/// is the distance between two neighbours: one day for the day streak, seven
+/// for the week streak. The run stays alive until a full step is missed, so an
+/// otherwise unbroken streak survives a day (or week) that has not been used
+/// yet.
+fn current_run(marks: &HashSet<NaiveDate>, reference: NaiveDate, step: i64) -> i64 {
+    let previous = reference - TimeDelta::days(step);
 
-    let mut cursor = if days.contains(&reference) {
+    let mut cursor = if marks.contains(&reference) {
         reference
-    } else if days.contains(&day_before) {
-        day_before
+    } else if marks.contains(&previous) {
+        previous
     } else {
         return 0;
     };
 
-    let mut streak = 0;
-    while days.contains(&cursor) {
-        streak += 1;
-        cursor -= TimeDelta::days(1);
+    let mut run = 0;
+    while marks.contains(&cursor) {
+        run += 1;
+        cursor -= TimeDelta::days(step);
     }
-    streak
+    run
+}
+
+/// The longest run of consecutive marks the user ever managed. Runs are counted
+/// from their first mark only, so every run is walked exactly once.
+fn longest_run(marks: &HashSet<NaiveDate>, step: i64) -> i64 {
+    let mut longest = 0;
+
+    for mark in marks {
+        if marks.contains(&(*mark - TimeDelta::days(step))) {
+            continue;
+        }
+        let mut run = 0;
+        let mut cursor = *mark;
+        while marks.contains(&cursor) {
+            run += 1;
+            cursor += TimeDelta::days(step);
+        }
+        longest = longest.max(run);
+    }
+    longest
+}
+
+/// The Monday of the week the given date falls into. Weeks are identified by
+/// their Monday so a week streak is just a day streak with a step of seven.
+fn week_start(date: NaiveDate) -> NaiveDate {
+    date - TimeDelta::days(date.weekday().num_days_from_monday() as i64)
+}
+
+/// Counts the consecutive days with logged reading entries as of the reference
+/// date (a streak stays alive until a full day is missed). For past periods
+/// this is the streak that was active at the end of the period.
+fn calculate_reading_streak(
+    connection: &mut PgConnection,
+    user_id: Uuid,
+    reference: NaiveDate,
+) -> i64 {
+    current_run(&reading_day_set(connection, user_id), reference, 1)
 }
 
 /// Averages the ratings of distinct books finished within the period, derived
@@ -725,6 +767,42 @@ pub(crate) async fn overview(
     )
 }
 
+/// Returns the reading streaks of the authenticated user, for the home screen.
+///
+/// This route takes no payload and responds with:
+/// - `current_days`: consecutive reading days up to today
+/// - `longest_days`: the longest run of reading days ever
+/// - `current_weeks`: consecutive weeks with at least one reading day
+/// - `longest_weeks`: the longest run of such weeks ever
+/// - `week`: the seven days of the current week (Monday first), each with its
+///   `date` in `YYYY-MM-DD` format and whether it was `read`
+pub(crate) async fn streak(auth: AuthUser) -> impl IntoResponse {
+    let connection = &mut connect();
+    let today = chrono::Utc::now().date_naive();
+
+    let days = reading_day_set(connection, auth.0);
+    let weeks: HashSet<NaiveDate> = days.iter().map(|day| week_start(*day)).collect();
+    let monday = week_start(today);
+
+    let week: Vec<serde_json::Value> = (0..7)
+        .map(|offset| {
+            let date = monday + TimeDelta::days(offset);
+            json!({ "date": date.to_string(), "read": days.contains(&date) })
+        })
+        .collect();
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "current_days": current_run(&days, today, 1),
+            "longest_days": longest_run(&days, 1),
+            "current_weeks": current_run(&weeks, monday, 7),
+            "longest_weeks": longest_run(&weeks, 7),
+            "week": week,
+        })),
+    )
+}
+
 /// Request type for the reading activity time series.
 #[derive(Debug, Deserialize)]
 pub struct ActivityRequest {
@@ -1161,6 +1239,35 @@ mod tests {
         );
         // Empty account collapses to a zero-width today..today span.
         assert_eq!(total_period(None, today), (today, today));
+    }
+
+    #[test]
+    fn test_streak_runs() {
+        // Two runs: 12.-14. July and 20.-24. July, with today the 25th.
+        let days: HashSet<NaiveDate> = [12, 13, 14, 20, 21, 22, 23, 24]
+            .into_iter()
+            .map(|day| date(2026, 7, day))
+            .collect();
+
+        // Nothing logged today yet, so yesterday still carries the streak.
+        assert_eq!(current_run(&days, date(2026, 7, 25), 1), 5);
+        assert_eq!(current_run(&days, date(2026, 7, 24), 1), 5);
+        // A full day missed ends it.
+        assert_eq!(current_run(&days, date(2026, 7, 26), 1), 0);
+        assert_eq!(longest_run(&days, 1), 5);
+
+        // The same days cover three consecutive weeks (13., 20. are Mondays).
+        let weeks: HashSet<NaiveDate> = days.iter().map(|day| week_start(*day)).collect();
+        assert_eq!(weeks.len(), 3);
+        assert_eq!(current_run(&weeks, week_start(date(2026, 7, 25)), 7), 3);
+        assert_eq!(longest_run(&weeks, 7), 3);
+    }
+
+    #[test]
+    fn test_streak_of_empty_account() {
+        let days: HashSet<NaiveDate> = HashSet::new();
+        assert_eq!(current_run(&days, date(2026, 7, 25), 1), 0);
+        assert_eq!(longest_run(&days, 1), 0);
     }
 
     #[test]

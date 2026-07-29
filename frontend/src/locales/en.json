@@ -253,6 +253,9 @@
       "afternoon": "Good afternoon",
       "evening": "Good evening"
     },
+    "readingStreak": "Reading streak",
+    "streakDays": "day planted · best {best} | days planted · best {best}",
+    "streakWeeks": "{count} week | {count} weeks",
     "readingGoals": "Reading goals",
     "noGoals": "No goals yet.",
     "createOne": "Create one",

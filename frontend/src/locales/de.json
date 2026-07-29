@@ -253,6 +253,9 @@
       "afternoon": "Guten Tag",
       "evening": "Guten Abend"
     },
+    "readingStreak": "Lesestreak",
+    "streakDays": "Tag gepflanzt · Bestwert {best} | Tage gepflanzt · Bestwert {best}",
+    "streakWeeks": "{count} Woche | {count} Wochen",
     "readingGoals": "Leseziele",
     "noGoals": "Noch keine Ziele.",
     "createOne": "Erstelle eines",
