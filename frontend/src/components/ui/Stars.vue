@@ -48,13 +48,13 @@ const click = (val: number) => {
 .stars {
   display: inline-flex;
   gap: 2px;
-  color: #d7b052;
+  color: var(--color-gold);
   font-size: 13px;
   letter-spacing: 1px;
 }
 
 .stars .off {
-  color: #6a6353;
+  color: var(--color-faint);
 }
 
 .stars.interactive span {
@@ -67,6 +67,6 @@ const click = (val: number) => {
 }
 
 .stars .hover {
-  color: #e8c462;
+  color: var(--color-gold-bright);
 }
 </style>

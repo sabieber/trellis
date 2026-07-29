@@ -25,6 +25,7 @@
     --color-on-green: #16170d;   /* text on green fills */
     /* --- functional warm gold (ratings ONLY) --- */
     --color-gold: #d7b052;
+    --color-gold-bright: #e8c462;   /* hover preview while rating */
 
     /* --- type --- */
     --font-serif: 'Spectral', Georgia, 'Times New Roman', serif;
