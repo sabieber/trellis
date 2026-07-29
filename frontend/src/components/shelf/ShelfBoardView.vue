@@ -77,9 +77,9 @@ const shelfRows = computed(() => packShelfRows(props.books, props.containerWidth
 }
 
 /* --- wind pass (random picker) ---
-   Timed so the last spine (--i 15) lands back at rest just before the picker
-   switches phase: 15 × 30ms + 2 × 560ms = 1570ms < GUST_MS. Otherwise the
-   class is pulled mid-sway and the whole row snaps. */
+   One spine after the next, so the gust reads as travelling along the shelf.
+   RandomBookModal waits for these to finish before it moves on, so the timing
+   here is free to change. */
 :deep(.spine.gust) {
   transform-origin: bottom center;
   animation: sway 560ms ease-in-out calc(var(--i) * 30ms) 2;

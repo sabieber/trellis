@@ -33,6 +33,7 @@
 
       <div ref="boardRef" class="board">
         <ShelfBoardView
+            ref="boardViewRef"
             :books="strip"
             :spine-height="132"
             :container-width="boardWidth"
@@ -64,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, ref} from 'vue';
+import {computed, nextTick, onMounted, onUnmounted, ref, type ComponentPublicInstance} from 'vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
 import ShelfBoardView from '@/components/shelf/ShelfBoardView.vue';
@@ -96,13 +97,10 @@ const LEAVES = [
 const CANDIDATES = 24;
 /** Must match the gap of .shelf-books in ShelfBoardView. */
 const SPINE_GAP = 3;
-// The gust has to outlast the sway wave in ShelfBoardView (1570ms for the last
-// spine), or the spines get frozen mid-tilt when the phase flips.
-const GUST_MS = 1600;
-const SETTLE_MS = 800;
 
 const {resolvedCoverUrl, onResolveCover} = useBookCovers();
 const boardRef = ref<HTMLElement | null>(null);
+const boardViewRef = ref<ComponentPublicInstance | null>(null);
 const {containerWidth, setupObserver} = useContainerWidth(boardRef);
 // .shelf-books carries 8px of padding on each side.
 const boardWidth = computed(() => Math.max(0, containerWidth.value - 16));
@@ -110,7 +108,8 @@ const boardWidth = computed(() => Math.max(0, containerWidth.value - 16));
 const phase = ref<'gust' | 'settle' | 'revealed'>('gust');
 const pick = ref<ShelfBook | null>(null);
 const drawn = ref<{ book: ShelfBook; others: ShelfBook[]; slot: number } | null>(null);
-const timers: number[] = [];
+// Bumped whenever a run is superseded — by another gust, or by unmounting.
+let run = 0;
 
 /** As many neighbours as fit on one board, with the drawn book among them. */
 const strip = computed<ShelfBook[]>(() => {
@@ -128,7 +127,26 @@ const strip = computed<ShelfBook[]>(() => {
   return shown;
 });
 
-const blow = () => {
+/**
+ * Resolves once every animation and transition running on the shelf has ended,
+ * so the phases hand over to each other instead of being timed to match the
+ * durations in ShelfBoardView. Cancelled animations reject, hence `allSettled`.
+ */
+const shelfSettled = async () => {
+  await nextTick();
+  // A class only turns into a running animation once the browser has recalculated
+  // styles, which happens after the next frame's rAF callbacks — asking any
+  // earlier returns an empty list and the phase would end the moment it began.
+  await new Promise(requestAnimationFrame);
+  await new Promise(requestAnimationFrame);
+  const element = boardViewRef.value?.$el as Element | undefined;
+  if (!element) {
+    return;
+  }
+  await Promise.allSettled(element.getAnimations({subtree: true}).map((animation) => animation.finished));
+};
+
+const blow = async () => {
   const pool = pick.value && props.books.length > 1
       ? props.books.filter((b) => b.id !== pick.value!.id)
       : props.books;
@@ -139,15 +157,27 @@ const blow = () => {
   const others = props.books.filter((b) => b.id !== next.id).sort(() => Math.random() - 0.5);
   drawn.value = {book: next, others: others.slice(0, CANDIDATES), slot: Math.floor(Math.random() * 1000)};
 
-  phase.value = 'gust';
-  timers.forEach(clearTimeout);
-  timers.length = 0;
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  timers.push(setTimeout(() => {
+  const token = ++run;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
     pick.value = next;
-    phase.value = 'settle';
-  }, reduced ? 0 : GUST_MS));
-  timers.push(setTimeout(() => (phase.value = 'revealed'), reduced ? 0 : GUST_MS + SETTLE_MS));
+    phase.value = 'revealed';
+    return;
+  }
+
+  // The breeze passes over the spines, then the one it settled on lights up,
+  // and only once that has played out does the cover rise off the board.
+  phase.value = 'gust';
+  await shelfSettled();
+  if (token !== run) {
+    return;
+  }
+  pick.value = next;
+  phase.value = 'settle';
+  await shelfSettled();
+  if (token !== run) {
+    return;
+  }
+  phase.value = 'revealed';
 };
 
 const onKey = (e: KeyboardEvent) => e.key === 'Escape' && emit('close');
@@ -159,7 +189,7 @@ onMounted(() => {
   addEventListener('keydown', onKey);
 });
 onUnmounted(() => {
-  timers.forEach(clearTimeout);
+  run++;
   removeEventListener('keydown', onKey);
 });
 </script>
