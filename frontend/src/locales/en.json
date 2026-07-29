@@ -112,7 +112,11 @@
     "noBooks": "No books found.",
     "removeBookTitle": "Remove Book",
     "removeBookMessage": "Are you sure you want to remove this book from the shelf?",
-    "bookRemoved": "Book removed from shelf successfully."
+    "bookRemoved": "Book removed from shelf successfully.",
+    "random": "Surprise me",
+    "randomPick": "Your next read",
+    "breeze": "A breeze goes through the shelf…",
+    "blowAgain": "Another breeze"
   },
   "goalDetail": {
     "noBooks": "No books finished in this period yet.",

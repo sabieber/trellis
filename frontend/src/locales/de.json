@@ -112,7 +112,11 @@
     "noBooks": "Keine Bücher gefunden.",
     "removeBookTitle": "Buch entfernen",
     "removeBookMessage": "Möchtest du dieses Buch wirklich aus dem Regal entfernen?",
-    "bookRemoved": "Buch erfolgreich aus dem Regal entfernt."
+    "bookRemoved": "Buch erfolgreich aus dem Regal entfernt.",
+    "random": "Überrasche mich",
+    "randomPick": "Dein nächstes Buch",
+    "breeze": "Ein Windstoß geht durchs Regal…",
+    "blowAgain": "Nochmal pusten"
   },
   "goalDetail": {
     "noBooks": "In diesem Zeitraum noch keine Bücher beendet.",

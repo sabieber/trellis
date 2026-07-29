@@ -15,6 +15,15 @@
 
     <template #title-button>
       <div v-if="!loading && books.length" class="flex items-center gap-2">
+        <Button variant="ghost" icon :title="$t('shelf.random')" :aria-label="$t('shelf.random')"
+                @click="pickerOpen = true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-5">
+            <rect x="3" y="3" width="18" height="18" rx="5"/>
+            <circle cx="8.5" cy="8.5" r="1.4" fill="currentColor" stroke="none"/>
+            <circle cx="15.5" cy="15.5" r="1.4" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+          </svg>
+        </Button>
         <select v-model="sortBy" class="select select-sm w-36">
           <option value="added_at">{{ $t('shelf.sortAdded') }}</option>
           <option value="title">{{ $t('shelf.sortTitle') }}</option>
@@ -68,6 +77,13 @@
       <div v-else class="t-meta text-center py-12">{{ $t('shelf.noBooks') }}</div>
     </div>
 
+    <RandomBookModal
+        v-if="pickerOpen"
+        :books="books"
+        @close="pickerOpen = false"
+        @view-book="viewBookDetail"
+    />
+
     <ConfirmDialog
         v-if="pendingRemoveBookId"
         :title="$t('shelf.removeBookTitle')"
@@ -92,6 +108,8 @@ import ShelfListView from '@/components/shelf/ShelfListView.vue';
 import ShelfGridView from '@/components/shelf/ShelfGridView.vue';
 import ShelfBoardView from '@/components/shelf/ShelfBoardView.vue';
 import ShelfPileView from '@/components/shelf/ShelfPileView.vue';
+import RandomBookModal from '@/components/shelf/RandomBookModal.vue';
+import Button from '@/components/ui/Button.vue';
 import {apiFetch} from '@/api/client';
 import {apiErrorMessage} from '@/utils/apiError';
 import {goToAuthor} from '@/utils/authorRoute';
@@ -110,6 +128,7 @@ export default defineComponent({
     QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon,
     PageContainer, SegmentedControl, ConfirmDialog, InlineEdit,
     ShelfListView, ShelfGridView, ShelfBoardView, ShelfPileView,
+    RandomBookModal, Button,
   },
   setup() {
     const {t} = useI18n();
@@ -117,11 +136,16 @@ export default defineComponent({
     const router = useRouter();
     const books = ref<ShelfBook[]>([]);
     const loading = ref(true);
-    const shelf = ref<{code: string; name: string | null; description: string}>({code: '', name: null, description: ''});
+    const shelf = ref<{ code: string; name: string | null; description: string }>({
+      code: '',
+      name: null,
+      description: ''
+    });
     const sortBy = ref<'added_at' | 'title' | 'author'>('added_at');
     const pageContainer = ref<any>(null);
     const contentRef = ref<HTMLElement | null>(null);
     const pendingRemoveBookId = ref<string | null>(null);
+    const pickerOpen = ref(false);
 
     const layoutOptions = [
       {value: 'list'},
@@ -238,7 +262,7 @@ export default defineComponent({
       books, sortedBooks, loading, shelf, sortBy,
       layoutMode, layoutOptions,
       listCoverWidth, gridTileWidth, spineHeight, containerWidth,
-      pageContainer, contentRef, pendingRemoveBookId,
+      pageContainer, contentRef, pendingRemoveBookId, pickerOpen,
       confirmRemoveBook, removeBookFromShelf, viewBookDetail, viewAuthor, saveName,
     };
   },
