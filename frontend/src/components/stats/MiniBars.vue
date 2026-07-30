@@ -29,7 +29,7 @@ import {computed, defineComponent, type PropType} from 'vue';
 import {useChartTooltip} from '@/composables/useChartTooltip';
 
 export interface MiniBar {
-  label: string;
+  label: string | number;
   value: number;
 }
 

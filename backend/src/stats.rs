@@ -211,15 +211,22 @@ fn week_start(date: NaiveDate) -> NaiveDate {
     date - TimeDelta::days(date.weekday().num_days_from_monday() as i64)
 }
 
-/// Counts the consecutive days with logged reading entries as of the reference
-/// date (a streak stays alive until a full day is missed). For past periods
-/// this is the streak that was active at the end of the period.
+/// Counts the consecutive days and weeks with logged reading entries as of the
+/// reference date (a streak stays alive until a full day, respectively week, is
+/// missed). For past periods this is the streak that was active at the end of
+/// the period.
 fn calculate_reading_streak(
     connection: &mut PgConnection,
     user_id: Uuid,
     reference: NaiveDate,
-) -> i64 {
-    current_run(&reading_day_set(connection, user_id), reference, 1)
+) -> (i64, i64) {
+    let days = reading_day_set(connection, user_id);
+    let weeks: HashSet<NaiveDate> = days.iter().map(|day| week_start(*day)).collect();
+
+    (
+        current_run(&days, reference, 1),
+        current_run(&weeks, week_start(reference), 7),
+    )
 }
 
 /// Averages the ratings of distinct books finished within the period, derived
@@ -684,6 +691,7 @@ pub struct OverviewRequest {
 /// - `reading_days`: distinct days with logged progress in the period
 /// - `reading_streak_days`: streak of consecutive reading days at the end of
 ///   the period (past periods report the streak active back then)
+/// - `reading_streak_weeks`: the same for consecutive weeks with reading
 /// - `average_rating`: average rating of books finished in the period
 ///   (may be null)
 pub(crate) async fn overview(
@@ -717,7 +725,8 @@ pub(crate) async fn overview(
     let pages_read = calculate_pages_progress(connection, auth.0, period_start, period_end);
     let reading_days = calculate_reading_days(connection, auth.0, period_start, period_end);
     let streak_reference = std::cmp::min(today, period_end);
-    let reading_streak_days = calculate_reading_streak(connection, auth.0, streak_reference);
+    let (reading_streak_days, reading_streak_weeks) =
+        calculate_reading_streak(connection, auth.0, streak_reference);
     let average_rating = calculate_average_rating(connection, auth.0, period_start, period_end);
     let avg_days_to_finish =
         calculate_avg_days_to_finish(connection, auth.0, period_start, period_end);
@@ -761,6 +770,7 @@ pub(crate) async fn overview(
             "reading_days": reading_days,
             "authors_read": authors_read,
             "reading_streak_days": reading_streak_days,
+            "reading_streak_weeks": reading_streak_weeks,
             "average_rating": average_rating.map(|r| (r * 10.0).round() / 10.0),
             "avg_days_to_finish": avg_days_to_finish.map(|d| (d * 10.0).round() / 10.0),
         })),

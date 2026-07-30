@@ -27,12 +27,6 @@
           :subtext="$t('stats.perDay', { n: pagesPerDay })"
       />
       <StatCard
-          :icon="CirclePlusIcon"
-          :label="$t('stats.booksAdded')"
-          :value="stats.books_added"
-          :subtext="$t('stats.newInLibrary')"
-      />
-      <StatCard
           :icon="UsersIcon"
           :label="$t('stats.authorsRead')"
           :value="stats.authors_read"
@@ -49,6 +43,12 @@
           :label="$t('stats.dayStreak')"
           :value="stats.reading_streak_days"
           :subtext="$t('stats.daysInRow', stats.reading_streak_days)"
+      />
+      <StatCard
+          :icon="FlameKindlingIcon"
+          :label="$t('stats.weekStreak')"
+          :value="stats.reading_streak_weeks"
+          :subtext="$t('stats.weeksInRow', stats.reading_streak_weeks)"
       />
       <StatCard
           v-if="stats.average_rating !== null"
@@ -79,10 +79,10 @@ import {defineComponent, computed, toRef} from 'vue';
 import {
   BookOpenIcon,
   CalendarDaysIcon,
+  FlameKindlingIcon,
   ClockIcon,
   FileTextIcon,
   FlameIcon,
-  CirclePlusIcon,
   ScaleIcon,
   FlowerIcon,
   UsersIcon,
@@ -104,6 +104,7 @@ interface PeriodOverview {
   reading_days: number;
   authors_read: number;
   reading_streak_days: number;
+  reading_streak_weeks: number;
   average_rating: number | null;
   avg_days_to_finish: number | null;
 }
@@ -164,10 +165,10 @@ export default defineComponent({
       formatNumber,
       BookOpenIcon,
       CalendarDaysIcon,
+      FlameKindlingIcon,
       ClockIcon,
       FileTextIcon,
       FlameIcon,
-      CirclePlusIcon,
       ScaleIcon,
       FlowerIcon,
       UsersIcon,
