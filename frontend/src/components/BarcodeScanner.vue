@@ -14,7 +14,7 @@
             class="btn btn-circle btn-sm absolute top-3 right-3 z-10 bg-black/50 border-none text-white"
             @click="$emit('close')"
         >
-          <XMarkIcon class="size-5"/>
+          <XIcon class="size-5"/>
         </button>
         <div class="absolute bottom-0 inset-x-0 p-4 bg-linear-to-t from-black/70 to-transparent text-center">
           <p class="text-white text-sm">{{ statusMessage }}</p>
@@ -28,7 +28,7 @@
 <script lang="ts">
 import {defineComponent, ref, onMounted, onBeforeUnmount} from 'vue';
 import {useI18n} from 'vue-i18n';
-import {XMarkIcon} from '@heroicons/vue/24/outline';
+import {XIcon} from '@lucide/vue';
 import {BarcodeDetector as BarcodeDetectorPolyfill, prepareZXingModule} from 'barcode-detector/pure';
 import zxingWasmUrl from 'zxing-reader-wasm?url';
 
@@ -49,7 +49,7 @@ const Detector: any =
     'BarcodeDetector' in window ? (window as any).BarcodeDetector : BarcodeDetectorPolyfill;
 
 export default defineComponent({
-  components: {XMarkIcon},
+  components: {XIcon},
   emits: ['detected', 'close'],
   setup(_, {emit}) {
     const {t} = useI18n();

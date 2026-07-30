@@ -33,7 +33,7 @@
 
 <script setup lang="ts">
 import {computed, nextTick, onUnmounted, ref} from 'vue';
-import {CheckIcon, PencilIcon} from '@heroicons/vue/24/outline';
+import {CheckIcon, PencilIcon} from '@lucide/vue';
 
 const props = withDefaults(
     defineProps<{

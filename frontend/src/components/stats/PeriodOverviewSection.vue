@@ -21,19 +21,19 @@
           :subtext="$t('stats.finishedIn', { label: finishedInLabel })"
       />
       <StatCard
-          :icon="DocumentTextIcon"
+          :icon="FileTextIcon"
           :label="$t('stats.pagesRead')"
           :value="formatNumber(stats.pages_read)"
           :subtext="$t('stats.perDay', { n: pagesPerDay })"
       />
       <StatCard
-          :icon="PlusCircleIcon"
+          :icon="CirclePlusIcon"
           :label="$t('stats.booksAdded')"
           :value="stats.books_added"
           :subtext="$t('stats.newInLibrary')"
       />
       <StatCard
-          :icon="UserGroupIcon"
+          :icon="UsersIcon"
           :label="$t('stats.authorsRead')"
           :value="stats.authors_read"
           :subtext="$t('stats.finishedIn', { label: finishedInLabel })"
@@ -45,14 +45,14 @@
           :subtext="$t('stats.withProgress')"
       />
       <StatCard
-          :icon="FireIcon"
+          :icon="FlameIcon"
           :label="$t('stats.dayStreak')"
           :value="stats.reading_streak_days"
           :subtext="$t('stats.daysInRow', stats.reading_streak_days)"
       />
       <StatCard
           v-if="stats.average_rating !== null"
-          :icon="StarIcon"
+          :icon="FlowerIcon"
           :label="$t('stats.avgRating')"
           :value="stats.average_rating.toFixed(1)"
           :subtext="$t('stats.ofFinished')"
@@ -80,13 +80,13 @@ import {
   BookOpenIcon,
   CalendarDaysIcon,
   ClockIcon,
-  DocumentTextIcon,
-  FireIcon,
-  PlusCircleIcon,
+  FileTextIcon,
+  FlameIcon,
+  CirclePlusIcon,
   ScaleIcon,
-  StarIcon,
-  UserGroupIcon,
-} from '@heroicons/vue/24/outline';
+  FlowerIcon,
+  UsersIcon,
+} from '@lucide/vue';
 import StatCard from '@/components/stats/StatCard.vue';
 import {usePeriodResource} from '@/composables/usePeriodResource';
 import {formatPeriod} from '@/utils/period';
@@ -165,12 +165,12 @@ export default defineComponent({
       BookOpenIcon,
       CalendarDaysIcon,
       ClockIcon,
-      DocumentTextIcon,
-      FireIcon,
-      PlusCircleIcon,
+      FileTextIcon,
+      FlameIcon,
+      CirclePlusIcon,
       ScaleIcon,
-      StarIcon,
-      UserGroupIcon,
+      FlowerIcon,
+      UsersIcon,
     };
   },
 });

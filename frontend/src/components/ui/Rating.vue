@@ -1,9 +1,9 @@
 <template>
   <span
-      class="stars"
+      class="book-rating"
       :class="{ interactive }"
       :style="size ? { fontSize: size + 'px' } : undefined"
-      :aria-label="$t('common.starsAria', { rating: displayRating })"
+      :aria-label="$t('common.ratingAria', { rating: displayRating })"
       @mouseleave="hoverVal = 0"
   >
     <span
@@ -12,12 +12,15 @@
         :class="{ off: i > displayRating, hover: interactive && hoverVal >= i }"
         @mouseenter="interactive && (hoverVal = i)"
         @click="interactive && click(i)"
-    >★</span>
+    >
+      <FlowerIcon fill="color-mix(in srgb, currentColor 50%, transparent)"/>
+    </span>
   </span>
 </template>
 
 <script setup lang="ts">
 import {computed, ref} from 'vue';
+import {FlowerIcon} from "@lucide/vue";
 
 const props = withDefaults(
     defineProps<{
@@ -45,28 +48,34 @@ const click = (val: number) => {
 </script>
 
 <style scoped>
-.stars {
+.book-rating {
   display: inline-flex;
   gap: 2px;
   color: var(--color-gold);
   font-size: 13px;
-  letter-spacing: 1px;
 }
 
-.stars .off {
+/* Sized in em so the existing font-size / size prop keeps driving the glyph. */
+.book-rating svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+}
+
+.book-rating .off {
   color: var(--color-faint);
 }
 
-.stars.interactive span {
+.book-rating.interactive span {
   cursor: pointer;
   transition: color 0.1s, transform 0.1s;
 }
 
-.stars.interactive span:hover {
+.book-rating.interactive span:hover {
   transform: scale(1.15);
 }
 
-.stars .hover {
+.book-rating .hover {
   color: var(--color-gold-bright);
 }
 </style>

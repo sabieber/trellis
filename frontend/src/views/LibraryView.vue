@@ -106,7 +106,7 @@
 import {defineComponent, ref, computed, onMounted, onUnmounted, watch, nextTick} from 'vue';
 import {useRouter} from 'vue-router';
 import {useI18n} from 'vue-i18n';
-import {MinusIcon, ChevronRightIcon} from '@heroicons/vue/24/outline';
+import {MinusIcon, ChevronRightIcon} from '@lucide/vue';
 import CreateShelfModal from '@/components/CreateShelfModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';

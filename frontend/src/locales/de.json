@@ -26,7 +26,7 @@
     "bookNotFound": "Buch nicht gefunden.",
     "save": "Speichern",
     "edit": "Bearbeiten",
-    "starsAria": "{rating} von 5 Sternen",
+    "ratingAria": "{rating} von 5 Blüten",
     "close": "Schließen"
   },
   "stats": {
@@ -94,7 +94,7 @@
   },
   "author": {
     "bookCount": "{n} Bücher",
-    "avgRating": "Ø ★{r}",
+    "avgRating": "Bewertung Ø {r}",
     "totalPages": "{n} Seiten"
   },
   "series": {

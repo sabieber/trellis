@@ -66,7 +66,7 @@
                 <span class="cal-badges">
                   <!-- Flag: a book was finished on this day. -->
                   <span v-if="cell.finished" class="cal-flag" :title="$t('calendar.finished')">
-                    <FlagIcon aria-hidden="true"/>
+                    <FlagIcon fill="color-mix(in srgb, currentColor 50%, transparent)" aria-hidden="true"/>
                   </span>
                   <span v-if="cell.books.length > 1" class="cal-badge">{{ cell.books.length }}</span>
                 </span>
@@ -135,8 +135,8 @@
 import {computed, defineComponent, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import {useI18n} from 'vue-i18n';
 import moment from 'moment';
-import {ChevronLeftIcon, ChevronRightIcon} from '@heroicons/vue/24/outline';
-import {FlagIcon} from '@heroicons/vue/24/solid';
+import {ChevronLeftIcon, ChevronRightIcon} from '@lucide/vue';
+import {FlagIcon} from '@lucide/vue';
 import PageContainer from '@/components/PageContainer.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';

@@ -17,12 +17,7 @@
       <div v-if="!loading && books.length" class="flex items-center gap-2">
         <Button variant="ghost" icon :title="$t('shelf.random')" :aria-label="$t('shelf.random')"
                 @click="pickerOpen = true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-5">
-            <rect x="3" y="3" width="18" height="18" rx="5"/>
-            <circle cx="8.5" cy="8.5" r="1.4" fill="currentColor" stroke="none"/>
-            <circle cx="15.5" cy="15.5" r="1.4" fill="currentColor" stroke="none"/>
-            <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>
-          </svg>
+          <Dice3Icon/>
         </Button>
         <select v-model="sortBy" class="select select-sm w-36">
           <option value="added_at">{{ $t('shelf.sortAdded') }}</option>
@@ -31,10 +26,10 @@
         </select>
         <SegmentedControl v-model="layoutMode" :options="layoutOptions">
           <template #option="{ option }">
-            <QueueListIcon v-if="option.value === 'list'" class="size-4"/>
-            <Squares2X2Icon v-else-if="option.value === 'grid'" class="size-4"/>
-            <BookOpenIcon v-else-if="option.value === 'shelf'" class="size-4"/>
-            <RectangleStackIcon v-else class="size-4"/>
+            <ListIcon v-if="option.value === 'list'" class="size-4"/>
+            <LayoutGridIcon v-else-if="option.value === 'grid'" class="size-4"/>
+            <ShelvingUnitIcon v-else-if="option.value === 'shelf'" class="size-4"/>
+            <LayersIcon v-else class="size-4"/>
           </template>
         </SegmentedControl>
       </div>
@@ -99,7 +94,7 @@
 import {defineComponent, ref, computed, onMounted, watch} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useI18n} from 'vue-i18n';
-import {QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon} from "@heroicons/vue/24/outline";
+import {ListIcon, LayoutGridIcon, ShelvingUnitIcon, LayersIcon, Dice3Icon} from "@lucide/vue";
 import PageContainer from '@/components/PageContainer.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import InlineEdit from '@/components/ui/InlineEdit.vue';
@@ -125,7 +120,7 @@ const SPINE_HEIGHT_LG = 200;
 
 export default defineComponent({
   components: {
-    QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon,
+    ListIcon, LayoutGridIcon, ShelvingUnitIcon, LayersIcon, Dice3Icon,
     PageContainer, SegmentedControl, ConfirmDialog, InlineEdit,
     ShelfListView, ShelfGridView, ShelfBoardView, ShelfPileView,
     RandomBookModal, Button,

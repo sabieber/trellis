@@ -6,7 +6,7 @@
       <div
           class="flex items-center gap-2.5 bg-surface border border-line rounded-sm px-3.5 mb-5 transition-colors duration-150 focus-within:border-green/32"
       >
-        <MagnifyingGlassIcon class="size-5 text-muted flex-none"/>
+        <SearchIcon class="size-5 text-muted flex-none"/>
         <input
             type="text"
             v-model="query"
@@ -110,14 +110,14 @@
 import {defineComponent, ref, onMounted} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {useRouter, useRoute} from 'vue-router';
-import {MagnifyingGlassIcon, QrCodeIcon} from '@heroicons/vue/24/outline';
+import {SearchIcon, QrCodeIcon} from '@lucide/vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import BarcodeScanner from '@/components/BarcodeScanner.vue';
 import {searchBooks, fetchTrendingBooks} from '@/api/bookApi';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
-  components: {MagnifyingGlassIcon, QrCodeIcon, BookCover, BarcodeScanner},
+  components: {SearchIcon, QrCodeIcon, BookCover, BarcodeScanner},
   setup() {
     const query = ref('');
     const books = ref<BookSearchResult[]>([]);

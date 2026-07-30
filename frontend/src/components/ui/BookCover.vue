@@ -27,7 +27,7 @@
       <div class="cv-title">{{ title }}</div>
     </template>
     <div v-if="rating" class="cv-rating">
-      <span class="cv-rating-star">★</span>
+      <FlowerIcon class="cv-rating-icon" fill="color-mix(in srgb, currentColor 50%, transparent)"/>
       <span class="cv-rating-num">{{ rating }}</span>
     </div>
   </div>
@@ -35,6 +35,7 @@
 
 <script setup lang="ts">
 import {computed} from 'vue';
+import {FlowerIcon} from '@lucide/vue';
 import {useCoverImage} from '@/composables/useCoverImage';
 
 const props = withDefaults(
@@ -228,9 +229,10 @@ const shortAuthor = computed(() => {
   z-index: 2;
 }
 
-.cv-rating-star {
-  color: #d7b052;
-  font-size: 9px;
+.cv-rating-icon {
+  color: var(--color-gold);
+  width: 10px;
+  height: 10px;
 }
 
 .cv-rating-num {

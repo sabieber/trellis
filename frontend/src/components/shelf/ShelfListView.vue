@@ -25,7 +25,7 @@
           >{{ book.author }}</span>
         </p>
         <p class="t-mono mt-1 hidden md:block">{{ dateLabel || $t('shelf.added') }} {{ formatDate(book) }}</p>
-        <Stars v-if="book.rating" :rating="book.rating" :size="12" class="mt-0.5"/>
+        <Rating v-if="book.rating" :rating="book.rating" :size="12" class="mt-0.5"/>
       </div>
       <Button variant="ghost" class="px-2! py-2! text-[13px]!" @click="$emit('removeBook', book.id)">
         <MinusIcon class="size-4"/>
@@ -35,9 +35,9 @@
 </template>
 
 <script setup lang="ts">
-import {MinusIcon} from '@heroicons/vue/24/outline';
+import {MinusIcon} from '@lucide/vue';
 import BookCover from '@/components/ui/BookCover.vue';
-import Stars from '@/components/ui/Stars.vue';
+import Rating from '@/components/ui/Rating.vue';
 import {bookCoverUrl} from '@/utils/coverUrl';
 import {useBookCovers} from '@/composables/useBookCovers';
 import moment from 'moment';

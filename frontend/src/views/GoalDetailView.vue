@@ -9,10 +9,10 @@
         </select>
         <SegmentedControl v-model="layoutMode" :options="layoutOptions">
           <template #option="{ option }">
-            <QueueListIcon v-if="option.value === 'list'" class="size-4"/>
-            <Squares2X2Icon v-else-if="option.value === 'grid'" class="size-4"/>
-            <BookOpenIcon v-else-if="option.value === 'shelf'" class="size-4"/>
-            <RectangleStackIcon v-else class="size-4"/>
+            <ListIcon v-if="option.value === 'list'" class="size-4"/>
+            <LayoutGridIcon v-else-if="option.value === 'grid'" class="size-4"/>
+            <ShelvingUnitIcon v-else-if="option.value === 'shelf'" class="size-4"/>
+            <LayersIcon v-else class="size-4"/>
           </template>
         </SegmentedControl>
       </div>
@@ -78,7 +78,7 @@
 import {defineComponent, ref, computed, onMounted, watch} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useI18n} from 'vue-i18n';
-import {QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon} from '@heroicons/vue/24/outline';
+import {ListIcon, LayoutGridIcon, ShelvingUnitIcon, LayersIcon} from '@lucide/vue';
 import PageContainer from '@/components/PageContainer.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import ShelfListView from '@/components/shelf/ShelfListView.vue';
@@ -118,7 +118,7 @@ interface GoalBook extends ShelfBook {
 
 export default defineComponent({
   components: {
-    QueueListIcon, Squares2X2Icon, BookOpenIcon, RectangleStackIcon,
+    ListIcon, LayoutGridIcon, ShelvingUnitIcon, LayersIcon,
     PageContainer, SegmentedControl,
     ShelfListView, ShelfGridView, ShelfBoardView, ShelfPileView,
     PlainProgress, GoalProgressChart,

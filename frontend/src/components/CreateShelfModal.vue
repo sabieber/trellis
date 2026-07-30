@@ -8,7 +8,7 @@
       <div class="modal-box flex flex-col gap-4">
         <h3 class="t-title text-lg">{{ $t('shelfModal.newShelf') }}</h3>
         <div role="alert" class="alert alert-error" v-show="errorMessage">
-          <ExclamationTriangleIcon class="size-5 shrink-0"/>
+          <TriangleAlertIcon class="size-5 shrink-0"/>
           <span v-text="errorMessage"></span>
         </div>
         <fieldset class="flex flex-col gap-1.5">
@@ -32,13 +32,13 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ExclamationTriangleIcon, PlusIcon } from "@heroicons/vue/24/outline";
+import { TriangleAlertIcon, PlusIcon } from "@lucide/vue";
 import Button from '@/components/ui/Button.vue';
 import { apiFetch } from '@/api/client';
 import { apiErrorMessage } from '@/utils/apiError';
 
 export default defineComponent({
-  components: { ExclamationTriangleIcon, PlusIcon, Button },
+  components: { TriangleAlertIcon, PlusIcon, Button },
   setup(_, { emit }) {
     const { t } = useI18n();
     const show = ref(false);

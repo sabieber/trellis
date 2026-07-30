@@ -111,7 +111,7 @@
 
 <script lang="ts">
 import {defineComponent, ref, computed} from 'vue';
-import {ChevronLeftIcon, ChevronRightIcon} from '@heroicons/vue/24/outline';
+import {ChevronLeftIcon, ChevronRightIcon} from '@lucide/vue';
 import PageContainer from '@/components/PageContainer.vue';
 import ActivityGridSection from '@/components/stats/ActivityGridSection.vue';
 import PeriodOverviewSection from '@/components/stats/PeriodOverviewSection.vue';

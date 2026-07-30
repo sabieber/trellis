@@ -52,7 +52,7 @@ import {useI18n} from 'vue-i18n';
 import PageContainer from '@/components/PageContainer.vue';
 import Button from '@/components/ui/Button.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
-import {PowerIcon} from "@heroicons/vue/24/outline";
+import {PowerIcon} from "@lucide/vue";
 import {apiFetch} from '@/api/client';
 import {useAuthStore} from '@/stores/auth';
 import {setLocale, type Locale} from '@/i18n';

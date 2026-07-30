@@ -1,4 +1,4 @@
-<!-- How the books finished in the period are spread across the 1–5 star ratings. -->
+<!-- How the books finished in the period are spread across the 1–5 rating scores. -->
 <template>
   <div class="lg:h-full lg:flex lg:flex-col">
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-3">
@@ -37,9 +37,9 @@ export default defineComponent({
   },
   setup(props) {
     const bars = computed(() =>
-        [1, 2, 3, 4, 5].map((star) => ({
-          label: `${star}★`,
-          value: props.distribution[star - 1] ?? 0,
+        [1, 2, 3, 4, 5].map((score) => ({
+          label: score,
+          value: props.distribution[score - 1] ?? 0,
         })),
     );
 

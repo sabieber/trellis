@@ -39,7 +39,7 @@
                     @click="confirmDelete(goal)"
                     class="flex items-center justify-center size-7 rounded-full flex-none ml-2 text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
                 >
-                  <TrashIcon class="size-4"/>
+                  <Trash2Icon class="size-4"/>
                 </button>
               </div>
               <p class="t-meta mb-3.5">{{ formatPeriod(goal.period_start, goal.period_end) }}</p>
@@ -81,7 +81,7 @@ import {useI18n} from 'vue-i18n';
 import CreateGoalModal from '@/components/CreateGoalModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import Button from '@/components/ui/Button.vue';
-import {PlusIcon, TrashIcon} from '@heroicons/vue/24/outline';
+import {PlusIcon, Trash2Icon} from '@lucide/vue';
 import {apiFetch} from '@/api/client';
 import {apiErrorMessage} from '@/utils/apiError';
 import PlainProgress from "@/components/ui/PlainProgress.vue";
@@ -99,7 +99,7 @@ interface Goal {
 }
 
 export default defineComponent({
-  components: {PlainProgress, CreateGoalModal, ConfirmDialog, PlusIcon, TrashIcon, Button},
+  components: {PlainProgress, CreateGoalModal, ConfirmDialog, PlusIcon, Trash2Icon, Button},
   setup() {
     const {t, locale} = useI18n();
     const router = useRouter();

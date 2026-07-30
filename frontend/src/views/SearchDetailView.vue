@@ -26,7 +26,7 @@
             <p v-if="book.subtitle" class="t-meta text-[15px] mt-1">{{ book.subtitle }}</p>
             <p class="t-meta text-sm mt-1.5">{{ book.authors?.join(', ') }}</p>
             <div v-if="book.average_rating" class="flex items-center gap-2 mt-2.5">
-              <Stars :rating="book.average_rating"/>
+              <Rating :rating="book.average_rating"/>
               <span class="t-meta">
                 {{ $t('searchDetail.avgRating', { rating: book.average_rating.toFixed(1) }) }}
                 <span v-if="book.ratings_count"> · {{ $t('searchDetail.ratingsCount', { count: book.ratings_count }) }}</span>
@@ -96,7 +96,7 @@
             </div>
 
             <Button v-if="book.info_link" class="da-ext" variant="ghost" block @click="openSource">
-              <ArrowTopRightOnSquareIcon class="size-4"/>
+              <ExternalLinkIcon class="size-4"/>
               {{ $t('searchDetail.viewSource', { source: sourceLabel }) }}
             </Button>
           </div>
@@ -125,18 +125,18 @@
 import {defineComponent, ref, computed, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useI18n} from 'vue-i18n';
-import {ChevronLeftIcon, PlusIcon, ArrowTopRightOnSquareIcon} from "@heroicons/vue/24/outline";
+import {ChevronLeftIcon, PlusIcon, ExternalLinkIcon} from "@lucide/vue";
 import {fetchBookDetail} from '@/api/bookApi';
 import {goToSeries} from '@/utils/seriesRoute';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
 import Chip from '@/components/ui/Chip.vue';
-import Stars from '@/components/ui/Stars.vue';
+import Rating from '@/components/ui/Rating.vue';
 import AddToShelfPopup from '@/components/AddToShelfPopup.vue';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
-  components: {ChevronLeftIcon, PlusIcon, ArrowTopRightOnSquareIcon, BookCover, Button, Chip, Stars, AddToShelfPopup},
+  components: {ChevronLeftIcon, PlusIcon, ExternalLinkIcon, BookCover, Button, Chip, Rating, AddToShelfPopup},
   setup() {
     const {t} = useI18n();
     const route = useRoute();

@@ -10,7 +10,7 @@
     </div>
 
     <div v-if="errorMessage" role="alert" class="alert alert-error mb-6 w-full max-w-sm">
-      <ExclamationTriangleIcon class="size-5 shrink-0"/>
+      <TriangleAlertIcon class="size-5 shrink-0"/>
       <span>{{ errorMessage }}</span>
     </div>
 
@@ -61,7 +61,7 @@
 <script lang="ts">
 import {defineComponent, ref, watch} from 'vue';
 import {useRoute} from 'vue-router';
-import {ExclamationTriangleIcon} from '@heroicons/vue/24/outline';
+import {TriangleAlertIcon} from '@lucide/vue';
 import router from '@/router';
 import {useI18n} from 'vue-i18n';
 import {useAuthStore} from '@/stores/auth';
@@ -70,7 +70,7 @@ import {apiErrorMessage} from '@/utils/apiError';
 import Button from '@/components/ui/Button.vue';
 
 export default defineComponent({
-  components: {ExclamationTriangleIcon, Button},
+  components: {TriangleAlertIcon, Button},
   setup() {
     const {t} = useI18n();
     const route = useRoute();

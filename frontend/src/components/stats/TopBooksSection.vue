@@ -43,8 +43,10 @@
               <span v-else>{{ book.author }}</span>
             </div>
           </div>
-          <span v-if="metric === 'rating'" class="flex-none flex items-center gap-0.5 text-amber-500">
-            <StarIcon class="size-3.5"/>
+          <span v-if="metric === 'rating'" class="flex-none flex items-center gap-0.5 text-gold">
+            <!-- Same half-fill as Rating.vue: a full fill with no stroke merges
+                 the petals and centre into a blob at this size. -->
+            <FlowerIcon class="size-3.5" fill="color-mix(in srgb, currentColor 50%, transparent)"/>
             <span class="stat-mono">{{ book.rating }}</span>
           </span>
           <span v-else class="stat-mono flex-none">{{ $t('stats.timesRead', { n: book.readings }) }}</span>
@@ -58,7 +60,7 @@
 <script lang="ts">
 import {computed, defineComponent, type PropType} from 'vue';
 import {useRouter} from 'vue-router';
-import {StarIcon} from '@heroicons/vue/24/solid';
+import {FlowerIcon} from '@lucide/vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import type {BookStat} from '@/composables/useStatsBreakdown';
 import {useBookCovers} from '@/composables/useBookCovers';
@@ -66,7 +68,7 @@ import {formatPeriod} from '@/utils/period';
 import {goToAuthor, isLinkableAuthor} from '@/utils/authorRoute';
 
 export default defineComponent({
-  components: {StarIcon, BookCover},
+  components: {FlowerIcon, BookCover},
   props: {
     mode: {type: String, required: true},
     year: {type: Number, required: true},

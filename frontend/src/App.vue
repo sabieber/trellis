@@ -80,7 +80,7 @@
             class="flex flex-col items-center gap-1 text-[10.5px] font-semibold transition-colors duration-150"
             :class="isMoreActive ? 'text-green' : 'text-faint'"
         >
-          <component :is="EllipsisHorizontalIcon" class="size-6"/>
+          <component :is="EllipsisIcon" class="size-6"/>
           <span>{{ $t('nav.more') }}</span>
         </div>
         <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-1 w-44 p-2 shadow-sm mb-3">
@@ -105,15 +105,16 @@
 import {computed, defineComponent, ref, watch} from 'vue';
 import {useRoute} from 'vue-router';
 import {
-  MagnifyingGlassIcon,
-  HomeIcon,
+  SearchIcon,
+  HouseIcon,
   BookOpenIcon,
   UserIcon,
-  ChartBarIcon,
+  ChartColumnIcon,
   ChartPieIcon,
   CalendarDaysIcon,
-  EllipsisHorizontalIcon,
-} from "@heroicons/vue/24/outline";
+  EllipsisIcon,
+  setLucideProps,
+} from "@lucide/vue";
 import {useAuthStore} from '@/stores/auth';
 import {apiFetch} from '@/api/client';
 
@@ -132,10 +133,10 @@ export default defineComponent({
     const currentYear = new Date().getFullYear();
 
     const navItems = [
-      {to: "/", label: "nav.home", icon: HomeIcon},
+      {to: "/", label: "nav.home", icon: HouseIcon},
       {to: "/library", label: "nav.library", icon: BookOpenIcon},
-      {to: "/search", label: "nav.search", icon: MagnifyingGlassIcon},
-      {to: "/goals", label: "nav.goals", icon: ChartBarIcon},
+      {to: "/search", label: "nav.search", icon: SearchIcon},
+      {to: "/goals", label: "nav.goals", icon: ChartColumnIcon},
       {to: "/calendar", label: "nav.calendar", icon: CalendarDaysIcon},
       {to: "/stats", label: "nav.stats", icon: ChartPieIcon},
       {to: "/profile", label: "nav.profile", icon: UserIcon},
@@ -169,7 +170,7 @@ export default defineComponent({
     // Refetch on navigation so logged progress shows up without a reload.
     watch([() => auth.isAuthenticated, () => route.path], fetchYearGoal, {immediate: true});
 
-    return {navItems, mobileNavItems, moreNavItems, isMoreActive, yearGoal, currentYear, EllipsisHorizontalIcon};
+    return {navItems, mobileNavItems, moreNavItems, isMoreActive, yearGoal, currentYear, EllipsisIcon};
   },
 });
 </script>

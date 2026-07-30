@@ -151,7 +151,7 @@
 import {computed, defineComponent, ref, onMounted} from 'vue';
 import {RouterLink, useRouter} from 'vue-router';
 import {useI18n} from 'vue-i18n';
-import {ChevronRightIcon} from '@heroicons/vue/24/outline';
+import {ChevronRightIcon} from '@lucide/vue';
 import {useAuthStore} from '@/stores/auth';
 import {apiErrorMessage} from '@/utils/apiError';
 import TrackProgressModal from '@/components/TrackProgressModal.vue';

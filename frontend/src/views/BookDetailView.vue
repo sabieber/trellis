@@ -34,7 +34,7 @@
               </template>
             </p>
             <div class="mt-2">
-              <Stars :rating="rating" :size="18" interactive @update="rateBook"/>
+              <Rating :rating="rating" :size="18" interactive @update="rateBook"/>
             </div>
             <p class="t-meta mt-2">
               {{ book.published_year }}
@@ -97,15 +97,15 @@
 
             <div v-if="sourceUrl || goodreadsUrl || amazonUrl" class="flex flex-col gap-2">
               <Button v-if="sourceUrl" variant="ghost" block @click="openExternal(sourceUrl)">
-                <ArrowTopRightOnSquareIcon class="size-4"/>
+                <ExternalLinkIcon class="size-4"/>
                 {{ $t('bookDetail.viewOn', { source: book.source === 'google' ? 'Google Books' : 'Open Library' }) }}
               </Button>
               <Button v-if="goodreadsUrl" variant="ghost" block @click="openExternal(goodreadsUrl)">
-                <ArrowTopRightOnSquareIcon class="size-4"/>
+                <ExternalLinkIcon class="size-4"/>
                 {{ $t('bookDetail.viewOn', { source: 'Goodreads' }) }}
               </Button>
               <Button v-if="amazonUrl" variant="ghost" block @click="openExternal(amazonUrl)">
-                <ArrowTopRightOnSquareIcon class="size-4"/>
+                <ExternalLinkIcon class="size-4"/>
                 {{ $t('bookDetail.viewOn', { source: 'Amazon' }) }}
               </Button>
             </div>
@@ -136,7 +136,7 @@
                   @click.stop="confirmDeleteReading(reading.id)"
                   class="flex items-center justify-center size-7 rounded-full flex-none ml-2 text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
               >
-                <TrashIcon class="size-4"/>
+                <Trash2Icon class="size-4"/>
               </button>
             </div>
           </div>
@@ -212,7 +212,7 @@ import {useRoute, useRouter} from 'vue-router';
 import {goToAuthor} from '@/utils/authorRoute';
 import {goToSeries} from '@/utils/seriesRoute';
 import {useI18n} from 'vue-i18n';
-import {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, ArrowTopRightOnSquareIcon} from "@heroicons/vue/24/outline";
+import {ChevronLeftIcon, BookOpenIcon, CheckIcon, Trash2Icon, ExternalLinkIcon} from "@lucide/vue";
 import {fetchBookDetail, searchBooks, resolveGoogleId} from '@/api/bookApi';
 import {apiErrorMessage} from '@/utils/apiError';
 import StartReadingModal from '@/components/StartReadingModal.vue';
@@ -221,13 +221,13 @@ import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
 import InlineEdit from '@/components/ui/InlineEdit.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
-import Stars from '@/components/ui/Stars.vue';
+import Rating from '@/components/ui/Rating.vue';
 import {apiFetch} from '@/api/client';
 import moment from 'moment';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
-  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, TrashIcon, ArrowTopRightOnSquareIcon, StartReadingModal, ConfirmDialog, BookCover, Button, InlineEdit, SegmentedControl, Stars},
+  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, Trash2Icon, ExternalLinkIcon, StartReadingModal, ConfirmDialog, BookCover, Button, InlineEdit, SegmentedControl, Rating},
   setup() {
     const {t} = useI18n();
     const route = useRoute();
