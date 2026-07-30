@@ -62,7 +62,10 @@
           </Button>
         </div>
 
-        <div v-if="readingsLoading" class="flex justify-center py-4">
+        <!-- Only the first load gets a spinner. A refetch after logging progress
+             keeps the cards mounted, so the vine can grow into its new value
+             instead of being torn down and rebuilt at it. -->
+        <div v-if="readingsLoading && activeReadings.length === 0" class="flex justify-center py-4">
           <span class="loading loading-spinner loading-sm"></span>
         </div>
         <div v-else-if="activeReadings.length === 0" class="t-meta text-center py-4">

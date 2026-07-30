@@ -9,28 +9,43 @@
 <template>
   <div ref="wrap" class="vine-progress" :style="{ height: height + 'px' }">
     <svg v-if="width > 0" :viewBox="`0 0 ${width} ${height}`">
+      <defs>
+        <radialGradient :id="`${uid}-glow`">
+          <stop offset="0" stop-color="var(--color-green)" stop-opacity="0.3"/>
+          <stop offset="1" stop-color="var(--color-green)" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
       <path class="stem" pathLength="100" :d="stemD"></path>
       <path
-          v-if="clamped > 0"
+          v-if="shown > 0"
           class="grown"
           pathLength="100"
-          :style="{ strokeDasharray: 100, strokeDashoffset: 100 - clamped }"
+          :style="{ strokeDasharray: 100, strokeDashoffset: 100 - shown }"
           :d="stemD"
       ></path>
+      <!-- The growing tip: a bud in the same halo the streak bed puts around
+           today's plant, so progress reads as something still growing. -->
+      <template v-if="shown > 0">
+        <ellipse :cx="tip.x" :cy="tip.y" :rx="height * 0.7" :ry="height * 0.7" :fill="`url(#${uid}-glow)`"/>
+        <circle class="bud" :cx="tip.x" :cy="tip.y" :r="Math.max(2, height * 0.14)"/>
+      </template>
       <path
           v-for="(leaf, i) in leaves"
           :key="i"
           class="leaf"
           :d="LEAF"
           :transform="leaf.tf"
-          :fill="leaf.grown ? '#93c456' : '#38321f'"
+          :fill="leaf.fill"
       ></path>
     </svg>
   </div>
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, ref} from 'vue';
+import {computed, onMounted, onUnmounted, ref, useId, watch} from 'vue';
+
+// Gradient ids are document-global; several vines share a page.
+const uid = useId();
 
 const props = withDefaults(
     defineProps<{
@@ -67,6 +82,35 @@ onUnmounted(() => resizeObserver?.disconnect());
 
 const clamped = computed(() => Math.max(0, Math.min(100, props.pct)));
 
+/** How long the vine takes to grow into a newly logged progress. */
+const GROW_MS = 700;
+
+// The vine grows into the new value instead of jumping to it. Tweened in JS
+// rather than by a CSS transition on the dash offset, because the bud and its
+// halo have to ride *along* the stem — interpolating their coordinates would
+// send them across the chord and off the curve. The first value is not an
+// update, so it renders grown.
+const shown = ref(0);
+let raf: number | undefined;
+
+watch(clamped, (to, from) => {
+  if (raf) cancelAnimationFrame(raf);
+  if (from === undefined || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    shown.value = to;
+    return;
+  }
+  const base = shown.value;
+  const started = performance.now();
+  const step = (now: number) => {
+    const t = Math.min(1, (now - started) / GROW_MS);
+    shown.value = base + (to - base) * (1 - Math.pow(1 - t, 3));
+    raf = t < 1 ? requestAnimationFrame(step) : undefined;
+  };
+  raf = requestAnimationFrame(step);
+}, {immediate: true});
+
+onUnmounted(() => raf && cancelAnimationFrame(raf));
+
 // Scale the canonical control points to the measured pixel box.
 const stemD = computed(() => {
   const sx = width.value / 100;
@@ -90,12 +134,29 @@ const STEM_SAMPLES: number[][] = (() => {
   return pts;
 })();
 
-function stemYAt(x: number): number {
-  let best = STEM_SAMPLES[0];
-  for (const pt of STEM_SAMPLES) {
-    if (Math.abs(pt[0] - x) < Math.abs(best[0] - x)) best = pt;
+// Arc-length table over the scaled stem. `pathLength="100"` makes the dash
+// offset a percentage of the path's *length*, so everything that has to line up
+// with the grown part — the tip, the leaves — must be placed by length too. A
+// percentage of the x axis drifts off the growth front on the steep stretches.
+const arc = computed(() => {
+  const sx = width.value / 100;
+  const sy = props.height / 18;
+  const points = STEM_SAMPLES.map(([x, y]) => [x * sx, y * sy]);
+  const lengths = [0];
+  for (let i = 1; i < points.length; i++) {
+    lengths.push(lengths[i - 1] + Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]));
   }
-  return best[1];
+  return {points, lengths, total: lengths[lengths.length - 1]};
+});
+
+/** The point `pct` percent along the stem, measured as the browser measures it. */
+function pointAt(pct: number): number[] {
+  const {points, lengths, total} = arc.value;
+  const target = (pct / 100) * total;
+  let i = 1;
+  while (i < lengths.length - 1 && lengths[i] < target) i++;
+  const t = (target - lengths[i - 1]) / (lengths[i] - lengths[i - 1] || 1);
+  return [0, 1].map((axis) => points[i - 1][axis] + (points[i][axis] - points[i - 1][axis]) * t);
 }
 
 // Per-instance horizontal jitter (±7%) so no two vines look identical.
@@ -117,13 +178,22 @@ const leaves = computed(() => {
     const frac = Math.min(94, Math.max(6, base + JITTER[i] * 14));
     // Odd leaves hang below the stem (vertical flip), like the prototype.
     const flip = i % 2 ? -1 : 1;
-    const px = (frac / 100) * w;
-    const py = stemYAt(frac) * (props.height / 18);
+    const [px, py] = pointAt(frac);
+    // Same two-tone shading as the streak bed: leaves hanging below the stem
+    // sit in the shade, the ones above catch the light.
+    const grown = frac <= shown.value;
+    const lit = i % 4 === 0 ? 'var(--color-green-soft)' : 'var(--color-green)';
     return {
-      grown: frac <= clamped.value,
+      fill: grown ? (flip > 0 ? lit : 'var(--color-green-deep)') : 'var(--color-line)',
       tf: `translate(${px.toFixed(1)} ${py.toFixed(1)}) scale(${scale.toFixed(2)} ${(flip * scale).toFixed(2)})`,
     };
   });
+});
+
+/** Where the grown part of the stem currently ends. */
+const tip = computed(() => {
+  const [x, y] = pointAt(shown.value);
+  return {x: x.toFixed(1), y: y.toFixed(1)};
 });
 </script>
 
@@ -140,18 +210,21 @@ const leaves = computed(() => {
 }
 
 .stem {
-  stroke: #38321f;
+  stroke: var(--color-line);
   stroke-width: 2.5;
   fill: none;
   stroke-linecap: round;
 }
 
 .grown {
-  stroke: #93c456;
+  stroke: var(--color-green-deep);
   stroke-width: 2.5;
   fill: none;
   stroke-linecap: round;
-  transition: stroke-dashoffset 0.4s ease;
+}
+
+.bud {
+  fill: var(--color-green-soft);
 }
 
 .leaf {
