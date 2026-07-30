@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-1.5">
     <svg
         :viewBox="`0 0 ${W} ${H}`"
-        class="w-full select-none text-base-content"
+        class="w-full select-none"
         style="touch-action: none"
         :style="{ cursor: dragging ? 'grabbing' : 'grab' }"
         @wheel.prevent="onWheel"
@@ -11,31 +11,61 @@
         @pointerup="onPointerUp"
         @pointercancel="onPointerUp"
     >
-      <!-- covers hugging the page block, corners curling up; spine nub below -->
-      <path :d="coverPath" stroke="currentColor" stroke-width="3" stroke-linecap="round"
-            fill="none"/>
-      <!-- pages, all pinched into the spine point -->
-      <path v-for="(d, i) in pagePaths" :key="i" :d="d" stroke="currentColor" fill="none"
-            stroke-width="1.1" stroke-opacity="0.5" stroke-linecap="round"/>
-      <path v-for="(d, i) in topPagePaths" :key="'t' + i" :d="d" stroke="currentColor" fill="none"
-            stroke-width="1.5" stroke-linecap="round"/>
+      <defs>
+        <!-- Paper seen edge-on: lit along the top sheet, shaded down into the
+             block. Fixed to user space so both stacks are shaded alike. -->
+        <linearGradient id="bp-paper" gradientUnits="userSpaceOnUse"
+                        :x1="0" :y1="BASE - 34" :x2="0" :y2="BASE + 3">
+          <stop offset="0" stop-color="#e7ddc6"/>
+          <stop offset="1" stop-color="#b3a687"/>
+        </linearGradient>
+        <!-- The same halo the vine puts on its growing tip, here on the spine:
+             this is where reading is happening. -->
+        <radialGradient id="bp-glow">
+          <stop offset="0" stop-color="var(--color-green)" stop-opacity="0.2"/>
+          <stop offset="1" stop-color="var(--color-green)" stop-opacity="0"/>
+        </radialGradient>
+        <!-- Leather, same warm clay family as the streak bed planter. -->
+        <linearGradient id="bp-spine" gradientUnits="userSpaceOnUse"
+                        :x1="0" :y1="BASE + 2" :x2="0" :y2="BASE + 10">
+          <stop offset="0" stop-color="#6b4527"/>
+          <stop offset="1" stop-color="#3a2415"/>
+        </linearGradient>
+      </defs>
+
+      <ellipse :cx="CX" :cy="BASE + 10" rx="104" ry="2.2" fill="#000" opacity="0.35"/>
+      <ellipse :cx="CX" :cy="BASE - 4" rx="26" ry="20" fill="url(#bp-glow)"/>
+
+      <!-- the page stacks as solid blocks, with the single sheets on top -->
+      <path v-for="(d, i) in blockPaths" :key="'b' + i" :d="d" fill="url(#bp-paper)"/>
+      <path v-for="(d, i) in pagePaths" :key="i" :d="d" class="sheet" fill="none"/>
+      <path v-for="(d, i) in topPagePaths" :key="'t' + i" :d="d" class="sheet-top" fill="none"/>
       <!-- pages mid-flip, arcing over the spine -->
-      <path v-for="(d, i) in flipPaths" :key="'f' + i" :d="d" stroke="currentColor" fill="none"
-            stroke-width="1.4" stroke-linecap="round"/>
+      <path v-for="(d, i) in flipPaths" :key="'f' + i" :d="d" class="sheet-flip" fill="none"/>
+
+      <!-- covers hugging the underside of the page block, running a little past
+           the fore edge -->
+      <path v-for="(d, i) in coverPaths" :key="'c' + i" :d="d" class="cover" fill="none"/>
+      <path v-for="(d, i) in coverLights" :key="'cl' + i" :d="d" class="cover-light" fill="none"/>
+      <!-- the leather wrapping the fold, taking over from the covers -->
+      <path :d="spinePath" class="spine"/>
+      <path :d="spineLight" class="spine-light" fill="none"/>
     </svg>
-    <div class="flex items-baseline justify-center gap-1.5">
-      <input
-          type="number"
-          class="input input-sm w-24 text-center"
-          :value="current"
-          min="0"
-          :max="totalPages"
-          required
-          @focus="($event.target as HTMLInputElement).select()"
-          @input="onInput"
-          @blur="onBlur"
-      />
-      <span class="t-meta">{{ mode === 'percentage' ? '%' : `/ ${totalPages}` }}</span>
+    <div class="flex justify-center">
+      <div class="page-chip">
+        <input
+            type="number"
+            class="page-field"
+            :value="current"
+            min="0"
+            :max="totalPages"
+            required
+            @focus="($event.target as HTMLInputElement).select()"
+            @input="onInput"
+            @blur="onBlur"
+        />
+        <span class="t-meta">{{ mode === 'percentage' ? '%' : `/ ${totalPages}` }}</span>
+      </div>
     </div>
     <p class="t-meta text-center opacity-60">{{ $t('progressModal.dragHint') }}</p>
   </div>
@@ -65,11 +95,15 @@ const PAGE_COUNT = 26; // drawn page curves, not real pages
 const PAGE_REACH = 98; // horizontal length of the bottom (longest) page
 const REACH_FALLOFF = 0.9; // how much shorter each page above is (fore-edge slope)
 const STACK_RISE = 1.15; // how much higher each page's fore-edge sits (stack thickness)
-const ARCH_RISE = 1.3; // how much more each page arches up near the spine
+const ARCH_RISE = 1.3; // how much more each page arches up near the fold;
+// the lowest sheet does not arch at all — it lies flat on the cover board
 
 // --- covers ---
-const COVER_LENGTH = 106; // covers extend slightly past the pages
-const COVER_DROOP = 5; // how far the cover tips sag below their spine end
+const COVER_GAP = 2.1; // how far below the lowest sheet the cover runs
+const COVER_OVERHANG = 5; // how far the cover reaches past the fore edge
+const SPINE_HALF = 5.5; // half-width of the leather bound around the fold
+const SPINE_FOOT = 5; // half-width where it meets the table
+const SPINE_DEPTH = 7.6; // how far below the page baseline its foot sits
 
 // --- flip animation ---
 const FLIP_S = 0.35; // seconds for a lone flip; crowded air clears faster
@@ -85,13 +119,13 @@ type PagePoints = {
   ex: number; ey: number;
 };
 
-// every page starts at the same spine pinch point and drapes onto its stack;
+// every page starts at the same fold and drapes onto its stack;
 // higher pages (larger j) are shorter, sit higher and arch more
 const pagePoints = (side: Side, j: number): PagePoints => {
   const reach = PAGE_REACH - j * REACH_FALLOFF;
   return {
     sx: CX, sy: BASE + 2 - j * 0.08,
-    c1x: CX + side * 10, c1y: BASE - 12 - j * ARCH_RISE,
+    c1x: CX + side * 10, c1y: BASE + 1 - j * (ARCH_RISE + 0.52),
     c2x: CX + side * reach * 0.5, c2y: BASE - 5 - j * (STACK_RISE + 0.8),
     ex: CX + side * reach, ey: BASE - 1 - j * STACK_RISE,
   };
@@ -174,10 +208,49 @@ export default defineComponent({
       return paths;
     });
 
-    const coverPath =
-        `M ${CX - 2} ${BASE + 3} Q ${CX - 70} ${BASE + 3} ${CX - COVER_LENGTH} ${BASE + 3 + COVER_DROOP}` +
-        ` M ${CX + 2} ${BASE + 3} Q ${CX + 70} ${BASE + 3} ${CX + COVER_LENGTH} ${BASE + 3 + COVER_DROOP}` +
-        ` M ${CX - 5} ${BASE + 3} Q ${CX} ${BASE + 8} ${CX + 5} ${BASE + 3}`;
+    // The block of paper between the top sheet and the lowest one: the top
+    // sheet's curve, out along the fore edge, and back underneath along the
+    // lowest sheet — so a stack is only ever as deep as its own pages.
+    const blockPath = (side: Side, count: number) => {
+      if (count === 0) return null;
+      const p = pagePoints(side, count - 1);
+      const b = pagePoints(side, 0); // longest, lowest page: it is the underside
+      return `${toPath(p)} L ${b.ex} ${b.ey} C ${b.c2x} ${b.c2y} ${b.c1x} ${b.c1y} ${b.sx} ${b.sy} Z`;
+    };
+
+    const blockPaths = computed(() =>
+        [blockPath(-1, leftCount.value), blockPath(1, PAGE_COUNT - leftCount.value)]
+            .filter((d): d is string => d !== null));
+
+    // The cover follows the lowest sheet a hair below it and runs a little past
+    // the fore edge, straight on along the curve's exit direction — a board is
+    // stiff, it does not curl. Stroked rather than filled: a band hugging a
+    // curve is that curve with a width. `dy` lifts the lit edge off the leather.
+    const coverEdge = (side: Side, dy: number) => {
+      const b = pagePoints(side, 0);
+      const y = (v: number) => v + COVER_GAP + dy;
+      const [tx, ty] = [b.ex - b.c2x, b.ey - b.c2y];
+      const len = Math.hypot(tx, ty);
+      return `M ${CX} ${y(b.sy)} C ${b.c1x} ${y(b.c1y)} ${b.c2x} ${y(b.c2y)} ${b.ex} ${y(b.ey)}` +
+          ` l ${(tx / len * COVER_OVERHANG).toFixed(1)} ${(ty / len * COVER_OVERHANG).toFixed(1)}`;
+    };
+    const coverPaths = [coverEdge(-1, 0), coverEdge(1, 0)];
+    const coverLights = [coverEdge(-1, -1.1), coverEdge(1, -1.1)];
+
+    // The binding: where the two covers meet, the leather wraps a block with a
+    // flat bottom the book stands on. Its top follows the dip of the covers.
+    // The leather wrapping the fold, seen edge-on: it starts under the covers,
+    // which hide its top, and tapers to the flat foot the book stands on.
+    const spineTop = BASE + 3.5;
+    const spineBottom = BASE + SPINE_DEPTH;
+    const spinePath =
+        `M ${CX - SPINE_HALF} ${spineTop} L ${CX + SPINE_HALF} ${spineTop}` +
+        ` L ${CX + SPINE_FOOT} ${spineBottom - 1.4}` +
+        ` Q ${CX + SPINE_FOOT} ${spineBottom} ${CX + SPINE_FOOT - 1.4} ${spineBottom}` +
+        ` L ${CX - SPINE_FOOT + 1.4} ${spineBottom}` +
+        ` Q ${CX - SPINE_FOOT} ${spineBottom} ${CX - SPINE_FOOT} ${spineBottom - 1.4} Z`;
+    const spineLight =
+        `M ${CX - SPINE_FOOT + 2.4} ${spineBottom - 1.1} L ${CX + SPINE_FOOT - 2.4} ${spineBottom - 1.1}`;
 
     // --- flip animation: pages arcing over the spine on value change ---
     // each flip blends from the actual top page of its source stack, through
@@ -282,10 +355,93 @@ export default defineComponent({
     };
 
     return {
-      W, H,
-      current, dragging, pagePaths, topPagePaths, coverPath, flipPaths,
+      W, H, CX, BASE,
+      current, dragging, blockPaths, pagePaths, topPagePaths, coverPaths, coverLights, spinePath, spineLight, flipPaths,
       onWheel, onPointerDown, onPointerMove, onPointerUp, onInput, onBlur,
     };
   },
 });
 </script>
+
+<style scoped>
+/* Single sheets scored into the paper block, the top one catching the light. */
+.sheet {
+  stroke: #7d7157;
+  stroke-width: 0.9;
+  stroke-opacity: 0.3;
+  stroke-linecap: round;
+}
+
+/* The sheet you are looking at, lit just enough to sit apart from the stack. */
+.sheet-top {
+  stroke: #f2ead6;
+  stroke-width: 1;
+  stroke-opacity: 0.85;
+  stroke-linecap: round;
+}
+
+/* Airborne, so lit from every side and brighter than anything in the stack. */
+.sheet-flip {
+  stroke: #fbf6e8;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+/* Leather binding, same warm clay family as the streak bed planter. */
+.cover {
+  stroke: #4d3320;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+}
+
+.spine {
+  fill: url(#bp-spine);
+}
+
+.spine-light {
+  stroke: #b07c4f;
+  stroke-width: 0.8;
+  stroke-opacity: 0.4;
+  stroke-linecap: round;
+}
+
+.cover-light {
+  stroke: #8a6140;
+  stroke-width: 1.1;
+  stroke-opacity: 0.5;
+  stroke-linecap: round;
+}
+
+/* The page count as a stamped chip, like the streak bed's week badge. */
+.page-chip {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.page-field {
+  width: 3.25rem;
+  background: none;
+  border: none;
+  outline: none;
+  text-align: right;
+  font-family: var(--font-serif), serif;
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.1;
+  color: var(--color-green-soft);
+  /* the native spinner fights the drag gesture for the same job and looks
+     nothing like the rest of the card */
+  appearance: textfield;
+}
+
+.page-field::-webkit-inner-spin-button,
+.page-field::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+</style>
