@@ -252,7 +252,24 @@
     "noShelves": "Noch keine Regale.",
     "removeShelfTitle": "Regal entfernen",
     "removeShelfMessage": "Möchtest du dieses Regal wirklich entfernen? Bücher, die nur in diesem Regal stehen, werden möglicherweise gelöscht.",
-    "shelfRemoved": "Regal entfernt."
+    "shelfRemoved": "Regal entfernt.",
+    "allBooks": "Alle Bücher"
+  },
+  "books": {
+    "title": "Alle Bücher",
+    "allShelves": "Alle Regale",
+    "allAuthors": "Alle Autoren",
+    "allGenres": "Alle Genres",
+    "allTags": "Alle Tags",
+    "filterShelf": "Nach Regal filtern",
+    "filterAuthor": "Nach Autor filtern",
+    "filterGenre": "Nach Genre filtern",
+    "filterTag": "Nach Tag filtern",
+    "clearFilters": "Filter zurücksetzen",
+    "count": "{count} Bücher",
+    "loadMore": "Mehr laden (noch {count})",
+    "noMatch": "Kein Treffer",
+    "noBooks": "Keine Bücher passen zu diesen Filtern."
   },
   "home": {
     "greeting": {

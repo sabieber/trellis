@@ -7,14 +7,7 @@
           <option value="title">{{ $t('shelf.sortTitle') }}</option>
           <option value="author">{{ $t('shelf.sortAuthor') }}</option>
         </select>
-        <SegmentedControl v-model="layoutMode" :options="layoutOptions">
-          <template #option="{ option }">
-            <ListIcon v-if="option.value === 'list'" class="size-4"/>
-            <LayoutGridIcon v-else-if="option.value === 'grid'" class="size-4"/>
-            <ShelvingUnitIcon v-else-if="option.value === 'shelf'" class="size-4"/>
-            <LayersIcon v-else class="size-4"/>
-          </template>
-        </SegmentedControl>
+        <LayoutModeSelect v-model="layoutMode"/>
       </div>
     </template>
 
@@ -33,72 +26,42 @@
         class="mb-6"
     />
 
-    <div ref="contentRef">
-      <div v-if="loading" class="flex justify-center py-12">
-        <span class="loading loading-spinner loading-lg"></span>
-      </div>
-
-      <template v-else-if="books.length">
-        <ShelfListView
-            v-if="layoutMode === 'list'"
-            :books="sortedBooks"
-            :cover-width="listCoverWidth"
-            :dateLabel="$t('shelf.finished')"
-            dateField="finished_at"
-            @view-book="viewBookDetail"
-            @remove-book="() => {}"
-            @view-author="viewAuthor"
-        />
-        <ShelfGridView
-            v-else-if="layoutMode === 'grid'"
-            :books="sortedBooks"
-            :tile-width="gridTileWidth"
-            @view-book="viewBookDetail"
-        />
-        <ShelfBoardView
-            v-else-if="layoutMode === 'shelf'"
-            :books="sortedBooks"
-            :spine-height="spineHeight"
-            :container-width="containerWidth"
-            @view-book="viewBookDetail"
-        />
-        <ShelfPileView
-            v-else
-            :books="sortedBooks"
-            @view-book="viewBookDetail"
-        />
-      </template>
-
-      <div v-else class="t-meta text-center py-12">{{ $t('goalDetail.noBooks') }}</div>
+    <div v-if="loading" class="flex justify-center py-12">
+      <span class="loading loading-spinner loading-lg"></span>
     </div>
+
+    <BookLayout
+        v-else-if="books.length"
+        :books="sortedBooks"
+        :mode="layoutMode"
+        :date-label="$t('shelf.finished')"
+        date-field="finished_at"
+        @view-book="viewBookDetail"
+        @view-author="viewAuthor"
+    />
+
+    <div v-else class="t-meta text-center py-12">{{ $t('goalDetail.noBooks') }}</div>
   </PageContainer>
 </template>
 
 <script lang="ts">
-import {defineComponent, ref, computed, onMounted, watch} from 'vue';
+import {defineComponent, ref, computed, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useI18n} from 'vue-i18n';
-import {ListIcon, LayoutGridIcon, ShelvingUnitIcon, LayersIcon} from '@lucide/vue';
 import PageContainer from '@/components/PageContainer.vue';
-import SegmentedControl from '@/components/ui/SegmentedControl.vue';
-import ShelfListView from '@/components/shelf/ShelfListView.vue';
-import ShelfGridView from '@/components/shelf/ShelfGridView.vue';
-import ShelfBoardView from '@/components/shelf/ShelfBoardView.vue';
-import ShelfPileView from '@/components/shelf/ShelfPileView.vue';
+import BookLayout from '@/components/shelf/BookLayout.vue';
+import LayoutModeSelect from '@/components/shelf/LayoutModeSelect.vue';
 import PlainProgress from '@/components/ui/PlainProgress.vue';
 import GoalProgressChart from '@/components/GoalProgressChart.vue';
 import {apiFetch} from '@/api/client';
-import {useContainerWidth} from '@/composables/useContainerWidth';
+import {useLayoutMode} from '@/composables/useLayoutMode';
 import {goToAuthor} from '@/utils/authorRoute';
 import moment from 'moment';
 import type {ShelfBook} from '@/types/shelf';
 
+// Its own key: this view lists a different set of books than the shelf, author
+// and browse views, which share one preference.
 const LAYOUT_STORAGE_KEY = 'goal-detail-layout-mode';
-const MD_BREAKPOINT = 768;
-const GRID_TILE_SM = 80;
-const GRID_TILE_LG = 112;
-const SPINE_HEIGHT_SM = 160;
-const SPINE_HEIGHT_LG = 200;
 
 interface GoalDetail {
   id: string;
@@ -118,9 +81,7 @@ interface GoalBook extends ShelfBook {
 
 export default defineComponent({
   components: {
-    ListIcon, LayoutGridIcon, ShelvingUnitIcon, LayersIcon,
-    PageContainer, SegmentedControl,
-    ShelfListView, ShelfGridView, ShelfBoardView, ShelfPileView,
+    PageContainer, BookLayout, LayoutModeSelect,
     PlainProgress, GoalProgressChart,
   },
   setup() {
@@ -132,34 +93,7 @@ export default defineComponent({
     const loading = ref(true);
     const sortBy = ref<'finished_at' | 'title' | 'author'>('finished_at');
     const pageContainer = ref<any>(null);
-    const contentRef = ref<HTMLElement | null>(null);
-
-    const layoutOptions = [
-      {value: 'list'},
-      {value: 'grid'},
-      {value: 'shelf'},
-      {value: 'pile'},
-    ];
-
-    const validLayouts = ['list', 'grid', 'shelf', 'pile'];
-    const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
-    const layoutMode = ref(validLayouts.includes(saved || '') ? saved! : 'list');
-    watch(layoutMode, (val) => localStorage.setItem(LAYOUT_STORAGE_KEY, val));
-
-    const isReady = computed(() => !loading.value);
-    const {containerWidth} = useContainerWidth(contentRef, isReady);
-
-    const listCoverWidth = computed(() =>
-        containerWidth.value >= MD_BREAKPOINT ? 72 : 56
-    );
-
-    const gridTileWidth = computed(() =>
-        containerWidth.value >= MD_BREAKPOINT ? GRID_TILE_LG : GRID_TILE_SM
-    );
-
-    const spineHeight = computed(() =>
-        containerWidth.value >= MD_BREAKPOINT ? SPINE_HEIGHT_LG : SPINE_HEIGHT_SM
-    );
+    const layoutMode = useLayoutMode(LAYOUT_STORAGE_KEY);
 
     const goalLabel = computed(() => {
       if (!goal.value) return '';
@@ -232,10 +166,8 @@ export default defineComponent({
 
     return {
       goal, books, loading, sortBy,
-      goalLabel, periodDescription, sortedBooks,
-      layoutMode, layoutOptions,
-      listCoverWidth, gridTileWidth, spineHeight, containerWidth,
-      pageContainer, contentRef, viewBookDetail, viewAuthor,
+      goalLabel, periodDescription, sortedBooks, layoutMode,
+      pageContainer, viewBookDetail, viewAuthor,
     };
   },
 });

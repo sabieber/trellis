@@ -24,53 +24,25 @@
           <option value="title">{{ $t('shelf.sortTitle') }}</option>
           <option value="author">{{ $t('shelf.sortAuthor') }}</option>
         </select>
-        <SegmentedControl v-model="layoutMode" :options="layoutOptions">
-          <template #option="{ option }">
-            <ListIcon v-if="option.value === 'list'" class="size-4"/>
-            <LayoutGridIcon v-else-if="option.value === 'grid'" class="size-4"/>
-            <ShelvingUnitIcon v-else-if="option.value === 'shelf'" class="size-4"/>
-            <LayersIcon v-else class="size-4"/>
-          </template>
-        </SegmentedControl>
+        <LayoutModeSelect v-model="layoutMode"/>
       </div>
     </template>
 
-    <div ref="contentRef">
-      <div v-if="loading" class="flex justify-center py-12">
-        <span class="loading loading-spinner loading-lg"></span>
-      </div>
-
-      <template v-else-if="books.length">
-        <ShelfListView
-            v-if="layoutMode === 'list'"
-            :books="sortedBooks"
-            :cover-width="listCoverWidth"
-            @view-book="viewBookDetail"
-            @remove-book="confirmRemoveBook"
-            @view-author="viewAuthor"
-        />
-        <ShelfGridView
-            v-else-if="layoutMode === 'grid'"
-            :books="sortedBooks"
-            :tile-width="gridTileWidth"
-            @view-book="viewBookDetail"
-        />
-        <ShelfBoardView
-            v-else-if="layoutMode === 'shelf'"
-            :books="sortedBooks"
-            :spine-height="spineHeight"
-            :container-width="containerWidth"
-            @view-book="viewBookDetail"
-        />
-        <ShelfPileView
-            v-else
-            :books="sortedBooks"
-            @view-book="viewBookDetail"
-        />
-      </template>
-
-      <div v-else class="t-meta text-center py-12">{{ $t('shelf.noBooks') }}</div>
+    <div v-if="loading" class="flex justify-center py-12">
+      <span class="loading loading-spinner loading-lg"></span>
     </div>
+
+    <BookLayout
+        v-else-if="books.length"
+        :books="sortedBooks"
+        :mode="layoutMode"
+        removable
+        @view-book="viewBookDetail"
+        @remove-book="confirmRemoveBook"
+        @view-author="viewAuthor"
+    />
+
+    <div v-else class="t-meta text-center py-12">{{ $t('shelf.noBooks') }}</div>
 
     <RandomBookModal
         v-if="pickerOpen"
@@ -91,38 +63,28 @@
 </template>
 
 <script lang="ts">
-import {defineComponent, ref, computed, onMounted, watch} from 'vue';
+import {defineComponent, ref, computed, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useI18n} from 'vue-i18n';
-import {ListIcon, LayoutGridIcon, ShelvingUnitIcon, LayersIcon, Dice3Icon} from "@lucide/vue";
+import {Dice3Icon} from "@lucide/vue";
 import PageContainer from '@/components/PageContainer.vue';
-import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import InlineEdit from '@/components/ui/InlineEdit.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
-import ShelfListView from '@/components/shelf/ShelfListView.vue';
-import ShelfGridView from '@/components/shelf/ShelfGridView.vue';
-import ShelfBoardView from '@/components/shelf/ShelfBoardView.vue';
-import ShelfPileView from '@/components/shelf/ShelfPileView.vue';
+import BookLayout from '@/components/shelf/BookLayout.vue';
+import LayoutModeSelect from '@/components/shelf/LayoutModeSelect.vue';
 import RandomBookModal from '@/components/shelf/RandomBookModal.vue';
 import Button from '@/components/ui/Button.vue';
 import {apiFetch} from '@/api/client';
 import {apiErrorMessage} from '@/utils/apiError';
 import {goToAuthor} from '@/utils/authorRoute';
-import {useContainerWidth} from '@/composables/useContainerWidth';
+import {useLayoutMode} from '@/composables/useLayoutMode';
 import type {ShelfBook} from '@/types/shelf';
-
-const LAYOUT_STORAGE_KEY = 'shelf-layout-mode';
-const MD_BREAKPOINT = 768;
-const GRID_TILE_SM = 80;
-const GRID_TILE_LG = 112;
-const SPINE_HEIGHT_SM = 160;
-const SPINE_HEIGHT_LG = 200;
 
 export default defineComponent({
   components: {
-    ListIcon, LayoutGridIcon, ShelvingUnitIcon, LayersIcon, Dice3Icon,
-    PageContainer, SegmentedControl, ConfirmDialog, InlineEdit,
-    ShelfListView, ShelfGridView, ShelfBoardView, ShelfPileView,
+    Dice3Icon,
+    PageContainer, ConfirmDialog, InlineEdit,
+    BookLayout, LayoutModeSelect,
     RandomBookModal, Button,
   },
   setup() {
@@ -138,36 +100,9 @@ export default defineComponent({
     });
     const sortBy = ref<'added_at' | 'title' | 'author'>('added_at');
     const pageContainer = ref<any>(null);
-    const contentRef = ref<HTMLElement | null>(null);
     const pendingRemoveBookId = ref<string | null>(null);
     const pickerOpen = ref(false);
-
-    const layoutOptions = [
-      {value: 'list'},
-      {value: 'grid'},
-      {value: 'shelf'},
-      {value: 'pile'},
-    ];
-
-    const validLayouts = ['list', 'grid', 'shelf', 'pile'];
-    const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
-    const layoutMode = ref(validLayouts.includes(saved || '') ? saved! : 'list');
-    watch(layoutMode, (val) => localStorage.setItem(LAYOUT_STORAGE_KEY, val));
-
-    const isReady = computed(() => !loading.value);
-    const {containerWidth} = useContainerWidth(contentRef, isReady);
-
-    const listCoverWidth = computed(() =>
-        containerWidth.value >= MD_BREAKPOINT ? 72 : 56
-    );
-
-    const gridTileWidth = computed(() =>
-        containerWidth.value >= MD_BREAKPOINT ? GRID_TILE_LG : GRID_TILE_SM
-    );
-
-    const spineHeight = computed(() =>
-        containerWidth.value >= MD_BREAKPOINT ? SPINE_HEIGHT_LG : SPINE_HEIGHT_SM
-    );
+    const layoutMode = useLayoutMode();
 
     const sortedBooks = computed(() => {
       const arr = [...books.value];
@@ -254,10 +189,8 @@ export default defineComponent({
     onMounted(() => fetchShelfBooks(route.params.id as string));
 
     return {
-      books, sortedBooks, loading, shelf, sortBy,
-      layoutMode, layoutOptions,
-      listCoverWidth, gridTileWidth, spineHeight, containerWidth,
-      pageContainer, contentRef, pendingRemoveBookId, pickerOpen,
+      books, sortedBooks, loading, shelf, sortBy, layoutMode,
+      pageContainer, pendingRemoveBookId, pickerOpen,
       confirmRemoveBook, removeBookFromShelf, viewBookDetail, viewAuthor, saveName,
     };
   },

@@ -11,6 +11,25 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
+/// The wire shape of a book, as every handler that returns a list of them sends
+/// it — and as the frontend's `ShelfBook` type reads it. One function, so a new
+/// field reaches all of those responses at once.
+pub(crate) fn book_json(book: &Book) -> serde_json::Value {
+    json!({
+        "id": book.id.to_string(),
+        "title": book.title,
+        "author": book.author,
+        "isbn13": book.isbn13,
+        "isbn10": book.isbn10,
+        "google_books_id": book.google_books_id,
+        "open_library_id": book.open_library_id,
+        "added_at": book.added_at.to_string(),
+        "rating": book.rating,
+        "cover_url": book.cover_url,
+        "page_count": book.page_count,
+    })
+}
+
 /// Trims a string and maps the empty result to `None`, so blank ISBNs/IDs are
 /// stored as SQL NULL rather than `""` (which would collide under the partial
 /// unique indexes).
@@ -232,6 +251,8 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/books/remove-label", post(remove_label))
         .route("/api/books/label-suggestions", post(suggest_labels))
         .route("/api/authors/books", post(list_author_books))
+        .route("/api/books/browse", post(browse_books))
+        .route("/api/books/random", post(random_books))
 }
 
 /// Request type for getting information about a book.
@@ -977,24 +998,7 @@ pub(crate) async fn list_author_books(
         }
     };
 
-    let json_books: Vec<_> = results
-        .into_iter()
-        .map(|book| {
-            json!({
-                "id": book.id.to_string(),
-                "title": book.title,
-                "author": book.author,
-                "isbn13": book.isbn13,
-                "isbn10": book.isbn10,
-                "google_books_id": book.google_books_id,
-                "open_library_id": book.open_library_id,
-                "added_at": book.added_at.to_string(),
-                "rating": book.rating,
-                "cover_url": book.cover_url,
-                "page_count": book.page_count,
-            })
-        })
-        .collect();
+    let json_books: Vec<_> = results.iter().map(book_json).collect();
 
     (
         StatusCode::OK,
@@ -1003,6 +1007,250 @@ pub(crate) async fn list_author_books(
             "books": json_books,
         })),
     )
+}
+
+/// Filters for the library browse view. Every field is optional and an absent
+/// (or empty) field does not constrain the result, so the same handler serves
+/// the unfiltered landing state. `offset` pages through the result.
+#[derive(Debug, Deserialize)]
+pub struct BrowseRequest {
+    pub shelf_id: Option<String>,
+    pub author: Option<String>,
+    pub genre: Option<String>,
+    pub tag: Option<String>,
+    pub offset: Option<i64>,
+}
+
+/// Books per browse page. The client appends the next page on demand and the
+/// response carries the total, so it knows when to stop asking.
+const BROWSE_PAGE_SIZE: i64 = 100;
+
+/// The filters of a browse request, parsed and validated.
+struct BrowseFilters {
+    user_id: Uuid,
+    shelf_id: Option<Uuid>,
+    author: Option<String>,
+    genre: Option<String>,
+    tag: Option<String>,
+}
+
+/// Builds the filtered book query. Called once for the count and once for the
+/// page, so both always apply exactly the same filters.
+fn browse_query<'a>(
+    filters: &BrowseFilters,
+) -> crate::schema::books::BoxedQuery<'a, diesel::pg::Pg> {
+    use crate::schema::book_labels::dsl as bl;
+    use crate::schema::book_shelves::dsl as bs;
+    use crate::schema::books::dsl as b;
+
+    let mut query = b::books.filter(b::user.eq(filters.user_id)).into_boxed();
+
+    if let Some(shelf_id) = filters.shelf_id {
+        // No ownership check on the shelf: the outer filter already restricts
+        // the result to the caller's own books.
+        query = query.filter(
+            b::id.eq_any(
+                bs::book_shelves
+                    .filter(bs::shelf.eq(shelf_id))
+                    .select(bs::book),
+            ),
+        );
+    }
+
+    if let Some(ref author) = filters.author {
+        query = query.filter(b::author.eq(author.clone()));
+    }
+
+    for (kind, value) in [
+        (LabelKind::Genre, &filters.genre),
+        (LabelKind::Tag, &filters.tag),
+    ] {
+        if let Some(label) = value {
+            query = query.filter(
+                b::id.eq_any(
+                    bl::book_labels
+                        // `user` and `kind` first: they are the leading columns of
+                        // book_labels_user_kind_label_idx, so the subquery is a range
+                        // scan of this user's labels instead of a scan of the table.
+                        .filter(bl::user.eq(filters.user_id))
+                        .filter(bl::kind.eq(kind))
+                        .filter(lower(bl::label).eq(label.to_lowercase()))
+                        .select(bl::book),
+                ),
+            );
+        }
+    }
+
+    query
+}
+
+/// Validates a browse request into the filters both browse handlers run on. The
+/// `Err` string is the 400 message.
+fn parse_browse_filters(
+    user_id: Uuid,
+    payload: &BrowseRequest,
+) -> Result<BrowseFilters, &'static str> {
+    // `normalize` maps a blank string to None, which is what the frontend's
+    // "all" option submits.
+    let shelf_id = match normalize(payload.shelf_id.clone()) {
+        Some(raw) => Some(Uuid::parse_str(&raw).map_err(|_| "Invalid shelf ID.")?),
+        None => None,
+    };
+
+    Ok(BrowseFilters {
+        user_id,
+        shelf_id,
+        author: normalize(payload.author.clone()),
+        genre: normalize(payload.genre.clone()),
+        tag: normalize(payload.tag.clone()),
+    })
+}
+
+/// Lists one page of the user's books matching the given filters, plus the
+/// author list the filter bar offers. Filtering and paging happen here, never
+/// in the client: the view must never assume it holds the whole library.
+pub(crate) async fn browse_books(
+    auth: AuthUser,
+    Json(payload): Json<BrowseRequest>,
+) -> impl IntoResponse {
+    use crate::schema::books::dsl as b;
+
+    let filters = match parse_browse_filters(auth.0, &payload) {
+        Ok(filters) => filters,
+        Err(message) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: message.to_string()
+                })),
+            )
+        }
+    };
+
+    // A negative offset would make postgres error out; treat it as the first page.
+    let offset = payload.offset.unwrap_or(0).max(0);
+
+    let connection = &mut connect();
+
+    let total: i64 = match browse_query(&filters).count().get_result(connection) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!(ErrorResponse {
+                    error: format!("Error counting books: {}", e)
+                })),
+            )
+        }
+    };
+
+    // `id` breaks ties so that paging never skips or repeats a book whose title
+    // another book shares — `title` alone is not a unique ordering.
+    let results = match browse_query(&filters)
+        .order((b::title.asc(), b::id.asc()))
+        .offset(offset)
+        .limit(BROWSE_PAGE_SIZE)
+        .select(Book::as_select())
+        .load::<Book>(connection)
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!(ErrorResponse {
+                    error: format!("Error loading books: {}", e)
+                })),
+            )
+        }
+    };
+
+    // Only with the first page: the list cannot change while the user pages
+    // through a result set, so repeating it on every "load more" is pure waste.
+    // Unfiltered on purpose — the author dropdown must keep offering every author
+    // of the library, including the one currently selected.
+    let authors: Vec<String> = if offset == 0 {
+        match b::books
+            .filter(b::user.eq(auth.0))
+            .select(b::author)
+            .distinct()
+            .order(b::author.asc())
+            .load::<Option<String>>(connection)
+        {
+            Ok(rows) => rows.into_iter().flatten().collect(),
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!(ErrorResponse {
+                        error: format!("Error loading authors: {}", e)
+                    })),
+                )
+            }
+        }
+    } else {
+        Vec::new()
+    };
+
+    let json_books: Vec<_> = results.iter().map(book_json).collect();
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "books": json_books,
+            "authors": authors,
+            "total": total,
+        })),
+    )
+}
+
+// Postgres `random()`. Ordering by it is a sort of the whole filtered set, which
+// is fine at library sizes; revisit with a sampling scheme if it ever is not.
+diesel::define_sql_function! { fn random() -> diesel::sql_types::Double }
+
+/// Books handed to the random picker. It builds one board of spines around the
+/// drawn book and redraws from the same handful, so it never needs the whole set.
+const RANDOM_CANDIDATES: i64 = 40;
+
+/// Draws a random handful of books from the *filtered* set. The client cannot do
+/// this itself: it holds only the pages it has loaded, so picking there would
+/// never reach a book further down the alphabet.
+pub(crate) async fn random_books(
+    auth: AuthUser,
+    Json(payload): Json<BrowseRequest>,
+) -> impl IntoResponse {
+    let filters = match parse_browse_filters(auth.0, &payload) {
+        Ok(filters) => filters,
+        Err(message) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: message.to_string()
+                })),
+            )
+        }
+    };
+
+    let connection = &mut connect();
+
+    let results = match browse_query(&filters)
+        .order(random())
+        .limit(RANDOM_CANDIDATES)
+        .select(Book::as_select())
+        .load::<Book>(connection)
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!(ErrorResponse {
+                    error: format!("Error loading books: {}", e)
+                })),
+            )
+        }
+    };
+
+    let json_books: Vec<_> = results.iter().map(book_json).collect();
+
+    (StatusCode::OK, Json(json!({ "books": json_books })))
 }
 
 #[cfg(test)]
@@ -1115,6 +1363,38 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/api/books/remove-label")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_browse_books_requires_auth() {
+        let app = Router::new().route("/api/books/browse", post(browse_books));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/books/browse")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_random_books_requires_auth() {
+        let app = Router::new().route("/api/books/random", post(random_books));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/books/random")
                     .body(Body::empty())
                     .unwrap(),
             )

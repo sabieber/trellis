@@ -252,7 +252,24 @@
     "noShelves": "No shelves yet.",
     "removeShelfTitle": "Remove Shelf",
     "removeShelfMessage": "Are you sure you want to remove this shelf? Books only on this shelf may be deleted.",
-    "shelfRemoved": "Shelf removed."
+    "shelfRemoved": "Shelf removed.",
+    "allBooks": "All books"
+  },
+  "books": {
+    "title": "All Books",
+    "allShelves": "All shelves",
+    "allAuthors": "All authors",
+    "allGenres": "All genres",
+    "allTags": "All tags",
+    "filterShelf": "Filter by shelf",
+    "filterAuthor": "Filter by author",
+    "filterGenre": "Filter by genre",
+    "filterTag": "Filter by tag",
+    "clearFilters": "Clear filters",
+    "count": "{count} books",
+    "loadMore": "Load more ({count} left)",
+    "noMatch": "Nothing matches",
+    "noBooks": "No books match these filters."
   },
   "home": {
     "greeting": {

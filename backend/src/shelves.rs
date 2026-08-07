@@ -267,23 +267,7 @@ pub(crate) async fn list_shelf_books(
         ),
     };
 
-    let mut json_books = Vec::new();
-    for book in results {
-        let json_book = json!({
-            "id": book.id.to_string(),
-            "title": book.title,
-            "author": book.author,
-            "isbn13": book.isbn13,
-            "isbn10": book.isbn10,
-            "google_books_id": book.google_books_id,
-            "open_library_id": book.open_library_id,
-            "added_at": book.added_at.to_string(),
-            "rating": book.rating,
-            "cover_url": book.cover_url,
-            "page_count": book.page_count,
-        });
-        json_books.push(json_book);
-    }
+    let json_books: Vec<_> = results.iter().map(crate::books::book_json).collect();
 
     (StatusCode::OK, Json(json!({
         "shelf": {

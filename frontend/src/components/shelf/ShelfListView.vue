@@ -27,7 +27,7 @@
         <p class="t-mono mt-1 hidden md:block">{{ dateLabel || $t('shelf.added') }} {{ formatDate(book) }}</p>
         <Rating v-if="book.rating" :rating="book.rating" :size="12" class="mt-0.5"/>
       </div>
-      <Button variant="ghost" class="px-2! py-2! text-[13px]!" @click="$emit('removeBook', book.id)">
+      <Button v-if="removable" variant="ghost" class="px-2! py-2! text-[13px]!" @click="$emit('removeBook', book.id)">
         <MinusIcon class="size-4"/>
       </Button>
     </li>
@@ -49,6 +49,9 @@ const props = withDefaults(defineProps<{
   coverWidth: number;
   dateLabel?: string;
   dateField?: 'added_at' | 'finished_at';
+  // Required, with no default: `BookLayout` is the only caller and always states
+  // it, and a default here would quietly contradict the one it declares.
+  removable: boolean;
 }>(), {
   dateLabel: '',
   dateField: 'added_at',

@@ -1,20 +1,32 @@
 <template>
   <div class="min-h-screen flex flex-col">
-    <!-- Header -->
-    <div class="flex justify-between items-center px-4 pt-5 pb-2">
-      <h1 class="t-display text-2xl">{{ $t('nav.library') }}</h1>
-      <div class="flex items-center gap-2">
-        <select v-model="sortBy" class="select select-sm w-36">
-          <option value="name">{{ $t('library.sortName') }}</option>
-          <option value="created_at">{{ $t('library.sortCreated') }}</option>
-          <option value="updated_at">{{ $t('library.sortUpdated') }}</option>
-        </select>
-        <CreateShelfModal @shelfCreated="fetchData"/>
+    <!-- Header: title, subtitle under it at `mt-1` like every other screen, and
+         the primary action. A phone fits nothing else on this row. -->
+    <div class="flex justify-between items-start gap-2 px-4 pt-5 pb-3">
+      <div class="min-w-0">
+        <h1 class="t-display text-2xl">{{ $t('nav.library') }}</h1>
+        <!-- The book count doubles as the link to the browse view, so the
+             header carries no extra button. -->
+        <button
+            type="button"
+            class="t-meta mt-1 flex items-center gap-1 cursor-pointer hover:text-ink transition-colors duration-150"
+            :aria-label="$t('library.allBooks')"
+            @click="goToBooks"
+        >
+          {{ $t('library.booksTotal', { count: totalBooks }) }}
+          <ChevronRightIcon class="size-4"/>
+        </button>
       </div>
+      <CreateShelfModal @shelfCreated="fetchData"/>
     </div>
 
-    <div class="px-4 pb-3">
-      <p class="t-meta">{{ $t('library.booksTotal', { count: totalBooks }) }}</p>
+    <!-- Sorting belongs to the shelf list below, not to the title block. -->
+    <div class="px-4 pb-3 flex justify-end">
+      <select v-model="sortBy" class="select select-sm w-36">
+        <option value="name">{{ $t('library.sortName') }}</option>
+        <option value="created_at">{{ $t('library.sortCreated') }}</option>
+        <option value="updated_at">{{ $t('library.sortUpdated') }}</option>
+      </select>
     </div>
 
     <!-- Loading -->
@@ -196,8 +208,10 @@ export default defineComponent({
       return arr;
     });
 
+    // Distinct books, not the sum over shelves: a book on three shelves is one
+    // book, and this number now links to the browse view, which counts the same way.
     const totalBooks = computed(() =>
-        Object.values(shelfBooks.value).reduce((sum, books) => sum + books.length, 0)
+        new Set(Object.values(shelfBooks.value).flat().map((book) => book.id)).size
     );
 
     const showToast = (message: string, type: string) => {
@@ -246,6 +260,10 @@ export default defineComponent({
       } finally {
         loading.value = false;
       }
+    };
+
+    const goToBooks = () => {
+      router.push({name: 'books'});
     };
 
     const goToShelf = (shelfId: string) => {
@@ -301,6 +319,7 @@ export default defineComponent({
       visibleCount,
       pendingDeleteShelfId,
       fetchData,
+      goToBooks,
       goToShelf,
       goToBook,
       confirmRemoveShelf,

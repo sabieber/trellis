@@ -1,6 +1,6 @@
-import {ref, onUnmounted, nextTick, watch, type Ref} from 'vue';
+import {ref, onUnmounted, type Ref} from 'vue';
 
-export function useContainerWidth(elRef: Ref<HTMLElement | null>, readyRef?: Ref<boolean>) {
+export function useContainerWidth(elRef: Ref<HTMLElement | null>) {
     const containerWidth = ref(0);
     const containerHeight = ref(0);
     let observer: ResizeObserver | null = null;
@@ -18,12 +18,6 @@ export function useContainerWidth(elRef: Ref<HTMLElement | null>, readyRef?: Ref
             observer.observe(elRef.value);
         }
     };
-
-    if (readyRef) {
-        watch(readyRef, (val) => {
-            if (val) nextTick(setup);
-        });
-    }
 
     onUnmounted(() => {
         observer?.disconnect();
