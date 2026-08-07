@@ -60,6 +60,28 @@ pub struct BookShelf {
     pub added_at: chrono::NaiveDateTime,
 }
 
+/// Genres and tags are the same mechanism with a different heading; this
+/// discriminator is the only thing that separates them.
+#[derive(Debug, Clone, Copy, PartialEq, diesel_derive_enum::DbEnum)]
+#[ExistingTypePath = "crate::schema::sql_types::LabelKind"]
+pub enum LabelKind {
+    Genre,
+    Tag,
+}
+
+#[derive(Queryable, Selectable, Insertable)]
+#[diesel(table_name = crate::schema::book_labels)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+#[diesel(belongs_to(Book))]
+#[diesel(belongs_to(User))]
+pub struct BookLabel {
+    pub book: Uuid,
+    pub user: Uuid,
+    pub kind: LabelKind,
+    pub label: String,
+    pub added_at: chrono::NaiveDateTime,
+}
+
 #[derive(Debug, diesel_derive_enum::DbEnum)]
 #[ExistingTypePath = "crate::schema::sql_types::ReadingMode"]
 pub enum ReadingMode {

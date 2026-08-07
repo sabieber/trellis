@@ -74,7 +74,7 @@
               <h2 class="t-eyebrow mb-1">{{ $t('bookDetail.details') }}</h2>
               <div class="flex flex-col">
                 <div v-if="book.category" class="flex justify-between py-3 border-b border-line-soft">
-                  <span class="t-meta">{{ $t('bookDetail.genre') }}</span>
+                  <span class="t-meta">{{ $t('bookDetail.category') }}</span>
                   <span class="text-sm font-semibold text-green-soft">{{ book.category }}</span>
                 </div>
                 <div v-if="book.published_year" class="flex justify-between py-3 border-b border-line-soft">
@@ -110,6 +110,29 @@
               </Button>
             </div>
           </aside>
+
+          <!-- Full width below the description/rail grid: wrapping badges look
+               cramped inside the one-third rail. -->
+          <div class="mt-8 flex flex-col gap-5 lg:col-span-3 lg:row-start-2">
+            <BookLabels
+                :title="$t('bookDetail.genres')"
+                :labels="labels.genre"
+                :suggestions="suggestions.genre"
+                :empty-text="$t('bookDetail.noGenres')"
+                :add-label="$t('bookDetail.addGenre')"
+                @add="addLabel('genre', $event)"
+                @remove="removeLabel('genre', $event)"
+            />
+            <BookLabels
+                :title="$t('bookDetail.tags')"
+                :labels="labels.tag"
+                :suggestions="suggestions.tag"
+                :empty-text="$t('bookDetail.noTags')"
+                :add-label="$t('bookDetail.addTag')"
+                @add="addLabel('tag', $event)"
+                @remove="removeLabel('tag', $event)"
+            />
+          </div>
         </div>
 
         <div v-else-if="activeTab === 'Log'">
@@ -207,7 +230,7 @@
 </template>
 
 <script lang="ts">
-import {defineComponent, ref, computed, onMounted} from 'vue';
+import {defineComponent, reactive, ref, computed, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {goToAuthor} from '@/utils/authorRoute';
 import {goToSeries} from '@/utils/seriesRoute';
@@ -218,16 +241,17 @@ import {apiErrorMessage} from '@/utils/apiError';
 import StartReadingModal from '@/components/StartReadingModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
+import BookLabels from '@/components/BookLabels.vue';
 import Button from '@/components/ui/Button.vue';
 import InlineEdit from '@/components/ui/InlineEdit.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import Rating from '@/components/ui/Rating.vue';
 import {apiFetch} from '@/api/client';
 import moment from 'moment';
-import type {BookSearchResult} from '@/types/book';
+import type {BookSearchResult, LabelKind} from '@/types/book';
 
 export default defineComponent({
-  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, Trash2Icon, ExternalLinkIcon, StartReadingModal, ConfirmDialog, BookCover, Button, InlineEdit, SegmentedControl, Rating},
+  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, Trash2Icon, ExternalLinkIcon, StartReadingModal, ConfirmDialog, BookCover, BookLabels, Button, InlineEdit, SegmentedControl, Rating},
   setup() {
     const {t} = useI18n();
     const route = useRoute();
@@ -259,6 +283,11 @@ export default defineComponent({
     // User-provided page count, stored on the book row; takes precedence over
     // the page count reported by the external catalogs.
     const pageCountOverride = ref<number | null>(null);
+    // The user's own genres/tags on this book, plus everything they have used
+    // on any book, which feeds the suggestion dropdowns. Keyed by kind so the
+    // label handlers stay kind-agnostic.
+    const labels = reactive<Record<LabelKind, string[]>>({genre: [], tag: []});
+    const suggestions = reactive<Record<LabelKind, string[]>>({genre: [], tag: []});
     const pendingRemoveShelfId = ref<string | null>(null);
     const pendingDeleteReadingId = ref<string | null>(null);
 
@@ -283,6 +312,8 @@ export default defineComponent({
           shelfIds.value = data.shelf_ids ?? [];
           rating.value = data.rating ?? 0;
           pageCountOverride.value = data.page_count ?? null;
+          labels.genre = data.genres ?? [];
+          labels.tag = data.tags ?? [];
           return {
             googleBooksId: data.google_books_id as string | null,
             openLibraryId: data.open_library_id as string | null,
@@ -327,6 +358,48 @@ export default defineComponent({
         loadingShelves.value = false;
       }
     };
+
+    const fetchLabelSuggestions = async () => {
+      try {
+        const response = await apiFetch('/api/books/label-suggestions', {method: 'POST'});
+        if (response.ok) {
+          const data = await response.json();
+          suggestions.genre = data.genres ?? [];
+          suggestions.tag = data.tags ?? [];
+        }
+      } catch (error) {
+        console.error('Failed to fetch label suggestions:', error);
+      }
+    };
+
+    const writeLabel = async (path: string, kind: LabelKind, label: string) => {
+      try {
+        const response = await apiFetch(path, {
+          method: 'POST',
+          body: JSON.stringify({book_id: route.params.id, kind, label}),
+        });
+        if (response.ok) {
+          labels[kind] = (await response.json()).labels;
+        } else {
+          showToast(apiErrorMessage(response.status, t), 'alert-error');
+        }
+      } catch {
+        showToast(t('error.network'), 'alert-error');
+      }
+    };
+
+    const addLabel = async (kind: LabelKind, label: string) => {
+      await writeLabel('/api/books/add-label', kind, label);
+      // Suggestions are fetched once on mount, so a label the user just
+      // invented has to join the pool by hand. Take it from the server's list
+      // rather than the typed string, which may differ in casing.
+      for (const entry of labels[kind]) {
+        if (!suggestions[kind].includes(entry)) suggestions[kind].push(entry);
+      }
+    };
+
+    const removeLabel = (kind: LabelKind, label: string) =>
+        writeLabel('/api/books/remove-label', kind, label);
 
     const isOnShelf = (shelfId: string) => shelfIds.value.includes(shelfId);
 
@@ -516,6 +589,7 @@ export default defineComponent({
       const bookId = route.params.id as string;
       fetchBookDetailsWrapper(bookId);
       fetchShelves();
+      fetchLabelSuggestions();
     });
 
     return {
@@ -528,6 +602,10 @@ export default defineComponent({
       shelves,
       loadingShelves,
       rating,
+      labels,
+      suggestions,
+      addLabel,
+      removeLabel,
       pendingRemoveShelfId,
       pendingDeleteReadingId,
       toastMessage,

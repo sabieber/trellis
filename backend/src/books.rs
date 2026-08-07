@@ -1,6 +1,6 @@
 use crate::auth::AuthUser;
 use crate::db::connect;
-use crate::models::{Book, BookShelf, Reading};
+use crate::models::{Book, BookLabel, BookShelf, LabelKind, Reading};
 use crate::schema::books::dsl::books;
 use crate::schema::readings::dsl::readings;
 use crate::{schema, ErrorResponse};
@@ -88,9 +88,13 @@ pub(crate) fn resolve_or_create_book(
             .execute(conn)?;
         }
         if let Some(p) = page_count {
-            diesel::update(b::books.filter(b::id.eq(id)).filter(b::page_count.is_null()))
-                .set(b::page_count.eq(p))
-                .execute(conn)?;
+            diesel::update(
+                b::books
+                    .filter(b::id.eq(id))
+                    .filter(b::page_count.is_null()),
+            )
+            .set(b::page_count.eq(p))
+            .execute(conn)?;
         }
         // Read the count back rather than using the incoming one: the update above
         // never overwrites, so an existing value wins and is what the readings of
@@ -189,7 +193,9 @@ pub(crate) fn resolve_or_create_book(
         cover_url,
         page_count,
     };
-    diesel::insert_into(b::books).values(&new_book).execute(conn)?;
+    diesel::insert_into(b::books)
+        .values(&new_book)
+        .execute(conn)?;
     Ok(new_id)
 }
 
@@ -222,8 +228,11 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/books/resolve-cover", post(resolve_cover))
         .route("/api/books/rate", post(rate_book))
         .route("/api/books/set-page-count", post(set_page_count))
+        .route("/api/books/add-label", post(add_label))
+        .route("/api/books/remove-label", post(remove_label))
+        .route("/api/books/label-suggestions", post(suggest_labels))
         .route("/api/authors/books", post(list_author_books))
-    }
+}
 
 /// Request type for getting information about a book.
 #[derive(Debug, Deserialize)]
@@ -243,6 +252,10 @@ pub struct BookInfoResponse {
     pub page_count: Option<i32>,
     pub readings: Vec<serde_json::Value>,
     pub shelf_ids: Vec<String>,
+    // The user's own labels ride along here rather than in a route of their
+    // own: this response is already fetched on page load.
+    pub genres: Vec<String>,
+    pub tags: Vec<String>,
 }
 
 /// Fetches book information by book ID.
@@ -257,7 +270,14 @@ pub(crate) async fn get_book_info(
 
     let book_id = match Uuid::parse_str(&payload.book_id) {
         Ok(id) => id,
-        Err(_) => return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Invalid book ID.".to_string() }))),
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Invalid book ID.".to_string()
+                })),
+            )
+        }
     };
 
     let db_readings = match readings
@@ -266,7 +286,14 @@ pub(crate) async fn get_book_info(
         .load::<Reading>(connection)
     {
         Ok(r) => r,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(ErrorResponse { error: format!("Error loading readings: {}", e) }))),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!(ErrorResponse {
+                    error: format!("Error loading readings: {}", e)
+                })),
+            )
+        }
     };
 
     let mut json_readings = Vec::new();
@@ -297,20 +324,25 @@ pub(crate) async fn get_book_info(
         .filter(schema::books::dsl::user.eq(auth.0))
         .first::<Book>(connection)
     {
-        Ok(book) => (
-            StatusCode::OK,
-            Json(json!(BookInfoResponse {
-                google_books_id: book.google_books_id,
-                open_library_id: book.open_library_id,
-                isbn13: book.isbn13,
-                isbn10: book.isbn10,
-                rating: book.rating,
-                cover_url: book.cover_url,
-                page_count: book.page_count,
-                readings: json_readings,
-                shelf_ids,
-            })),
-        ),
+        Ok(book) => {
+            let (genres, tags) = labels_for_book(connection, book_id).unwrap_or_default();
+            (
+                StatusCode::OK,
+                Json(json!(BookInfoResponse {
+                    google_books_id: book.google_books_id,
+                    open_library_id: book.open_library_id,
+                    isbn13: book.isbn13,
+                    isbn10: book.isbn10,
+                    rating: book.rating,
+                    cover_url: book.cover_url,
+                    page_count: book.page_count,
+                    readings: json_readings,
+                    shelf_ids,
+                    genres,
+                    tags,
+                })),
+            )
+        }
         Err(_) => (
             StatusCode::NOT_FOUND,
             Json(json!(ErrorResponse {
@@ -515,12 +547,24 @@ pub(crate) async fn rate_book(
 ) -> impl IntoResponse {
     let book_id = match Uuid::parse_str(&payload.book_id) {
         Ok(id) => id,
-        Err(_) => return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Invalid book ID.".to_string() }))),
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Invalid book ID.".to_string()
+                })),
+            )
+        }
     };
 
     if let Some(r) = payload.rating {
         if !(1..=5).contains(&r) {
-            return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Rating must be between 1 and 5.".to_string() })));
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Rating must be between 1 and 5.".to_string()
+                })),
+            );
         }
     }
 
@@ -532,21 +576,36 @@ pub(crate) async fn rate_book(
         .first(connection)
     {
         Ok(b) => b,
-        Err(_) => return (StatusCode::NOT_FOUND, Json(json!(ErrorResponse { error: "Book not found.".to_string() }))),
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!(ErrorResponse {
+                    error: "Book not found.".to_string()
+                })),
+            )
+        }
     };
 
     if book.user != auth.0 {
-        return (StatusCode::FORBIDDEN, Json(json!(ErrorResponse { error: "Access denied.".to_string() })));
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!(ErrorResponse {
+                error: "Access denied.".to_string()
+            })),
+        );
     }
 
-    match diesel::update(
-        books.filter(schema::books::dsl::id.eq(book_id)),
-    )
-    .set(schema::books::dsl::rating.eq(payload.rating))
-    .execute(connection)
+    match diesel::update(books.filter(schema::books::dsl::id.eq(book_id)))
+        .set(schema::books::dsl::rating.eq(payload.rating))
+        .execute(connection)
     {
         Ok(_) => (StatusCode::OK, Json(json!({ "rating": payload.rating }))),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(ErrorResponse { error: format!("Failed to update rating: {}", e) }))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Failed to update rating: {}", e)
+            })),
+        ),
     }
 }
 
@@ -566,12 +625,24 @@ pub(crate) async fn set_page_count(
 ) -> impl IntoResponse {
     let book_id = match Uuid::parse_str(&payload.book_id) {
         Ok(id) => id,
-        Err(_) => return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Invalid book ID.".to_string() }))),
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Invalid book ID.".to_string()
+                })),
+            )
+        }
     };
 
     if let Some(p) = payload.page_count {
         if p <= 0 {
-            return (StatusCode::BAD_REQUEST, Json(json!(ErrorResponse { error: "Page count must be a positive number.".to_string() })));
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Page count must be a positive number.".to_string()
+                })),
+            );
         }
     }
 
@@ -585,18 +656,291 @@ pub(crate) async fn set_page_count(
     .set(schema::books::dsl::page_count.eq(payload.page_count))
     .execute(connection)
     {
-        Ok(0) => (StatusCode::NOT_FOUND, Json(json!(ErrorResponse { error: "Book not found.".to_string() }))),
+        Ok(0) => (
+            StatusCode::NOT_FOUND,
+            Json(json!(ErrorResponse {
+                error: "Book not found.".to_string()
+            })),
+        ),
         Ok(_) => {
             // Readings created before the book knew its page count still carry the
             // 0 sentinel; clearing the override (None) leaves them as they are.
             if let Some(p) = payload.page_count {
                 if let Err(e) = crate::readings::backfill_reading_pages(connection, book_id, p) {
-                    tracing::error!("Failed to backfill reading pages for book {}: {}", book_id, e);
+                    tracing::error!(
+                        "Failed to backfill reading pages for book {}: {}",
+                        book_id,
+                        e
+                    );
                 }
             }
-            (StatusCode::OK, Json(json!({ "page_count": payload.page_count })))
+            (
+                StatusCode::OK,
+                Json(json!({ "page_count": payload.page_count })),
+            )
         }
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!(ErrorResponse { error: format!("Failed to update page count: {}", e) }))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Failed to update page count: {}", e)
+            })),
+        ),
+    }
+}
+
+// Postgres `lower()` on text. Declared here because `diesel::dsl::lower` on the
+// postgres backend is the *range* lower(), which does not apply to Text.
+diesel::define_sql_function! { fn lower(text: diesel::sql_types::Text) -> diesel::sql_types::Text }
+
+/// Longest label we accept. There is no cap on labels per book: this is
+/// single-user-owned data behind auth, and the length cap is what stops a
+/// runaway payload.
+const MAX_LABEL_LENGTH: usize = 40;
+
+/// Normalizes a user-typed label: trims and collapses runs of internal
+/// whitespace, so `" Mystery  Novel "` and `"Mystery Novel"` are one label.
+fn normalize_label(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Request type for adding/removing a label. `kind` is `genre` or `tag`.
+#[derive(Debug, Deserialize)]
+pub struct LabelRequest {
+    pub book_id: String,
+    pub kind: String,
+    pub label: String,
+}
+
+/// Validates a label request into (book id, kind, normalized label). The `Err`
+/// string is the 400 message.
+fn parse_label_request(payload: &LabelRequest) -> Result<(Uuid, LabelKind, String), &'static str> {
+    let book_id = Uuid::parse_str(&payload.book_id).map_err(|_| "Invalid book ID.")?;
+    let kind = match payload.kind.as_str() {
+        "genre" => LabelKind::Genre,
+        "tag" => LabelKind::Tag,
+        _ => return Err("Unknown label kind."),
+    };
+    let label = normalize_label(&payload.label);
+    if label.is_empty() {
+        return Err("Label must not be empty.");
+    }
+    if label.chars().count() > MAX_LABEL_LENGTH {
+        return Err("Label must not be longer than 40 characters.");
+    }
+    Ok((book_id, kind, label))
+}
+
+/// Fans a kind-ordered label row set out into (genres, tags) — the shape both
+/// the book response and the suggestion pool are served in.
+fn split_by_kind(rows: Vec<(LabelKind, String)>) -> (Vec<String>, Vec<String>) {
+    let mut genres = Vec::new();
+    let mut tags = Vec::new();
+    for (kind, label) in rows {
+        match kind {
+            LabelKind::Genre => genres.push(label),
+            LabelKind::Tag => tags.push(label),
+        }
+    }
+    (genres, tags)
+}
+
+/// Loads all labels of a book, split into (genres, tags).
+fn labels_for_book(
+    conn: &mut PgConnection,
+    book_id: Uuid,
+) -> QueryResult<(Vec<String>, Vec<String>)> {
+    use crate::schema::book_labels::dsl as bl;
+
+    bl::book_labels
+        .filter(bl::book.eq(book_id))
+        .order(bl::label.asc())
+        .select((bl::kind, bl::label))
+        .load(conn)
+        .map(split_by_kind)
+}
+
+/// Resolves the book's owner, ensuring it is the authenticated user. The label
+/// row's `user` is taken from here, never from the request payload.
+fn owned_book(conn: &mut PgConnection, book_id: Uuid, user_id: Uuid) -> QueryResult<Uuid> {
+    books
+        .filter(schema::books::dsl::id.eq(book_id))
+        .filter(schema::books::dsl::user.eq(user_id))
+        .select(schema::books::dsl::user)
+        .first(conn)
+}
+
+/// Adds a genre or tag to a book. Adding a label the book already carries (in
+/// any casing) is a no-op, mirroring `ensure_membership`.
+pub(crate) async fn add_label(
+    auth: AuthUser,
+    Json(payload): Json<LabelRequest>,
+) -> impl IntoResponse {
+    use crate::schema::book_labels::dsl as bl;
+
+    let (book_id, kind, label) = match parse_label_request(&payload) {
+        Ok(parsed) => parsed,
+        Err(message) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: message.to_string()
+                })),
+            )
+        }
+    };
+
+    let connection = &mut connect();
+
+    let owner = match owned_book(connection, book_id, auth.0) {
+        Ok(owner) => owner,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!(ErrorResponse {
+                    error: "Book not found.".to_string()
+                })),
+            )
+        }
+    };
+
+    // Reuse the casing the user already picked for this label, so "mystery"
+    // after "Mystery" does not open a second entry in the suggestion list. The
+    // case-insensitive unique index is the backstop for two concurrent adds.
+    let stored = bl::book_labels
+        .filter(bl::user.eq(owner))
+        .filter(bl::kind.eq(kind))
+        .filter(lower(bl::label).eq(label.to_lowercase()))
+        .select(bl::label)
+        .first::<String>(connection)
+        .optional()
+        .ok()
+        .flatten()
+        .unwrap_or(label);
+
+    let insert = diesel::insert_into(bl::book_labels)
+        .values(&BookLabel {
+            book: book_id,
+            user: owner,
+            kind,
+            label: stored,
+            added_at: chrono::Utc::now().naive_utc(),
+        })
+        // Untargeted: covers both the primary key and the case-insensitive index.
+        .on_conflict_do_nothing()
+        .execute(connection);
+
+    if let Err(e) = insert {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Failed to add label: {}", e)
+            })),
+        );
+    }
+
+    label_list_response(connection, book_id, kind)
+}
+
+/// Removes a genre or tag from a book. Removing a label that isn't there is a
+/// no-op, not an error.
+pub(crate) async fn remove_label(
+    auth: AuthUser,
+    Json(payload): Json<LabelRequest>,
+) -> impl IntoResponse {
+    use crate::schema::book_labels::dsl as bl;
+
+    let (book_id, kind, label) = match parse_label_request(&payload) {
+        Ok(parsed) => parsed,
+        Err(message) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: message.to_string()
+                })),
+            )
+        }
+    };
+
+    let connection = &mut connect();
+
+    if owned_book(connection, book_id, auth.0).is_err() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!(ErrorResponse {
+                error: "Book not found.".to_string()
+            })),
+        );
+    }
+
+    let deleted = diesel::delete(
+        bl::book_labels
+            .filter(bl::book.eq(book_id))
+            .filter(bl::kind.eq(kind))
+            .filter(lower(bl::label).eq(label.to_lowercase())),
+    )
+    .execute(connection);
+
+    if let Err(e) = deleted {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Failed to remove label: {}", e)
+            })),
+        );
+    }
+
+    label_list_response(connection, book_id, kind)
+}
+
+/// Shared reply of the write handlers: the book's full label list for the
+/// changed kind.
+fn label_list_response(
+    conn: &mut PgConnection,
+    book_id: Uuid,
+    kind: LabelKind,
+) -> (StatusCode, Json<serde_json::Value>) {
+    match labels_for_book(conn, book_id) {
+        Ok((genres, tags)) => {
+            let labels = match kind {
+                LabelKind::Genre => genres,
+                LabelKind::Tag => tags,
+            };
+            (StatusCode::OK, Json(json!({ "labels": labels })))
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Error loading labels: {}", e)
+            })),
+        ),
+    }
+}
+
+/// Lists every distinct label the user has used, grouped by kind — the pool the
+/// frontend's suggestion dropdown draws from.
+pub(crate) async fn suggest_labels(auth: AuthUser) -> impl IntoResponse {
+    use crate::schema::book_labels::dsl as bl;
+
+    let connection = &mut connect();
+
+    match bl::book_labels
+        .filter(bl::user.eq(auth.0))
+        .select((bl::kind, bl::label))
+        .distinct()
+        .order(bl::label.asc())
+        .load(connection)
+        .map(split_by_kind)
+    {
+        Ok((genres, tags)) => (
+            StatusCode::OK,
+            Json(json!({ "genres": genres, "tags": tags })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Error loading labels: {}", e)
+            })),
+        ),
     }
 }
 
@@ -623,47 +967,63 @@ pub(crate) async fn list_author_books(
         .load::<Book>(connection)
     {
         Ok(r) => r,
-        Err(e) => return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!(ErrorResponse { error: format!("Error loading books: {}", e) })),
-        ),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!(ErrorResponse {
+                    error: format!("Error loading books: {}", e)
+                })),
+            )
+        }
     };
 
     let json_books: Vec<_> = results
         .into_iter()
-        .map(|book| json!({
-            "id": book.id.to_string(),
-            "title": book.title,
-            "author": book.author,
-            "isbn13": book.isbn13,
-            "isbn10": book.isbn10,
-            "google_books_id": book.google_books_id,
-            "open_library_id": book.open_library_id,
-            "added_at": book.added_at.to_string(),
-            "rating": book.rating,
-            "cover_url": book.cover_url,
-            "page_count": book.page_count,
-        }))
+        .map(|book| {
+            json!({
+                "id": book.id.to_string(),
+                "title": book.title,
+                "author": book.author,
+                "isbn13": book.isbn13,
+                "isbn10": book.isbn10,
+                "google_books_id": book.google_books_id,
+                "open_library_id": book.open_library_id,
+                "added_at": book.added_at.to_string(),
+                "rating": book.rating,
+                "cover_url": book.cover_url,
+                "page_count": book.page_count,
+            })
+        })
         .collect();
 
-    (StatusCode::OK, Json(json!({
-        "author": payload.author,
-        "books": json_books,
-    })))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "author": payload.author,
+            "books": json_books,
+        })),
+    )
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use axum::{body::Body, http::Request, routing::post, Router};
     use tower::ServiceExt;
-    use super::*;
 
     #[tokio::test]
     async fn test_get_book_info_requires_auth() {
         let app = Router::new().route("/api/books/info", post(get_book_info));
         let response = app
-            .oneshot(Request::builder().method("POST").uri("/api/books/info").body(Body::empty()).unwrap())
-            .await.unwrap();
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/books/info")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }
 
@@ -671,8 +1031,15 @@ mod tests {
     async fn test_resolve_google_id_requires_auth() {
         let app = Router::new().route("/api/books/resolve-google-id", post(resolve_google_id));
         let response = app
-            .oneshot(Request::builder().method("POST").uri("/api/books/resolve-google-id").body(Body::empty()).unwrap())
-            .await.unwrap();
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/books/resolve-google-id")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }
 
@@ -680,8 +1047,15 @@ mod tests {
     async fn test_rate_book_requires_auth() {
         let app = Router::new().route("/api/books/rate", post(rate_book));
         let response = app
-            .oneshot(Request::builder().method("POST").uri("/api/books/rate").body(Body::empty()).unwrap())
-            .await.unwrap();
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/books/rate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }
 
@@ -689,8 +1063,15 @@ mod tests {
     async fn test_resolve_cover_requires_auth() {
         let app = Router::new().route("/api/books/resolve-cover", post(resolve_cover));
         let response = app
-            .oneshot(Request::builder().method("POST").uri("/api/books/resolve-cover").body(Body::empty()).unwrap())
-            .await.unwrap();
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/books/resolve-cover")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }
 
@@ -698,17 +1079,115 @@ mod tests {
     async fn test_set_page_count_requires_auth() {
         let app = Router::new().route("/api/books/set-page-count", post(set_page_count));
         let response = app
-            .oneshot(Request::builder().method("POST").uri("/api/books/set-page-count").body(Body::empty()).unwrap())
-            .await.unwrap();
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/books/set-page-count")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_add_label_requires_auth() {
+        let app = Router::new().route("/api/books/add-label", post(add_label));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/books/add-label")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_remove_label_requires_auth() {
+        let app = Router::new().route("/api/books/remove-label", post(remove_label));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/books/remove-label")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_suggest_labels_requires_auth() {
+        let app = Router::new().route("/api/books/label-suggestions", post(suggest_labels));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/books/label-suggestions")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    /// The one piece of non-trivial logic in the labels feature: normalization,
+    /// and that a differently-cased re-entry folds onto the stored spelling
+    /// (which is what the `lower(label) = lower(?)` lookup in `add_label` keys
+    /// on) instead of creating a second suggestion.
+    #[test]
+    fn test_label_normalization_and_case_folding() {
+        assert_eq!(normalize_label(" Mystery  Novel "), "Mystery Novel");
+        assert_eq!(normalize_label("\tSci-Fi\n"), "Sci-Fi");
+        assert_eq!(normalize_label("   "), "");
+
+        let stored = normalize_label(" Mystery  Novel ");
+        let retyped = normalize_label("mystery novel");
+        assert_ne!(stored, retyped);
+        assert_eq!(stored.to_lowercase(), retyped.to_lowercase());
+    }
+
+    #[test]
+    fn test_parse_label_request_rejects_bad_input() {
+        let request = |kind: &str, label: &str| LabelRequest {
+            book_id: Uuid::new_v4().to_string(),
+            kind: kind.to_string(),
+            label: label.to_string(),
+        };
+
+        assert!(parse_label_request(&request("genre", "  ")).is_err());
+        assert!(parse_label_request(&request("shelf", "Mystery")).is_err());
+        assert!(parse_label_request(&request("genre", &"x".repeat(41))).is_err());
+        assert!(parse_label_request(&request("tag", &"x".repeat(40))).is_ok());
+        assert!(parse_label_request(&LabelRequest {
+            book_id: "not-a-uuid".to_string(),
+            kind: "genre".to_string(),
+            label: "Mystery".to_string(),
+        })
+        .is_err());
     }
 
     #[tokio::test]
     async fn test_list_author_books_requires_auth() {
         let app = Router::new().route("/api/authors/books", post(list_author_books));
         let response = app
-            .oneshot(Request::builder().method("POST").uri("/api/authors/books").body(Body::empty()).unwrap())
-            .await.unwrap();
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/authors/books")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }
 }

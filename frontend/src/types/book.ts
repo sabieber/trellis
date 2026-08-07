@@ -23,6 +23,10 @@ export interface BookSearchResult {
   series?: SeriesRef | null
 }
 
+/// The user's own labels on a book. Genres and tags are one mechanism with two
+/// headings; this discriminator is all that separates them.
+export type LabelKind = 'genre' | 'tag'
+
 export interface SeriesRef {
   key: string
   name: string

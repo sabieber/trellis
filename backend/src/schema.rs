@@ -2,6 +2,10 @@
 
 pub mod sql_types {
     #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "label_kind"))]
+    pub struct LabelKind;
+
+    #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "reading_goal_timeframe"))]
     pub struct ReadingGoalTimeframe;
 
@@ -12,6 +16,19 @@ pub mod sql_types {
     #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "reading_mode"))]
     pub struct ReadingMode;
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::LabelKind;
+
+    book_labels (book, kind, label) {
+        book -> Uuid,
+        user -> Uuid,
+        kind -> LabelKind,
+        label -> Text,
+        added_at -> Timestamptz,
+    }
 }
 
 diesel::table! {
@@ -113,6 +130,8 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(book_labels -> books (book));
+diesel::joinable!(book_labels -> users (user));
 diesel::joinable!(book_shelves -> books (book));
 diesel::joinable!(book_shelves -> shelves (shelf));
 diesel::joinable!(books -> users (user));
@@ -125,6 +144,7 @@ diesel::joinable!(readings -> users (user));
 diesel::joinable!(shelves -> users (user));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    book_labels,
     book_shelves,
     books,
     reading_entries,
