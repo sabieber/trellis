@@ -7,7 +7,10 @@
           class="flex items-center gap-2.5 bg-surface border border-line rounded-sm px-3.5 mb-5 transition-colors duration-150 focus-within:border-green/32"
       >
         <SearchIcon class="size-5 text-muted flex-none"/>
+        <!-- The id lets the bottom dock's search button focus this input when
+             it is pressed while already on /search. -->
         <input
+            id="search-input"
             type="text"
             v-model="query"
             class="w-full bg-transparent py-3 text-sm text-ink placeholder:text-muted focus:outline-none"
@@ -158,6 +161,12 @@ export default defineComponent({
     };
 
     onMounted(async () => {
+      // Desktop only (Tailwind's `sm`): on mobile this would pop the keyboard
+      // open on every visit and hide the trending list.
+      if (window.matchMedia('(min-width: 640px)').matches) {
+        document.getElementById('search-input')?.focus();
+      }
+
       const savedQuery = route.query.q as string;
       if (savedQuery) {
         query.value = savedQuery;

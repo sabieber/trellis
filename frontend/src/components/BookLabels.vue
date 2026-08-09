@@ -32,12 +32,16 @@
 
       <!-- daisyUI's dropdown opens and closes on :focus-within, so there is no
            open/close state to track here. -->
-      <div v-else class="dropdown">
+      <!-- A form, not a bare input: mobile keyboards do not reliably fire a
+           keydown with key "Enter" (GBoard sends keyCode 229 while composing),
+           but their return key does submit a single-input form. -->
+      <form v-else class="dropdown" @submit.prevent="commitDraft">
         <input
             ref="inputEl"
             v-model="draft"
             class="label-input"
             type="text"
+            enterkeyhint="done"
             role="combobox"
             aria-autocomplete="list"
             :aria-label="addLabel"
@@ -45,7 +49,6 @@
             :aria-controls="listId"
             :aria-activedescendant="highlighted >= 0 ? `${listId}-${highlighted}` : undefined"
             :maxlength="MAX_LABEL_LENGTH"
-            @keydown.enter.prevent="commitDraft"
             @keydown.esc.prevent="stopAdding"
             @keydown.down.prevent="move(1)"
             @keydown.up.prevent="move(-1)"
@@ -70,7 +73,7 @@
             >{{ suggestion }}</a>
           </li>
         </ul>
-      </div>
+      </form>
     </div>
   </section>
 </template>

@@ -27,6 +27,7 @@
             :to="item.to"
             class="flex items-center gap-3.5 px-4 py-3 rounded-sm text-[15px] font-semibold transition-colors duration-150"
             :class="$route.path === item.to ? 'bg-green/13 text-green' : 'text-ink-dim hover:text-ink hover:bg-surface-2'"
+            @click="focusSearchIfHere(item.to)"
         >
           <component :is="item.icon" class="size-5.5"/>
           {{ $t(item.label) }}
@@ -69,6 +70,7 @@
           :to="item.to"
           class="flex flex-col items-center gap-1 text-[10.5px] font-semibold transition-colors duration-150"
           :class="$route.path === item.to ? 'text-green' : 'text-faint'"
+          @click="focusSearchIfHere(item.to)"
       >
         <component :is="item.icon" class="size-6"/>
         <span>{{ $t(item.label) }}</span>
@@ -151,6 +153,14 @@ export default defineComponent({
     const mobileNavItems = navItems.filter(item => !moreNavItems.some(m => m.to === item.to));
     const isMoreActive = computed(() => moreNavItems.some(item => item.to === route.path));
 
+    // Second press on the search item focuses the field. The focus() call must
+    // stay inside the click handler: mobile browsers only open the keyboard for
+    // a focus that happens during a user gesture, so a route watcher is too late.
+    const focusSearchIfHere = (to: string) => {
+      if (to !== '/search' || route.path !== '/search') return;
+      document.getElementById('search-input')?.focus();
+    };
+
     const fetchYearGoal = async () => {
       if (!auth.isAuthenticated) {
         yearGoal.value = null;
@@ -170,7 +180,16 @@ export default defineComponent({
     // Refetch on navigation so logged progress shows up without a reload.
     watch([() => auth.isAuthenticated, () => route.path], fetchYearGoal, {immediate: true});
 
-    return {navItems, mobileNavItems, moreNavItems, isMoreActive, yearGoal, currentYear, EllipsisIcon};
+    return {
+      navItems,
+      mobileNavItems,
+      moreNavItems,
+      isMoreActive,
+      focusSearchIfHere,
+      yearGoal,
+      currentYear,
+      EllipsisIcon
+    };
   },
 });
 </script>
