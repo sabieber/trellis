@@ -308,6 +308,10 @@ export default defineComponent({
         });
         if (response.ok) {
           const data = await response.json();
+          // Render the stored row at once. The catalog lookup below overwrites
+          // it when it finds something, and a book no catalog knows still opens.
+          book.value = data.book;
+          loading.value = false;
           readings.value = data.readings;
           shelfIds.value = data.shelf_ids ?? [];
           rating.value = data.rating ?? 0;
@@ -326,16 +330,22 @@ export default defineComponent({
       return null;
     };
 
+    // Never clears `book`: a failed catalog lookup leaves the stored row that
+    // fetchBookInfo put there.
+    const enrich = (result: BookSearchResult | null) => {
+      if (result) book.value = result;
+    };
+
     const fetchBookDetailsWrapper = async (bookId: string) => {
       const info = await fetchBookInfo(bookId);
       if (info?.googleBooksId) {
-        book.value = await fetchBookDetail('google', info.googleBooksId);
+        enrich(await fetchBookDetail('google', info.googleBooksId));
       } else if (info?.openLibraryId) {
-        book.value = await fetchBookDetail('openlibrary', info.openLibraryId);
+        enrich(await fetchBookDetail('openlibrary', info.openLibraryId));
       } else {
         let googleBooksId = await resolveGoogleId(bookId);
         if (googleBooksId) {
-          book.value = await fetchBookDetail('google', googleBooksId);
+          enrich(await fetchBookDetail('google', googleBooksId));
         } else if (info?.isbn13) {
           const results = await searchBooks(`isbn:${info.isbn13}`);
           if (results.length > 0) book.value = results[0];
@@ -548,6 +558,9 @@ export default defineComponent({
 
     const sourceUrl = computed(() => {
       if (!book.value) return null;
+      // A book only we know has a UUID as its source id, which no catalog
+      // resolves — the ISBN-based Goodreads/Amazon links below still work.
+      if (book.value.source === 'library') return null;
       if (book.value.source === 'google') {
         return `https://books.google.com/books?id=${encodeURIComponent(book.value.source_id)}`;
       }

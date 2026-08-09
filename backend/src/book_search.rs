@@ -112,7 +112,7 @@ fn library_search(user_id: Uuid, query: &str) -> Vec<Book> {
         .unwrap_or_default()
 }
 
-fn library_to_normalized(book: &Book) -> NormalizedBook {
+pub(crate) fn library_to_normalized(book: &Book) -> NormalizedBook {
     NormalizedBook {
         id: book.id.to_string(),
         source: "library".to_string(),

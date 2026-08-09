@@ -264,6 +264,10 @@ pub struct BookInfoRequest {
 /// Response type for book information.
 #[derive(Debug, Serialize)]
 pub struct BookInfoResponse {
+    // The stored row in the wire shape of a search hit. The detail view renders
+    // this first and treats the catalog record as enrichment, so a book that no
+    // catalog knows still opens.
+    pub book: crate::book_search::NormalizedBook,
     pub google_books_id: Option<String>,
     pub open_library_id: Option<String>,
     pub isbn13: Option<String>,
@@ -350,6 +354,7 @@ pub(crate) async fn get_book_info(
             (
                 StatusCode::OK,
                 Json(json!(BookInfoResponse {
+                    book: crate::book_search::library_to_normalized(&book),
                     google_books_id: book.google_books_id,
                     open_library_id: book.open_library_id,
                     isbn13: book.isbn13,
