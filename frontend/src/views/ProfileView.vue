@@ -42,6 +42,18 @@
         <SegmentedControl v-model="language" :options="languageOptions"/>
       </div>
     </div>
+
+    <div class="mt-6">
+      <h3 class="t-eyebrow mb-2">{{ $t('profile.app') }}</h3>
+      <div class="bg-surface border border-line rounded-md p-4">
+        <p class="t-title text-[15px]">{{ $t('profile.hardReloadTitle') }}</p>
+        <p class="t-meta mt-1 mb-3">{{ $t('profile.hardReloadDesc') }}</p>
+        <Button variant="ghost" :disabled="isReloading" @click="reloadWithoutCaches">
+          <span v-if="isReloading" class="loading loading-spinner loading-sm"></span>
+          <span v-else>{{ $t('profile.hardReloadAction') }}</span>
+        </Button>
+      </div>
+    </div>
   </PageContainer>
 </template>
 
@@ -74,7 +86,28 @@ export default defineComponent({
     const isUploading = ref(false);
     const importResult = ref<{ success: boolean; message: string } | null>(null);
     const deriveReadingDays = ref(false);
+    const isReloading = ref(false);
     const auth = useAuthStore();
+
+    // Escape hatch for a PWA that is stuck on an old build: drop the service
+    // worker and everything it cached, then reload from the network.
+    // ponytail: this cannot reach the browser's own HTTP cache. Serving
+    // index.html with `Cache-Control: no-cache` is what fixes that half.
+    const reloadWithoutCaches = async () => {
+      isReloading.value = true;
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+        }
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((key) => caches.delete(key)));
+        }
+      } finally {
+        window.location.reload();
+      }
+    };
 
     const logout = () => {
       auth.logout();
@@ -130,7 +163,7 @@ export default defineComponent({
       }
     };
 
-    return {logout, pageContainer, handleFileChange, uploadFile, isUploading, importResult, deriveReadingDays, language, languageOptions};
+    return {logout, pageContainer, handleFileChange, uploadFile, isUploading, importResult, deriveReadingDays, language, languageOptions, isReloading, reloadWithoutCaches};
   }
 });
 </script>

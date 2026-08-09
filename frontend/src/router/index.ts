@@ -149,6 +149,23 @@ const router = createRouter({
   ],
 })
 
+// A deploy replaces the hashed chunk files, so a tab that still runs the old
+// build cannot load a lazy route any more. Reload to pick up the new build.
+const STALE_CHUNK_RELOAD_KEY = 'trellis:stale-chunk-reload';
+
+router.onError((error) => {
+  if (!/dynamically imported module|Importing a module script failed/i.test(String(error))) {
+    return;
+  }
+  // ponytail: reload once per tab. If the chunk stays unreachable for another
+  // reason, a second failure must not put the app into a reload loop.
+  if (sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY)) {
+    return;
+  }
+  sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, '1');
+  window.location.reload();
+});
+
 router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth) {
     const auth = useAuthStore()

@@ -327,7 +327,11 @@
     "importError": "Datei konnte nicht importiert werden.",
     "deriveReadingDays": "Lesetage aus dem Abschlussdatum ableiten",
     "deriveReadingDaysDesc": "Bücher mit einem \"Date Read\" gelten als an diesem Tag vollständig gelesen und tauchen so in Statistik, Lesestreak und Kalender auf. Bücher ohne Datum bleiben unverändert.",
-    "importReadingDays": "{days} Lesetage abgeleitet."
+    "importReadingDays": "{days} Lesetage abgeleitet.",
+    "app": "App",
+    "hardReloadTitle": "Ohne Cache neu laden",
+    "hardReloadDesc": "Entfernt den Offline-Cache und lädt alles neu vom Server. Nutze das, wenn die App noch eine alte Version anzeigt.",
+    "hardReloadAction": "Neu laden"
   },
   "auth": {
     "tagline": "eine Bibliothek zum Wachsen",

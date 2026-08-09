@@ -327,7 +327,11 @@
     "importError": "Failed to import file.",
     "deriveReadingDays": "Derive reading days from finish dates",
     "deriveReadingDaysDesc": "Books with a \"Date Read\" count as fully read on that day, so they show up in statistics, reading streak and calendar. Books without a date are left untouched.",
-    "importReadingDays": "{days} reading days derived."
+    "importReadingDays": "{days} reading days derived.",
+    "app": "App",
+    "hardReloadTitle": "Reload without caches",
+    "hardReloadDesc": "Removes the offline cache and reloads everything from the server. Use this if the app still shows an old version.",
+    "hardReloadAction": "Reload"
   },
   "auth": {
     "tagline": "a garden library",
