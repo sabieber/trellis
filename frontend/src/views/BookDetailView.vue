@@ -352,9 +352,12 @@ export default defineComponent({
     };
 
     // Never clears `book`: a failed catalog lookup leaves the stored row that
-    // fetchBookInfo put there.
+    // fetchBookInfo put there. The stored cover also survives a record that
+    // carries none — otherwise the cover shows, then vanishes for the drawn
+    // fallback once the catalog answers.
     const enrich = (result: BookSearchResult | null) => {
-      if (result) book.value = result;
+      if (!result) return;
+      book.value = {...result, cover_url: result.cover_url ?? book.value?.cover_url ?? null};
     };
 
     const fetchBookDetailsWrapper = async (bookId: string) => {
@@ -369,7 +372,7 @@ export default defineComponent({
           enrich(await fetchBookDetail('google', googleBooksId));
         } else if (info?.isbn13) {
           const results = await searchBooks(`isbn:${info.isbn13}`);
-          if (results.length > 0) book.value = results[0];
+          enrich(results[0] ?? null);
         }
       }
       loading.value = false;
