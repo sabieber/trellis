@@ -95,7 +95,11 @@
               </div>
             </div>
 
-            <div v-if="sourceUrl || goodreadsUrl || amazonUrl" class="flex flex-col gap-2">
+            <div class="flex flex-col gap-2">
+              <Button variant="ghost" block @click="showLinkModal = true">
+                <Link2Icon class="size-4"/>
+                {{ book.source === 'library' ? $t('linkCatalog.link') : $t('linkCatalog.relink') }}
+              </Button>
               <Button v-if="sourceUrl" variant="ghost" block @click="openExternal(sourceUrl)">
                 <ExternalLinkIcon class="size-4"/>
                 {{ $t('bookDetail.viewOn', { source: book.source === 'google' ? 'Google Books' : 'Open Library' }) }}
@@ -204,6 +208,14 @@
       <div v-else class="t-meta text-center py-8 px-4">{{ $t('common.bookNotFound') }}</div>
     </div>
 
+    <LinkCatalogModal
+        v-if="showLinkModal"
+        :initial-query="linkQuery"
+        :submitting="linking"
+        @select="linkCatalog"
+        @close="showLinkModal = false"
+    />
+
     <StartReadingModal
         v-if="showStartReadingModal"
         @close="showStartReadingModal = false"
@@ -242,10 +254,11 @@ import {useRoute, useRouter} from 'vue-router';
 import {authorRoute} from '@/utils/authorRoute';
 import {seriesRoute} from '@/utils/seriesRoute';
 import {useI18n} from 'vue-i18n';
-import {ChevronLeftIcon, BookOpenIcon, CheckIcon, Trash2Icon, ExternalLinkIcon} from "@lucide/vue";
+import {ChevronLeftIcon, BookOpenIcon, CheckIcon, Trash2Icon, ExternalLinkIcon, Link2Icon} from "@lucide/vue";
 import {fetchBookDetail, searchBooks, resolveGoogleId} from '@/api/bookApi';
 import {apiErrorMessage} from '@/utils/apiError';
 import StartReadingModal from '@/components/StartReadingModal.vue';
+import LinkCatalogModal from '@/components/LinkCatalogModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import BookLabels from '@/components/BookLabels.vue';
@@ -258,7 +271,7 @@ import moment from 'moment';
 import type {BookSearchResult, LabelKind} from '@/types/book';
 
 export default defineComponent({
-  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, Trash2Icon, ExternalLinkIcon, StartReadingModal, ConfirmDialog, BookCover, BookLabels, Button, InlineEdit, SegmentedControl, Rating},
+  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, Trash2Icon, ExternalLinkIcon, Link2Icon, StartReadingModal, LinkCatalogModal, ConfirmDialog, BookCover, BookLabels, Button, InlineEdit, SegmentedControl, Rating},
   setup() {
     const {t} = useI18n();
     const route = useRoute();
@@ -275,6 +288,8 @@ export default defineComponent({
     }>>([]);
     const loading = ref(true);
     const showStartReadingModal = ref(false);
+    const showLinkModal = ref(false);
+    const linking = ref(false);
     const activeTab = ref((route.query.tab as string) || 'Info');
     const tabs = computed(() => [
       { value: 'Info', label: t('bookDetail.tabInfo') },
@@ -532,6 +547,47 @@ export default defineComponent({
       }
     };
 
+    // Seeds the catalog search. For an unlinked book this is the stored title
+    // and author; for a linked one it is the catalog's, which is what the user
+    // sees on screen while looking for a better record.
+    const linkQuery = computed(() =>
+        [book.value?.title, book.value?.authors?.[0]].filter(Boolean).join(' '));
+
+    const linkCatalog = async (result: BookSearchResult) => {
+      if (linking.value) return;
+      linking.value = true;
+      try {
+        const response = await apiFetch('/api/books/link-catalog', {
+          method: 'POST',
+          body: JSON.stringify({
+            book_id: route.params.id,
+            source: result.source,
+            source_id: result.source_id,
+            isbn13: result.isbn13,
+            isbn10: result.isbn10,
+            cover_url: result.cover_url,
+            page_count: result.page_count,
+          }),
+        });
+        if (response.ok) {
+          showLinkModal.value = false;
+          loading.value = true;
+          await fetchBookDetailsWrapper(route.params.id as string);
+          showToast(t('linkCatalog.linked'), 'alert-success');
+        } else {
+          // 409 means another of the user's books already claims this record —
+          // too specific for the shared status→message map.
+          showToast(response.status === 409
+              ? t('linkCatalog.conflict')
+              : apiErrorMessage(response.status, t), 'alert-error');
+        }
+      } catch {
+        showToast(t('error.network'), 'alert-error');
+      } finally {
+        linking.value = false;
+      }
+    };
+
     const displayedPageCount = computed(() =>
         pageCountOverride.value ?? book.value?.page_count ?? null);
 
@@ -611,6 +667,10 @@ export default defineComponent({
       readings,
       loading,
       showStartReadingModal,
+      showLinkModal,
+      linking,
+      linkQuery,
+      linkCatalog,
       activeTab,
       tabs,
       shelves,

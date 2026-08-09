@@ -244,6 +244,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
     router
         .route("/api/books/info", post(get_book_info))
         .route("/api/books/resolve-google-id", post(resolve_google_id))
+        .route("/api/books/link-catalog", post(link_catalog))
         .route("/api/books/resolve-cover", post(resolve_cover))
         .route("/api/books/rate", post(rate_book))
         .route("/api/books/set-page-count", post(set_page_count))
@@ -455,6 +456,133 @@ pub(crate) async fn resolve_google_id(
         StatusCode::OK,
         Json(json!({ "google_books_id": google_id })),
     )
+}
+
+/// Request type for linking a stored book to a catalog record.
+#[derive(Debug, Deserialize)]
+pub struct LinkCatalogRequest {
+    pub book_id: String,
+    /// `google` or `openlibrary`.
+    pub source: String,
+    pub source_id: String,
+    pub isbn13: Option<String>,
+    pub isbn10: Option<String>,
+    pub cover_url: Option<String>,
+    pub page_count: Option<i32>,
+}
+
+/// Points an existing book row at a catalog record the user picked by hand.
+///
+/// This is the manual counterpart to `resolve_google_id`: it serves books that
+/// were imported before they existed in a catalog, and re-linking a book from
+/// one catalog to the other.
+///
+/// The chosen source id replaces the id of its own kind and *clears the other
+/// one*, because the detail view prefers Google over Open Library — a leftover
+/// Google id would keep winning after a switch to Open Library.
+///
+/// ISBNs and the cover follow the chosen edition, but a field the record does
+/// not carry keeps its stored value rather than being wiped. `page_count` is
+/// only filled when it is still empty: it is editable by hand (see
+/// `set_page_count`) and a manual count outranks the catalog's.
+///
+/// Title and author are never touched. They are the user's own, in the user's
+/// own language, and the detail view already shows the catalog's title once a
+/// record is linked.
+pub(crate) async fn link_catalog(
+    auth: AuthUser,
+    Json(payload): Json<LinkCatalogRequest>,
+) -> impl IntoResponse {
+    let connection = &mut connect();
+
+    let bad_request = |message: &str| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!(ErrorResponse {
+                error: message.to_string()
+            })),
+        )
+    };
+
+    let Ok(book_id) = Uuid::parse_str(&payload.book_id) else {
+        return bad_request("Invalid book ID.");
+    };
+
+    let source_id = match normalize(Some(payload.source_id)) {
+        Some(id) => id,
+        None => return bad_request("Missing source ID."),
+    };
+
+    let (google_books_id, open_library_id) = match payload.source.as_str() {
+        "google" => (Some(source_id), None),
+        "openlibrary" => (None, Some(source_id)),
+        _ => return bad_request("Unknown source."),
+    };
+
+    let book = match books
+        .filter(schema::books::dsl::id.eq(book_id))
+        .filter(schema::books::dsl::user.eq(auth.0))
+        .first::<Book>(connection)
+    {
+        Ok(b) => b,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!(ErrorResponse {
+                    error: "Book not found.".to_string()
+                })),
+            )
+        }
+    };
+
+    let page_count = book.page_count.or(payload.page_count.filter(|p| *p > 0));
+
+    let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
+        diesel::update(
+            books
+                .filter(schema::books::dsl::id.eq(book_id))
+                .filter(schema::books::dsl::user.eq(auth.0)),
+        )
+        .set((
+            schema::books::dsl::google_books_id.eq(&google_books_id),
+            schema::books::dsl::open_library_id.eq(&open_library_id),
+            schema::books::dsl::isbn13.eq(normalize(payload.isbn13).or(book.isbn13)),
+            schema::books::dsl::isbn10.eq(normalize(payload.isbn10).or(book.isbn10)),
+            schema::books::dsl::cover_url.eq(normalize(payload.cover_url).or(book.cover_url)),
+            schema::books::dsl::page_count.eq(page_count),
+        ))
+        .execute(conn)?;
+        if let Some(p) = page_count {
+            crate::readings::backfill_reading_pages(conn, book_id, p)?;
+        }
+        Ok(())
+    });
+
+    match result {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({ "message": "Book linked to catalog record." })),
+        ),
+        // The partial unique indexes on (user, google_books_id) and
+        // (user, open_library_id) reject a record another of the user's books
+        // already claims. That is a duplicate to merge, not something to
+        // resolve here.
+        Err(diesel::result::Error::DatabaseError(
+            diesel::result::DatabaseErrorKind::UniqueViolation,
+            _,
+        )) => (
+            StatusCode::CONFLICT,
+            Json(json!(ErrorResponse {
+                error: "Another book already uses this catalog record.".to_string()
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Error linking the book: {}", e)
+            })),
+        ),
+    }
 }
 
 /// Request type for resolving a book cover URL.
@@ -1324,6 +1452,22 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/api/books/resolve-google-id")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_link_catalog_requires_auth() {
+        let app = Router::new().route("/api/books/link-catalog", post(link_catalog));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/books/link-catalog")
                     .body(Body::empty())
                     .unwrap(),
             )
