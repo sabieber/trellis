@@ -64,8 +64,8 @@
               type="button"
               class="flex items-center justify-center size-8 rounded-full flex-none cursor-pointer transition-colors duration-150"
               :class="expanded === book.id ? 'text-green-soft bg-surface-2' : 'text-muted hover:text-ink hover:bg-surface-2'"
-              :title="$t('linkCatalog.editions')"
-              :aria-label="$t('linkCatalog.editions')"
+              :title="$t('search.editions')"
+              :aria-label="$t('search.editions')"
               @click="toggleEditions(book)"
           >
             <ChevronDownIcon class="size-4 transition-transform duration-150" :class="expanded === book.id ? 'rotate-180' : ''"/>
@@ -85,7 +85,7 @@
           <div v-if="loadingEditions" class="flex justify-center py-4">
             <span class="loading loading-spinner loading-sm"></span>
           </div>
-          <p v-else-if="!editions.length" class="t-meta py-3 pl-6">{{ $t('linkCatalog.noEditions') }}</p>
+          <p v-else-if="!editions.length" class="t-meta py-3 pl-6">{{ $t('search.noEditions') }}</p>
           <div
               v-for="edition in editions"
               :key="edition.id"
@@ -132,11 +132,11 @@
 
 <script lang="ts">
 import {defineComponent, onMounted, ref} from 'vue';
-import {useI18n} from 'vue-i18n';
 import {SearchIcon, ArrowUpRightIcon, ChevronDownIcon} from '@lucide/vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
-import {searchBooks, fetchEditions} from '@/api/bookApi';
+import {searchBooks} from '@/api/bookApi';
+import {useEditions} from '@/composables/useEditions';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
@@ -154,61 +154,23 @@ export default defineComponent({
   },
   emits: ['close', 'select'],
   setup(props) {
-    const {t} = useI18n();
     const query = ref(props.initialQuery);
     const books = ref<BookSearchResult[]>([]);
     const loading = ref(false);
     const hasSearched = ref(false);
-    const expanded = ref<string | null>(null);
-    const editions = ref<BookSearchResult[]>([]);
-    const loadingEditions = ref(false);
-    const editionCache: Record<string, BookSearchResult[]> = {};
+    const {expanded, editions, loadingEditions, isWork, toggleEditions, collapse, editionMeta} =
+        useEditions();
 
     const search = async () => {
       if (!query.value.trim()) return;
       loading.value = true;
       hasSearched.value = true;
-      expanded.value = null;
+      collapse();
       // The user's own rows are what we are linking *from* — only catalog hits
       // can be linked to.
       books.value = (await searchBooks(query.value)).filter((b) => b.source !== 'library');
       loading.value = false;
     };
-
-    // Only an Open Library work has editions. Google volumes are already one
-    // per edition, and an Open Library edition cannot be broken down further.
-    const isWork = (book: BookSearchResult) =>
-        book.source === 'openlibrary' && book.source_id.includes('/works/');
-
-    const toggleEditions = async (book: BookSearchResult) => {
-      if (expanded.value === book.id) {
-        expanded.value = null;
-        return;
-      }
-      expanded.value = book.id;
-      const cached = editionCache[book.id];
-      if (cached) {
-        editions.value = cached;
-        return;
-      }
-      editions.value = [];
-      loadingEditions.value = true;
-      const result = await fetchEditions(book.source_id);
-      // A second click while this one was in flight moved on — drop the answer.
-      if (expanded.value === book.id) {
-        editionCache[book.id] = result;
-        editions.value = result;
-      }
-      loadingEditions.value = false;
-    };
-
-    const editionMeta = (edition: BookSearchResult) =>
-        [
-          edition.published_date,
-          edition.publisher,
-          edition.page_count ? t('search.pagesAbbr', {count: edition.page_count}) : null,
-          edition.isbn13 || edition.isbn10,
-        ].filter(Boolean).join(' · ');
 
     onMounted(search);
 

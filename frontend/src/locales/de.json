@@ -181,9 +181,7 @@
     "relink": "Katalogeintrag ändern",
     "linked": "Katalogeintrag verknüpft.",
     "conflict": "Ein anderes Buch ist bereits mit diesem Eintrag verknüpft.",
-    "preview": "Eintrag in neuem Tab ansehen",
-    "editions": "Ausgaben anzeigen",
-    "noEditions": "Keine Ausgaben gefunden."
+    "preview": "Eintrag in neuem Tab ansehen"
   },
   "shelfModal": {
     "newShelf": "Neues Regal",
@@ -233,7 +231,9 @@
       "library": "Bibliothek",
       "google": "Google",
       "openlibrary": "Open Library"
-    }
+    },
+    "editions": "Ausgaben anzeigen",
+    "noEditions": "Keine Ausgaben gefunden."
   },
   "scanner": {
     "pointCamera": "Kamera auf einen Barcode richten…",

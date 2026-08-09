@@ -36,91 +36,96 @@
         <span class="loading loading-spinner loading-lg"></span>
       </div>
 
-      <div v-else-if="books.length">
-        <RouterLink
-            v-for="book in books"
-            :key="book.id"
-            class="flex gap-3 py-2.5 border-b border-line-soft cursor-pointer group"
-            :to="bookRoute(book)"
-        >
-          <BookCover
-              :title="book.title || $t('common.untitled')"
-              :author="book.authors?.join(', ') || ''"
-              :width="46"
-              :cover-url="book.cover_url"
-              hoverable
-          />
-          <div class="min-w-0 flex flex-col justify-center">
-            <div class="flex items-center gap-2 min-w-0">
-              <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
-              <span
-                  class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border"
-                  :class="book.source === 'library' ? 'border-green/40 text-green-soft' : 'border-line text-muted'"
-              >{{ sourceLabel(book.source) }}</span>
-            </div>
-            <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
-            <p class="t-meta mt-1">
-              {{ book.published_year }}
-              <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
-              <span v-if="book.category"> · {{ book.category }}</span>
-            </p>
-          </div>
-        </RouterLink>
-      </div>
-
-      <div v-else-if="hasSearched" class="flex flex-col items-center text-center pt-12">
+      <div v-else-if="hasSearched && !books.length" class="flex flex-col items-center text-center pt-12">
         <h3 class="t-title text-[17px]">{{ $t('search.emptyTitle') }}</h3>
         <p class="t-meta mt-1.5 max-w-58">{{ $t('search.emptyHint') }}</p>
       </div>
 
-      <div v-else-if="trendingBooks.length">
-        <h2 class="t-title text-sm text-muted uppercase tracking-wide mb-3">{{ $t('search.trending') }}</h2>
-        <RouterLink
-            v-for="book in trendingBooks"
-            :key="book.id"
-            class="flex gap-3 py-2.5 border-b border-line-soft cursor-pointer group"
-            :to="bookRoute(book)"
-        >
-          <BookCover
-              :title="book.title || $t('common.untitled')"
-              :author="book.authors?.join(', ') || ''"
-              :width="46"
-              :cover-url="book.cover_url"
-              hoverable
-          />
-          <div class="min-w-0 flex flex-col justify-center">
-            <div class="flex items-center gap-2 min-w-0">
-              <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
-              <span
-                  class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border"
-                  :class="book.source === 'library' ? 'border-green/40 text-green-soft' : 'border-line text-muted'"
-              >{{ sourceLabel(book.source) }}</span>
+      <!-- Results and the trending list are the same rows; only the heading
+           tells them apart. -->
+      <div v-else-if="displayedBooks.length">
+        <h2 v-if="!books.length" class="t-title text-sm text-muted uppercase tracking-wide mb-3">{{ $t('search.trending') }}</h2>
+        <template v-for="book in displayedBooks" :key="book.id">
+          <!-- The row carries its own edition toggle, so the anchor sits on the
+               title and its ::after covers the row (see CLAUDE.md). -->
+          <div class="relative flex gap-3 py-2.5 border-b border-line-soft cursor-pointer group">
+            <BookCover
+                :title="book.title || $t('common.untitled')"
+                :author="book.authors?.join(', ') || ''"
+                :width="46"
+                :cover-url="book.cover_url"
+                hoverable
+            />
+            <div class="min-w-0 flex-1 flex flex-col justify-center">
+              <div class="flex items-center gap-2 min-w-0">
+                <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">
+                  <RouterLink class="stretched-link" :to="bookRoute(book)">{{ book.title }}</RouterLink>
+                </h3>
+                <span
+                    class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border"
+                    :class="book.source === 'library' ? 'border-green/40 text-green-soft' : 'border-line text-muted'"
+                >{{ sourceLabel(book.source) }}</span>
+              </div>
+              <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
+              <p class="t-meta mt-1">
+                {{ book.published_year }}
+                <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
+                <span v-if="book.category"> · {{ book.category }}</span>
+              </p>
             </div>
-            <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
-            <p class="t-meta mt-1">
-              {{ book.published_year }}
-              <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
-              <span v-if="book.category"> · {{ book.category }}</span>
-            </p>
+            <button
+                v-if="isWork(book)"
+                type="button"
+                class="relative z-1 self-center flex items-center justify-center size-8 rounded-full flex-none cursor-pointer transition-colors duration-150"
+                :class="expanded === book.id ? 'text-green-soft bg-surface-2' : 'text-muted hover:text-ink hover:bg-surface-2'"
+                :title="$t('search.editions')"
+                :aria-label="$t('search.editions')"
+                @click="toggleEditions(book)"
+            >
+              <ChevronDownIcon class="size-4 transition-transform duration-150" :class="expanded === book.id ? 'rotate-180' : ''"/>
+            </button>
           </div>
-        </RouterLink>
+
+          <div v-if="expanded === book.id" class="flex flex-col bg-surface/60">
+            <div v-if="loadingEditions" class="flex justify-center py-4">
+              <span class="loading loading-spinner loading-sm"></span>
+            </div>
+            <p v-else-if="!editions.length" class="t-meta py-3 pl-6">{{ $t('search.noEditions') }}</p>
+            <RouterLink
+                v-for="edition in editions"
+                :key="edition.id"
+                :to="{ name: 'search-detail', params: { id: edition.id } }"
+                class="flex flex-col pl-6 py-2 border-b border-line-soft cursor-pointer group/edition"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <span
+                    v-if="edition.language"
+                    class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border border-green/40 text-green-soft"
+                >{{ edition.language }}</span>
+                <span class="text-sm text-ink truncate group-hover/edition:text-green-soft transition-colors duration-150">{{ edition.title }}</span>
+              </div>
+              <p class="t-meta mt-0.5 truncate">{{ editionMeta(edition) }}</p>
+            </RouterLink>
+          </div>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import {defineComponent, ref, onMounted} from 'vue';
+import {computed, defineComponent, ref, onMounted} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {useRouter, useRoute} from 'vue-router';
-import {SearchIcon, QrCodeIcon} from '@lucide/vue';
+import {SearchIcon, QrCodeIcon, ChevronDownIcon} from '@lucide/vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import BarcodeScanner from '@/components/BarcodeScanner.vue';
 import {searchBooks, fetchTrendingBooks} from '@/api/bookApi';
+import {useEditions} from '@/composables/useEditions';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
-  components: {SearchIcon, QrCodeIcon, BookCover, BarcodeScanner},
+  components: {SearchIcon, QrCodeIcon, ChevronDownIcon, BookCover, BarcodeScanner},
   setup() {
     const query = ref('');
     const books = ref<BookSearchResult[]>([]);
@@ -131,11 +136,16 @@ export default defineComponent({
     const router = useRouter();
     const route = useRoute();
     const {t} = useI18n();
+    const {expanded, editions, loadingEditions, isWork, toggleEditions, collapse, editionMeta} =
+        useEditions();
+
+    const displayedBooks = computed(() => (books.value.length ? books.value : trendingBooks.value));
 
     const searchBooksWrapper = async () => {
       if (!query.value.trim()) return;
       loading.value = true;
       hasSearched.value = true;
+      collapse();
       books.value = await searchBooks(query.value);
       loading.value = false;
       router.replace({query: {q: query.value}});
@@ -177,6 +187,7 @@ export default defineComponent({
       query,
       books,
       trendingBooks,
+      displayedBooks,
       loading,
       hasSearched,
       showScanner,
@@ -184,6 +195,12 @@ export default defineComponent({
       bookRoute,
       sourceLabel,
       onBarcodeDetected,
+      expanded,
+      editions,
+      loadingEditions,
+      isWork,
+      toggleEditions,
+      editionMeta,
     };
   },
 });

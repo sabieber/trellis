@@ -181,9 +181,7 @@
     "relink": "Change catalog record",
     "linked": "Catalog record linked.",
     "conflict": "Another book is already linked to this record.",
-    "preview": "Open record in a new tab",
-    "editions": "Show editions",
-    "noEditions": "No editions found."
+    "preview": "Open record in a new tab"
   },
   "shelfModal": {
     "newShelf": "New Shelf",
@@ -233,7 +231,9 @@
       "library": "Library",
       "google": "Google",
       "openlibrary": "Open Library"
-    }
+    },
+    "editions": "Show editions",
+    "noEditions": "No editions found."
   },
   "scanner": {
     "pointCamera": "Point camera at a barcode…",
