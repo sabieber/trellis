@@ -239,10 +239,8 @@ async fn fetch_edition_meta(client: &Client, editions_url: &str) -> EditionMeta 
         Err(_) => return EditionMeta::default(),
     };
 
-    let isbns: Vec<Value> = ed_isbns_as_values(&body).collect();
-    let (isbn13, isbn10) = extract_isbns(&isbns);
-
     let entry = body["entries"].as_array().and_then(|a| a.first());
+    let (isbn13, isbn10) = entry.map(entry_isbns).unwrap_or((None, None));
     let publisher = entry
         .and_then(|e| e["publishers"].as_array())
         .and_then(|a| a.first())
@@ -272,11 +270,124 @@ async fn fetch_edition_meta(client: &Client, editions_url: &str) -> EditionMeta 
     }
 }
 
-fn ed_isbns_as_values(body: &Value) -> impl Iterator<Item = Value> + '_ {
-    let entry = body["entries"].as_array().and_then(|a| a.first());
-    let i13 = entry.and_then(|e| e["isbn_13"].as_array()).into_iter().flatten();
-    let i10 = entry.and_then(|e| e["isbn_10"].as_array()).into_iter().flatten();
-    i13.chain(i10).cloned()
+fn entry_isbns(entry: &Value) -> (Option<String>, Option<String>) {
+    let i13 = entry["isbn_13"].as_array().into_iter().flatten();
+    let i10 = entry["isbn_10"].as_array().into_iter().flatten();
+    let isbns: Vec<Value> = i13.chain(i10).cloned().collect();
+    extract_isbns(&isbns)
+}
+
+/// Maps one edition document — a member of `editions.json` or an edition fetched
+/// on its own; they carry the same fields — to a `DetailBook`. Work-level data
+/// (description, subjects, rating, series, authors) is not part of an edition;
+/// `get_edition` merges it in.
+fn normalize_edition_entry(entry: &Value) -> Option<DetailBook> {
+    let source_id = entry["key"].as_str()?.to_string();
+    let title = entry["title"].as_str()?.to_string();
+    let (isbn13, isbn10) = entry_isbns(entry);
+    let publish_date = entry["publish_date"].as_str().map(String::from);
+
+    Some(DetailBook {
+        base: NormalizedBook {
+            id: format!("openlibrary:{}", source_id),
+            source: "openlibrary".to_string(),
+            source_id,
+            title,
+            authors: vec![],
+            cover_url: entry["covers"]
+                .as_array()
+                .and_then(|a| a.first())
+                .and_then(|v| v.as_i64())
+                .map(cover_url_from_id),
+            published_year: publish_date.as_deref().and_then(year_from_date),
+            page_count: entry["number_of_pages"].as_u64().map(|p| p as u32),
+            category: None,
+            description: None,
+            average_rating: None,
+            isbn13,
+            isbn10,
+        },
+        subtitle: entry["subtitle"].as_str().map(String::from),
+        publisher: entry["publishers"]
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(|v| v.as_str())
+            .map(String::from),
+        published_date: publish_date,
+        language: entry["languages"]
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(|v| v["key"].as_str())
+            .and_then(|k| k.rsplit('/').next())
+            .map(String::from),
+        categories: vec![],
+        ratings_count: None,
+        info_link: None,
+        series: None,
+    })
+}
+
+/// Lists the editions of a work.
+///
+/// Open Library models translations and reprints as separate editions of one
+/// work, and the work itself carries no language. Picking "the German one" is
+/// therefore an edition choice only the user can make.
+pub async fn list_editions(client: &Client, work_key: &str) -> Vec<DetailBook> {
+    let key = work_key.trim_start_matches('/');
+    // ponytail: one page of 100. Works with more editions than that are rare;
+    // paginate when one shows up.
+    let url = format!("{}/{}/editions.json?limit=100", OL_BASE, key);
+    let resp = match client.get(&url).send().await {
+        Ok(r) if r.status().is_success() => r,
+        _ => return vec![],
+    };
+    let body: Value = match resp.json().await {
+        Ok(b) => b,
+        Err(_) => return vec![],
+    };
+
+    body["entries"]
+        .as_array()
+        .map(|entries| entries.iter().filter_map(normalize_edition_entry).collect())
+        .unwrap_or_default()
+}
+
+/// Fetches one edition (`/books/OL…M`) and merges its work's shared data on top.
+/// The edition wins for everything it states — title, cover, pages, ISBN,
+/// publisher, language — which is the whole point of picking one.
+pub async fn get_edition(client: &Client, edition_key: &str) -> Option<DetailBook> {
+    let key = edition_key.trim_start_matches('/');
+    let url = format!("{}/{}.json", OL_BASE, key);
+    let resp = match client.get(&url).send().await {
+        Ok(r) if r.status().is_success() => r,
+        _ => return None,
+    };
+    let body: Value = resp.json().await.ok()?;
+
+    let mut detail = normalize_edition_entry(&body)?;
+
+    let work_key = body["works"]
+        .as_array()
+        .and_then(|a| a.first())
+        .and_then(|w| w["key"].as_str());
+    if let Some(work) = match work_key {
+        Some(k) => get_work(client, k).await,
+        None => None,
+    } {
+        detail.base.authors = work.base.authors;
+        detail.base.description = work.base.description;
+        detail.base.category = work.base.category;
+        detail.base.average_rating = work.base.average_rating;
+        detail.ratings_count = work.ratings_count;
+        detail.categories = work.categories;
+        detail.series = work.series;
+        // Fields a sparse edition leaves empty still beat showing nothing.
+        detail.base.cover_url = detail.base.cover_url.or(work.base.cover_url);
+        detail.base.page_count = detail.base.page_count.or(work.base.page_count);
+        detail.base.published_year = detail.base.published_year.or(work.base.published_year);
+    }
+
+    Some(detail)
 }
 
 /// Looks up an edition by ISBN and returns its work key together with the page

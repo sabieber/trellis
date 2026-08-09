@@ -181,7 +181,9 @@
     "relink": "Change catalog record",
     "linked": "Catalog record linked.",
     "conflict": "Another book is already linked to this record.",
-    "preview": "Open record in a new tab"
+    "preview": "Open record in a new tab",
+    "editions": "Show editions",
+    "noEditions": "No editions found."
   },
   "shelfModal": {
     "newShelf": "New Shelf",

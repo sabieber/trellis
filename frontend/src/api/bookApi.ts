@@ -44,6 +44,20 @@ export const fetchBookDetail = async (
   }
 }
 
+// Open Library keeps every translation and reprint as a separate edition of one
+// work. Only the user knows which one they own.
+export const fetchEditions = async (workKey: string): Promise<BookSearchResult[]> => {
+  try {
+    const response = await apiFetch(`/api/books/editions/${encodeURIComponent(workKey)}`)
+    if (response.ok) {
+      return await response.json()
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
 export const fetchSeries = async (
   key: string
 ): Promise<{ name: string; books: BookSearchResult[] } | null> => {

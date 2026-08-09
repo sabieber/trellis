@@ -29,9 +29,8 @@
       </div>
 
       <div v-else-if="books.length" class="flex flex-col max-h-96 overflow-y-auto">
+        <template v-for="book in books" :key="book.id">
         <div
-            v-for="book in books"
-            :key="book.id"
             class="flex items-center gap-2 border-b border-line-soft group"
         >
           <button
@@ -60,6 +59,17 @@
               </p>
             </div>
           </button>
+          <button
+              v-if="isWork(book)"
+              type="button"
+              class="flex items-center justify-center size-8 rounded-full flex-none cursor-pointer transition-colors duration-150"
+              :class="expanded === book.id ? 'text-green-soft bg-surface-2' : 'text-muted hover:text-ink hover:bg-surface-2'"
+              :title="$t('linkCatalog.editions')"
+              :aria-label="$t('linkCatalog.editions')"
+              @click="toggleEditions(book)"
+          >
+            <ChevronDownIcon class="size-4 transition-transform duration-150" :class="expanded === book.id ? 'rotate-180' : ''"/>
+          </button>
           <RouterLink
               :to="{ name: 'search-detail', params: { id: book.id } }"
               target="_blank"
@@ -70,6 +80,44 @@
             <ArrowUpRightIcon class="size-4"/>
           </RouterLink>
         </div>
+
+        <div v-if="expanded === book.id" class="flex flex-col bg-surface/60">
+          <div v-if="loadingEditions" class="flex justify-center py-4">
+            <span class="loading loading-spinner loading-sm"></span>
+          </div>
+          <p v-else-if="!editions.length" class="t-meta py-3 pl-6">{{ $t('linkCatalog.noEditions') }}</p>
+          <div
+              v-for="edition in editions"
+              :key="edition.id"
+              class="flex items-center gap-2 pl-6 border-b border-line-soft"
+          >
+            <button
+                type="button"
+                class="flex-1 min-w-0 text-left py-2 cursor-pointer group/edition"
+                :disabled="submitting"
+                @click="$emit('select', edition)"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <span
+                    v-if="edition.language"
+                    class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border border-green/40 text-green-soft"
+                >{{ edition.language }}</span>
+                <span class="text-sm text-ink truncate group-hover/edition:text-green-soft transition-colors duration-150">{{ edition.title }}</span>
+              </div>
+              <p class="t-meta mt-0.5 truncate">{{ editionMeta(edition) }}</p>
+            </button>
+            <RouterLink
+                :to="{ name: 'search-detail', params: { id: edition.id } }"
+                target="_blank"
+                class="flex items-center justify-center size-7 rounded-full flex-none text-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+                :title="$t('linkCatalog.preview')"
+                :aria-label="$t('linkCatalog.preview')"
+            >
+              <ArrowUpRightIcon class="size-3.5"/>
+            </RouterLink>
+          </div>
+        </div>
+        </template>
       </div>
 
       <p v-else-if="hasSearched" class="t-meta text-center py-6">{{ $t('search.emptyTitle') }}</p>
@@ -84,14 +132,15 @@
 
 <script lang="ts">
 import {defineComponent, onMounted, ref} from 'vue';
-import {SearchIcon, ArrowUpRightIcon} from '@lucide/vue';
+import {useI18n} from 'vue-i18n';
+import {SearchIcon, ArrowUpRightIcon, ChevronDownIcon} from '@lucide/vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
-import {searchBooks} from '@/api/bookApi';
+import {searchBooks, fetchEditions} from '@/api/bookApi';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
-  components: {SearchIcon, ArrowUpRightIcon, BookCover, Button},
+  components: {SearchIcon, ArrowUpRightIcon, ChevronDownIcon, BookCover, Button},
   props: {
     initialQuery: {
       type: String,
@@ -105,24 +154,77 @@ export default defineComponent({
   },
   emits: ['close', 'select'],
   setup(props) {
+    const {t} = useI18n();
     const query = ref(props.initialQuery);
     const books = ref<BookSearchResult[]>([]);
     const loading = ref(false);
     const hasSearched = ref(false);
+    const expanded = ref<string | null>(null);
+    const editions = ref<BookSearchResult[]>([]);
+    const loadingEditions = ref(false);
+    const editionCache: Record<string, BookSearchResult[]> = {};
 
     const search = async () => {
       if (!query.value.trim()) return;
       loading.value = true;
       hasSearched.value = true;
+      expanded.value = null;
       // The user's own rows are what we are linking *from* — only catalog hits
       // can be linked to.
       books.value = (await searchBooks(query.value)).filter((b) => b.source !== 'library');
       loading.value = false;
     };
 
+    // Only an Open Library work has editions. Google volumes are already one
+    // per edition, and an Open Library edition cannot be broken down further.
+    const isWork = (book: BookSearchResult) =>
+        book.source === 'openlibrary' && book.source_id.includes('/works/');
+
+    const toggleEditions = async (book: BookSearchResult) => {
+      if (expanded.value === book.id) {
+        expanded.value = null;
+        return;
+      }
+      expanded.value = book.id;
+      const cached = editionCache[book.id];
+      if (cached) {
+        editions.value = cached;
+        return;
+      }
+      editions.value = [];
+      loadingEditions.value = true;
+      const result = await fetchEditions(book.source_id);
+      // A second click while this one was in flight moved on — drop the answer.
+      if (expanded.value === book.id) {
+        editionCache[book.id] = result;
+        editions.value = result;
+      }
+      loadingEditions.value = false;
+    };
+
+    const editionMeta = (edition: BookSearchResult) =>
+        [
+          edition.published_date,
+          edition.publisher,
+          edition.page_count ? t('search.pagesAbbr', {count: edition.page_count}) : null,
+          edition.isbn13 || edition.isbn10,
+        ].filter(Boolean).join(' · ');
+
     onMounted(search);
 
-    return {query, books, loading, hasSearched, search};
+    return {
+      query,
+      books,
+      loading,
+      hasSearched,
+      search,
+      expanded,
+      editions,
+      loadingEditions,
+      isWork,
+      toggleEditions,
+      editionMeta,
+    };
   },
 });
 </script>

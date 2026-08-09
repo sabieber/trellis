@@ -181,7 +181,9 @@
     "relink": "Katalogeintrag ändern",
     "linked": "Katalogeintrag verknüpft.",
     "conflict": "Ein anderes Buch ist bereits mit diesem Eintrag verknüpft.",
-    "preview": "Eintrag in neuem Tab ansehen"
+    "preview": "Eintrag in neuem Tab ansehen",
+    "editions": "Ausgaben anzeigen",
+    "noEditions": "Keine Ausgaben gefunden."
   },
   "shelfModal": {
     "newShelf": "Neues Regal",

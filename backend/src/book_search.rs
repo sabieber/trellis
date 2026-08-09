@@ -67,6 +67,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/books/search", get(unified_search))
         .route("/api/books/trending", get(trending))
         .route("/api/books/external/{source}/{id}", get(external_detail))
+        .route("/api/books/editions/{id}", get(work_editions))
         .route("/api/series/{key}", get(series_detail))
 }
 
@@ -208,6 +209,12 @@ pub(crate) async fn external_detail(
 
     let result: Option<DetailBook> = match source.as_str() {
         "google" => google_detail(&client, &id).await,
+        // `/books/OL…M` is one edition of a work, `/works/OL…W` the work itself.
+        // Both are valid stored ids: linking to an edition is how a user pins
+        // the language and printing they own.
+        "openlibrary" if id.contains("/books/") => {
+            crate::open_library_client::get_edition(&client, &id).await
+        }
         "openlibrary" => crate::open_library_client::get_work(&client, &id).await,
         _ => None,
     };
@@ -220,6 +227,15 @@ pub(crate) async fn external_detail(
         )
             .into_response(),
     }
+}
+
+/// Lists the editions of an Open Library work, so the user can pick the
+/// language and printing they own. Google Books has no equivalent: its volumes
+/// are already one per edition.
+pub(crate) async fn work_editions(_auth: AuthUser, Path(id): Path<String>) -> impl IntoResponse {
+    let client = Client::new();
+    let editions = crate::open_library_client::list_editions(&client, &id).await;
+    (StatusCode::OK, Json(json!(editions)))
 }
 
 async fn google_search(client: Client, query: String) -> Vec<NormalizedBook> {
