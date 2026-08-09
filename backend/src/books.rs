@@ -1025,6 +1025,13 @@ pub struct BrowseRequest {
 /// response carries the total, so it knows when to stop asking.
 const BROWSE_PAGE_SIZE: i64 = 100;
 
+/// Sentinel genre/tag filter value meaning "no label of this kind at all". It
+/// rides in the same field as a real label so the whole filter path — URL state,
+/// browse, random picker — stays one mechanism.
+/// ponytail: a user who names a label exactly this string collides with it;
+/// give the filter its own boolean field if that ever happens.
+pub(crate) const UNLABELLED: &str = "__none__";
+
 /// The filters of a browse request, parsed and validated.
 struct BrowseFilters {
     user_id: Uuid,
@@ -1065,20 +1072,28 @@ fn browse_query<'a>(
         (LabelKind::Genre, &filters.genre),
         (LabelKind::Tag, &filters.tag),
     ] {
-        if let Some(label) = value {
-            query = query.filter(
+        let Some(label) = value else { continue };
+
+        // `user` and `kind` first: they are the leading columns of
+        // book_labels_user_kind_label_idx, so the subquery is a range scan of
+        // this user's labels instead of a scan of the table.
+        let labelled = bl::book_labels
+            .filter(bl::user.eq(filters.user_id))
+            .filter(bl::kind.eq(kind))
+            .into_boxed();
+
+        query = if label == UNLABELLED {
+            // "no genre / tag set yet": every book without a label of this kind.
+            query.filter(b::id.ne_all(labelled.select(bl::book)))
+        } else {
+            query.filter(
                 b::id.eq_any(
-                    bl::book_labels
-                        // `user` and `kind` first: they are the leading columns of
-                        // book_labels_user_kind_label_idx, so the subquery is a range
-                        // scan of this user's labels instead of a scan of the table.
-                        .filter(bl::user.eq(filters.user_id))
-                        .filter(bl::kind.eq(kind))
+                    labelled
                         .filter(lower(bl::label).eq(label.to_lowercase()))
                         .select(bl::book),
                 ),
-            );
-        }
+            )
+        };
     }
 
     query

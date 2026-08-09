@@ -261,6 +261,8 @@
     "allAuthors": "Alle Autoren",
     "allGenres": "Alle Genres",
     "allTags": "Alle Tags",
+    "noGenre": "Ohne Genre",
+    "noTag": "Ohne Tag",
     "filterShelf": "Nach Regal filtern",
     "filterAuthor": "Nach Autor filtern",
     "filterGenre": "Nach Genre filtern",

@@ -89,6 +89,7 @@
 
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from 'vue';
+import {useI18n} from 'vue-i18n';
 import {useRoute, useRouter} from 'vue-router';
 import {Dice3Icon, XIcon} from '@lucide/vue';
 import PageContainer from '@/components/PageContainer.vue';
@@ -103,6 +104,10 @@ import type {ShelfBook} from '@/types/shelf';
 
 const route = useRoute();
 const router = useRouter();
+const {t} = useI18n();
+
+// Must match `UNLABELLED` in backend/src/books.rs.
+const UNLABELLED = '__none__';
 
 const books = ref<ShelfBook[]>([]);
 const total = ref(0);
@@ -136,8 +141,13 @@ const asOptions = (values: string[]) => values.map((value) => ({value, label: va
 const shelfOptions = computed(() =>
     shelves.value.map((shelf) => ({value: shelf.id, label: shelf.name || shelf.code})));
 const authorOptions = computed(() => asOptions(authors.value));
-const genreOptions = computed(() => asOptions(genres.value));
-const tagOptions = computed(() => asOptions(tags.value));
+// The genre and tag lists lead with the "not set yet" entry: the server reads
+// this sentinel as "book has no label of this kind", which is how the user works
+// through the books that still need one.
+const genreOptions = computed(
+    () => [{value: UNLABELLED, label: t('books.noGenre')}, ...asOptions(genres.value)]);
+const tagOptions = computed(
+    () => [{value: UNLABELLED, label: t('books.noTag')}, ...asOptions(tags.value)]);
 
 // Only the newest request may write the list; changing two filters quickly
 // otherwise lets the slower response overwrite the fresher one.
