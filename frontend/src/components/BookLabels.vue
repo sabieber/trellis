@@ -38,7 +38,7 @@
       <form v-else class="dropdown" @submit.prevent="commitDraft">
         <input
             ref="inputEl"
-            v-model="draft"
+            :value="draft"
             class="label-input"
             type="text"
             enterkeyhint="done"
@@ -49,6 +49,7 @@
             :aria-controls="listId"
             :aria-activedescendant="highlighted >= 0 ? `${listId}-${highlighted}` : undefined"
             :maxlength="MAX_LABEL_LENGTH"
+            @input="onInput"
             @keydown.esc.prevent="stopAdding"
             @keydown.down.prevent="move(1)"
             @keydown.up.prevent="move(-1)"
@@ -108,6 +109,14 @@ const matches = computed(() => {
   return props.suggestions.filter(
       (s) => !taken.includes(s.toLowerCase()) && s.toLowerCase().includes(typed));
 });
+
+// Read the value off the event instead of using v-model: v-model suppresses
+// updates while an IME is composing, and GBoard composes every word it
+// predicts, so the draft — and with it the suggestions — froze on Android.
+const onInput = (event: Event) => {
+  draft.value = (event.target as HTMLInputElement).value;
+  highlighted.value = -1;
+};
 
 const startAdding = async () => {
   adding.value = true;
