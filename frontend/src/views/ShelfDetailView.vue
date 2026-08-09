@@ -37,9 +37,7 @@
         :books="sortedBooks"
         :mode="layoutMode"
         removable
-        @view-book="viewBookDetail"
         @remove-book="confirmRemoveBook"
-        @view-author="viewAuthor"
     />
 
     <div v-else class="t-meta text-center py-12">{{ $t('shelf.noBooks') }}</div>
@@ -48,7 +46,6 @@
         v-if="pickerOpen"
         :books="books"
         @close="pickerOpen = false"
-        @view-book="viewBookDetail"
     />
 
     <ConfirmDialog
@@ -64,7 +61,7 @@
 
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted} from 'vue';
-import {useRoute, useRouter} from 'vue-router';
+import {useRoute} from 'vue-router';
 import {useI18n} from 'vue-i18n';
 import {Dice3Icon} from "@lucide/vue";
 import PageContainer from '@/components/PageContainer.vue';
@@ -76,7 +73,6 @@ import RandomBookModal from '@/components/shelf/RandomBookModal.vue';
 import Button from '@/components/ui/Button.vue';
 import {apiFetch} from '@/api/client';
 import {apiErrorMessage} from '@/utils/apiError';
-import {goToAuthor} from '@/utils/authorRoute';
 import {useLayoutMode} from '@/composables/useLayoutMode';
 import type {ShelfBook} from '@/types/shelf';
 
@@ -90,7 +86,6 @@ export default defineComponent({
   setup() {
     const {t} = useI18n();
     const route = useRoute();
-    const router = useRouter();
     const books = ref<ShelfBook[]>([]);
     const loading = ref(true);
     const shelf = ref<{ code: string; name: string | null; description: string }>({
@@ -180,18 +175,12 @@ export default defineComponent({
       return false;
     };
 
-    const viewBookDetail = (id: string) => {
-      router.push({name: 'book-detail', params: {id}});
-    };
-
-    const viewAuthor = (author: string) => goToAuthor(router, author);
-
     onMounted(() => fetchShelfBooks(route.params.id as string));
 
     return {
       books, sortedBooks, loading, shelf, sortBy, layoutMode,
       pageContainer, pendingRemoveBookId, pickerOpen,
-      confirmRemoveBook, removeBookFromShelf, viewBookDetail, viewAuthor, saveName,
+      confirmRemoveBook, removeBookFromShelf, saveName,
     };
   },
 });

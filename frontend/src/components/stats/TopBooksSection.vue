@@ -19,11 +19,11 @@
       </div>
 
       <ol v-else class="space-y-3">
-        <li v-for="(book, index) in books" :key="index">
-          <RouterLink
-              :to="{ name: 'book-detail', params: { id: book.book_id } }"
-              class="flex items-center gap-3 -mx-2 px-2 py-1 rounded-md hover:bg-surface-2 transition-colors duration-150"
-          >
+        <li
+            v-for="(book, index) in books"
+            :key="index"
+            class="relative flex items-center gap-3 -mx-2 px-2 py-1 rounded-md hover:bg-surface-2 transition-colors duration-150"
+        >
           <BookCover
               :title="book.title"
               :author="book.author"
@@ -33,13 +33,18 @@
               @resolve-cover="onResolveCover"
           />
           <div class="flex-1 min-w-0">
-            <div class="t-title text-sm truncate">{{ book.title }}</div>
+            <div class="t-title text-sm truncate">
+              <RouterLink
+                  class="stretched-link"
+                  :to="{ name: 'book-detail', params: { id: book.book_id } }"
+              >{{ book.title }}</RouterLink>
+            </div>
             <div class="t-meta truncate">
-              <span
+              <RouterLink
                   v-if="isLinkableAuthor(book.author)"
-                  class="hover:text-green-soft hover:underline transition-colors duration-150 cursor-pointer"
-                  @click.stop.prevent="viewAuthor(book.author)"
-              >{{ book.author }}</span>
+                  class="relative z-1 hover:text-green-soft hover:underline transition-colors duration-150"
+                  :to="authorRoute(book.author)"
+              >{{ book.author }}</RouterLink>
               <span v-else>{{ book.author }}</span>
             </div>
           </div>
@@ -50,7 +55,6 @@
             <span class="stat-mono">{{ book.rating }}</span>
           </span>
           <span v-else class="stat-mono flex-none">{{ $t('stats.timesRead', { n: book.readings }) }}</span>
-          </RouterLink>
         </li>
       </ol>
     </div>
@@ -59,13 +63,12 @@
 
 <script lang="ts">
 import {computed, defineComponent, type PropType} from 'vue';
-import {useRouter} from 'vue-router';
 import {FlowerIcon} from '@lucide/vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import type {BookStat} from '@/composables/useStatsBreakdown';
 import {useBookCovers} from '@/composables/useBookCovers';
 import {formatPeriod} from '@/utils/period';
-import {goToAuthor, isLinkableAuthor} from '@/utils/authorRoute';
+import {authorRoute, isLinkableAuthor} from '@/utils/authorRoute';
 
 export default defineComponent({
   components: {FlowerIcon, BookCover},
@@ -80,11 +83,9 @@ export default defineComponent({
     loading: {type: Boolean, default: false},
   },
   setup(props) {
-    const router = useRouter();
     const periodLabel = computed(() => formatPeriod(props.mode, props.year, props.month));
     const {resolvedCoverUrl, onResolveCover} = useBookCovers();
-    const viewAuthor = (author: string) => goToAuthor(router, author);
-    return {periodLabel, resolvedCoverUrl, onResolveCover, viewAuthor, isLinkableAuthor};
+    return {periodLabel, resolvedCoverUrl, onResolveCover, authorRoute, isLinkableAuthor};
   },
 });
 </script>

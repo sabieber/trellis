@@ -3,8 +3,7 @@
     <li
         v-for="book in books"
         :key="book.id"
-        class="flex items-center gap-4 py-3 md:py-4 border-b border-line-soft cursor-pointer group"
-        @click="$emit('viewBook', book.id)"
+        class="relative flex items-center gap-4 py-3 md:py-4 border-b border-line-soft cursor-pointer group"
     >
       <BookCover
           :title="book.title"
@@ -16,18 +15,23 @@
           @resolve-cover="onResolveCover"
       />
       <div class="flex-1 min-w-0 flex flex-col justify-center">
-        <h3 class="t-title text-[15px] md:text-base truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
+        <h3 class="t-title text-[15px] md:text-base truncate group-hover:text-green-soft transition-colors duration-150">
+          <RouterLink
+              class="stretched-link"
+              :to="{ name: 'book-detail', params: { id: book.id } }"
+          >{{ book.title }}</RouterLink>
+        </h3>
         <p class="t-meta mt-0.5">
-          <span
+          <RouterLink
               v-if="book.author"
-              class="hover:text-green-soft hover:underline transition-colors duration-150 cursor-pointer"
-              @click.stop="$emit('viewAuthor', book.author)"
-          >{{ book.author }}</span>
+              class="relative z-1 hover:text-green-soft hover:underline transition-colors duration-150"
+              :to="authorRoute(book.author)"
+          >{{ book.author }}</RouterLink>
         </p>
         <p class="t-mono mt-1 hidden md:block">{{ dateLabel || $t('shelf.added') }} {{ formatDate(book) }}</p>
         <Rating v-if="book.rating" :rating="book.rating" :size="12" class="mt-0.5"/>
       </div>
-      <Button v-if="removable" variant="ghost" class="px-2! py-2! text-[13px]!" @click="$emit('removeBook', book.id)">
+      <Button v-if="removable" variant="ghost" class="relative z-1 px-2! py-2! text-[13px]!" @click="$emit('removeBook', book.id)">
         <MinusIcon class="size-4"/>
       </Button>
     </li>
@@ -39,6 +43,7 @@ import {MinusIcon} from '@lucide/vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Rating from '@/components/ui/Rating.vue';
 import {bookCoverUrl} from '@/utils/coverUrl';
+import {authorRoute} from '@/utils/authorRoute';
 import {useBookCovers} from '@/composables/useBookCovers';
 import moment from 'moment';
 import type {ShelfBook} from '@/types/shelf';
@@ -58,9 +63,7 @@ const props = withDefaults(defineProps<{
 });
 
 defineEmits<{
-  viewBook: [id: string];
   removeBook: [id: string];
-  viewAuthor: [author: string];
 }>();
 
 const { resolvedCoverUrl, onResolveCover } = useBookCovers();

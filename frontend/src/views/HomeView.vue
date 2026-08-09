@@ -21,7 +21,7 @@
       <div>
         <div class="flex justify-between items-center mb-3">
           <h2 class="t-eyebrow">{{ $t('home.readingGoals') }}</h2>
-          <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="navigateTo('/goals')">
+          <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" to="/goals">
             {{ $t('common.seeAll') }}
             <ChevronRightIcon class="size-4"/>
           </Button>
@@ -56,7 +56,7 @@
       <div>
         <div class="flex justify-between items-center mb-3">
           <h2 class="t-eyebrow">{{ $t('home.currentlyReading') }}</h2>
-          <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="navigateTo('/library')">
+          <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" to="/library">
             {{ $t('common.seeAll') }}
             <ChevronRightIcon class="size-4"/>
           </Button>
@@ -75,12 +75,9 @@
           <div
               v-for="reading in activeReadings"
               :key="reading.reading_id"
-              class="bg-surface border border-line rounded-md p-3.5 flex gap-3.5 hoverable-card"
+              class="relative bg-surface border border-line rounded-md p-3.5 flex gap-3.5 hoverable-card"
           >
-            <RouterLink
-                :to="{ name: 'book-detail', params: { id: reading.book_id }, query: { tab: 'Log' } }"
-                class="flex gap-3.5 flex-1 min-w-0"
-            >
+            <div class="flex gap-3.5 flex-1 min-w-0">
               <BookCover
                   :title="reading.title || $t('common.untitled')"
                   :author="reading.author || ''"
@@ -91,14 +88,19 @@
               />
               <div class="flex-1 min-w-0 flex flex-col justify-between">
                 <div>
-                  <p class="t-title text-base leading-tight truncate">{{ reading.title || $t('common.untitled') }}</p>
+                  <p class="t-title text-base leading-tight truncate">
+                    <RouterLink
+                        class="stretched-link"
+                        :to="{ name: 'book-detail', params: { id: reading.book_id }, query: { tab: 'Log' } }"
+                    >{{ reading.title || $t('common.untitled') }}</RouterLink>
+                  </p>
                   <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
                     <p class="t-meta truncate">
-                      <span
+                      <RouterLink
                           v-if="isLinkableAuthor(reading.author)"
-                          class="hover:text-green-soft hover:underline transition-colors duration-150 cursor-pointer"
-                          @click.stop.prevent="viewAuthor(reading.author)"
-                      >{{ reading.author }}</span>
+                          class="relative z-1 hover:text-green-soft hover:underline transition-colors duration-150"
+                          :to="authorRoute(reading.author)"
+                      >{{ reading.author }}</RouterLink>
                       <span v-else>{{ $t('common.unknownAuthor') }}</span>
                     </p>
                     <span class="badge badge-sm flex-none">{{ reading.mode === 'percentage' ? $t('readingModal.modePercentage') : $t('readingModal.modePages') }}</span>
@@ -114,8 +116,8 @@
                   </p>
                 </div>
               </div>
-            </RouterLink>
-            <Button variant="soft" class="self-center flex-none px-3.5! py-2! text-[13px]!"
+            </div>
+            <Button variant="soft" class="relative z-1 self-center flex-none px-3.5! py-2! text-[13px]!"
                     @click="openUpdateModal(reading)">
               {{ $t('common.update') }}
             </Button>
@@ -199,7 +201,7 @@ interface ActiveReading {
 }
 
 import {bookCoverUrl} from '@/utils/coverUrl';
-import {goToAuthor, isLinkableAuthor} from '@/utils/authorRoute';
+import {authorRoute, isLinkableAuthor} from '@/utils/authorRoute';
 import {useBookCovers} from '@/composables/useBookCovers';
 
 export default defineComponent({
@@ -207,7 +209,6 @@ export default defineComponent({
   setup() {
     const {t, locale} = useI18n();
     const auth = useAuthStore();
-    const router = useRouter();
     const goals = ref<Goal[]>([]);
     const goalsLoading = ref(false);
     const streak = ref<Streak | null>(null);
@@ -313,8 +314,6 @@ export default defineComponent({
       return t('home.goalWeek', {type, month, from: start.getDate(), to: end.getDate()});
     };
 
-    const navigateTo = (path: string) => router.push(path);
-    const viewAuthor = (author: string) => goToAuthor(router, author);
     const { resolvedCoverUrl, onResolveCover } = useBookCovers();
 
     onMounted(() => {
@@ -327,8 +326,8 @@ export default defineComponent({
       auth, goals, goalsLoading, streak, activeReadings, readingsLoading,
       updateTarget, toastMessage, toastType,
       openUpdateModal, submitProgress, readingPercent,
-      formatGoalLabel, bookCoverUrl, resolvedCoverUrl, onResolveCover, greeting, today, navigateTo,
-      viewAuthor, isLinkableAuthor,
+      formatGoalLabel, bookCoverUrl, resolvedCoverUrl, onResolveCover, greeting, today,
+      authorRoute, isLinkableAuthor,
     };
   },
 });

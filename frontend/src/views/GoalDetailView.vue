@@ -36,8 +36,6 @@
         :mode="layoutMode"
         :date-label="$t('shelf.finished')"
         date-field="finished_at"
-        @view-book="viewBookDetail"
-        @view-author="viewAuthor"
     />
 
     <div v-else class="t-meta text-center py-12">{{ $t('goalDetail.noBooks') }}</div>
@@ -46,7 +44,7 @@
 
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted} from 'vue';
-import {useRoute, useRouter} from 'vue-router';
+import {useRoute} from 'vue-router';
 import {useI18n} from 'vue-i18n';
 import PageContainer from '@/components/PageContainer.vue';
 import BookLayout from '@/components/shelf/BookLayout.vue';
@@ -55,7 +53,6 @@ import PlainProgress from '@/components/ui/PlainProgress.vue';
 import GoalProgressChart from '@/components/GoalProgressChart.vue';
 import {apiFetch} from '@/api/client';
 import {useLayoutMode} from '@/composables/useLayoutMode';
-import {goToAuthor} from '@/utils/authorRoute';
 import moment from 'moment';
 import type {ShelfBook} from '@/types/shelf';
 
@@ -87,7 +84,6 @@ export default defineComponent({
   setup() {
     const {t, locale} = useI18n();
     const route = useRoute();
-    const router = useRouter();
     const goal = ref<GoalDetail | null>(null);
     const books = ref<GoalBook[]>([]);
     const loading = ref(true);
@@ -154,12 +150,6 @@ export default defineComponent({
       }
     };
 
-    const viewBookDetail = (id: string) => {
-      router.push({name: 'book-detail', params: {id}});
-    };
-
-    const viewAuthor = (author: string) => goToAuthor(router, author);
-
     onMounted(() => {
       fetchGoalDetail(route.params.id as string);
     });
@@ -167,7 +157,7 @@ export default defineComponent({
     return {
       goal, books, loading, sortBy,
       goalLabel, periodDescription, sortedBooks, layoutMode,
-      pageContainer, viewBookDetail, viewAuthor,
+      pageContainer,
     };
   },
 });

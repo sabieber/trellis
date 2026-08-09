@@ -37,12 +37,12 @@
               <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
             </p>
             <p v-if="book.series" class="t-meta mt-1">
-              <span
-                  class="hover:text-green-soft hover:underline transition-colors duration-150 cursor-pointer"
-                  @click="viewSeries(book.series.key)"
+              <RouterLink
+                  class="hover:text-green-soft hover:underline transition-colors duration-150"
+                  :to="seriesRoute(book.series.key)"
               >{{ book.series.position
                     ? $t('bookDetail.seriesEntry', { name: book.series.name, position: book.series.position })
-                    : book.series.name }}</span>
+                    : book.series.name }}</RouterLink>
             </p>
           </div>
         </div>
@@ -127,7 +127,7 @@ import {useRoute, useRouter} from 'vue-router';
 import {useI18n} from 'vue-i18n';
 import {ChevronLeftIcon, PlusIcon, ExternalLinkIcon} from "@lucide/vue";
 import {fetchBookDetail} from '@/api/bookApi';
-import {goToSeries} from '@/utils/seriesRoute';
+import {seriesRoute} from '@/utils/seriesRoute';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
 import Chip from '@/components/ui/Chip.vue';
@@ -160,7 +160,6 @@ export default defineComponent({
       if (book.value?.info_link) window.open(book.value.info_link, '_blank', 'noopener');
     };
 
-    const viewSeries = (key: string) => goToSeries(router, key);
 
     const showToast = (message: string, type: string) => {
       toastMessage.value = message;
@@ -195,7 +194,7 @@ export default defineComponent({
       hasMeta,
       sourceLabel,
       openSource,
-      viewSeries,
+      seriesRoute,
       onShelfToast,
     };
   },

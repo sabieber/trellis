@@ -1,24 +1,34 @@
-<!-- Primary / ghost / soft button. -->
+<!-- Primary / ghost / soft button. Pass `to` when it navigates: it then renders
+     a real link, which is what gives right-click "open in new tab". -->
 <template>
-  <button class="button" :class="[`button--${variant}`, { 'button--block': block, 'button--icon': icon }]">
+  <component
+      :is="to ? RouterLink : 'button'"
+      :to="to"
+      class="button"
+      :class="[`button--${variant}`, { 'button--block': block, 'button--icon': icon }]"
+  >
     <slot></slot>
-  </button>
+  </component>
 </template>
 
 <script setup lang="ts">
+import {RouterLink, type RouteLocationRaw} from 'vue-router';
+
 withDefaults(
     defineProps<{
       variant?: 'primary' | 'ghost' | 'soft';
       block?: boolean;
       icon?: boolean; // square 42px icon-only button
+      to?: RouteLocationRaw;
     }>(),
-    {variant: 'primary', block: false, icon: false},
+    {variant: 'primary', block: false, icon: false, to: undefined},
 );
 </script>
 
 <style scoped>
 .button {
   display: inline-flex;
+  text-decoration: none;
   align-items: center;
   justify-content: center;
   gap: 8px;

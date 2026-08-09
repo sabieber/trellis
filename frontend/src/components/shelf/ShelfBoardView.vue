@@ -2,9 +2,15 @@
   <div class="flex flex-col" :class="{ 'has-pick': !!pickedId }">
     <div v-for="(row, ri) in shelfRows" :key="ri" class="shelf-row">
       <div class="shelf-books">
-        <BookSpine
+        <!-- `display: contents` keeps the spine itself the flex item, so the
+             link adds no box of its own to the row. -->
+        <RouterLink
             v-for="(book, bi) in row.books"
             :key="book.id"
+            :to="{ name: 'book-detail', params: { id: book.id } }"
+            class="spine-link"
+        >
+        <BookSpine
             :title="book.title"
             :author="book.author"
             :page-count="book.page_count"
@@ -13,9 +19,9 @@
             :height="spineHeight"
             :class="{ gust, picked: book.id === pickedId, taken: book.id === pickedId && pickedTaken }"
             :style="{ '--i': row.start + bi }"
-            @click="$emit('viewBook', book.id)"
             @resolve-cover="onResolveCover"
         />
+        </RouterLink>
       </div>
       <div class="shelf-board"></div>
     </div>
@@ -47,14 +53,14 @@ const props = withDefaults(
     {gust: false, pickedId: null, pickedTaken: false},
 );
 
-defineEmits<{
-  viewBook: [id: string];
-}>();
-
 const shelfRows = computed(() => packShelfRows(props.books, props.containerWidth));
 </script>
 
 <style scoped>
+.spine-link {
+  display: contents;
+}
+
 .shelf-row {
   margin-bottom: 24px;
 }

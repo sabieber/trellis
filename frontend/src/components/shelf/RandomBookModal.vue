@@ -12,6 +12,7 @@
 
       <div class="cover-slot">
         <div v-if="pick && phase === 'revealed'" class="reveal">
+          <RouterLink :to="{ name: 'book-detail', params: { id: pick.id } }">
           <BookCover
               :title="pick.title"
               :author="pick.author"
@@ -20,10 +21,9 @@
               :book-id="pick.id"
               :rating="pick.rating"
               hoverable
-              class="cursor-pointer"
-              @click="$emit('viewBook', pick.id)"
               @resolve-cover="onResolveCover"
           />
+          </RouterLink>
           <div class="reveal-text">
             <p class="t-title">{{ pick.title }}</p>
             <p class="t-meta mt-0.5">{{ pick.author }}</p>
@@ -40,7 +40,6 @@
             :gust="phase === 'gust'"
             :picked-id="phase === 'gust' ? null : pick?.id ?? null"
             :picked-taken="phase === 'revealed'"
-            @view-book="$emit('viewBook', $event)"
         />
         <div v-if="phase !== 'revealed'" class="leaves">
           <svg
@@ -76,7 +75,7 @@ import {useContainerWidth} from '@/composables/useContainerWidth';
 import type {ShelfBook} from '@/types/shelf';
 
 const props = defineProps<{ books: ShelfBook[] }>();
-const emit = defineEmits<{ close: []; viewBook: [id: string] }>();
+const emit = defineEmits<{ close: [] }>();
 
 // The plump leaf of the signature vine (see VineProgress.vue), drawn in a
 // ~20×21 box with its stalk at the origin.

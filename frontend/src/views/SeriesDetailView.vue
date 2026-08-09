@@ -12,11 +12,13 @@
     </div>
 
     <div v-else-if="books.length">
-      <div
+      <!-- Series members are external catalog hits — link to the
+           external-lookup detail view (mirrors SearchView), not book-detail. -->
+      <RouterLink
           v-for="book in books"
           :key="book.id"
           class="flex gap-3 py-2.5 border-b border-line-soft cursor-pointer group"
-          @click="viewBookDetail(book)"
+          :to="{ name: 'search-detail', params: { id: book.id } }"
       >
         <BookCover
             :title="book.title || $t('common.untitled')"
@@ -33,7 +35,7 @@
             <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
           </p>
         </div>
-      </div>
+      </RouterLink>
     </div>
 
     <div v-else class="t-meta text-center py-12">{{ $t('series.empty') }}</div>
@@ -42,7 +44,7 @@
 
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted, watch} from 'vue';
-import {useRoute, useRouter} from 'vue-router';
+import {useRoute} from 'vue-router';
 import PageContainer from '@/components/PageContainer.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import {fetchSeries} from '@/api/bookApi';
@@ -52,12 +54,11 @@ export default defineComponent({
   components: {PageContainer, BookCover},
   setup() {
     const route = useRoute();
-    const router = useRouter();
     const books = ref<BookSearchResult[]>([]);
     const seriesName = ref('');
     const loading = ref(true);
 
-    const seriesKey = computed(() => decodeURIComponent(route.params.key as string));
+    const seriesKey = computed(() => route.params.key as string);
 
     const load = async (key: string) => {
       loading.value = true;
@@ -67,16 +68,10 @@ export default defineComponent({
       loading.value = false;
     };
 
-    // Series members are external catalog hits — route to the external-lookup
-    // detail view (mirrors SearchView), not the library book-detail page.
-    const viewBookDetail = (book: BookSearchResult) => {
-      router.push({name: 'search-detail', params: {id: book.id}});
-    };
-
     onMounted(() => load(seriesKey.value));
     watch(seriesKey, (key) => load(key));
 
-    return {books, seriesName, loading, viewBookDetail};
+    return {books, seriesName, loading};
   },
 });
 </script>

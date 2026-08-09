@@ -37,11 +37,11 @@
       </div>
 
       <div v-else-if="books.length">
-        <div
+        <RouterLink
             v-for="book in books"
             :key="book.id"
             class="flex gap-3 py-2.5 border-b border-line-soft cursor-pointer group"
-            @click="viewBookDetail(book)"
+            :to="bookRoute(book)"
         >
           <BookCover
               :title="book.title || $t('common.untitled')"
@@ -65,7 +65,7 @@
               <span v-if="book.category"> · {{ book.category }}</span>
             </p>
           </div>
-        </div>
+        </RouterLink>
       </div>
 
       <div v-else-if="hasSearched" class="flex flex-col items-center text-center pt-12">
@@ -75,11 +75,11 @@
 
       <div v-else-if="trendingBooks.length">
         <h2 class="t-title text-sm text-muted uppercase tracking-wide mb-3">{{ $t('search.trending') }}</h2>
-        <div
+        <RouterLink
             v-for="book in trendingBooks"
             :key="book.id"
             class="flex gap-3 py-2.5 border-b border-line-soft cursor-pointer group"
-            @click="viewBookDetail(book)"
+            :to="bookRoute(book)"
         >
           <BookCover
               :title="book.title || $t('common.untitled')"
@@ -103,7 +103,7 @@
               <span v-if="book.category"> · {{ book.category }}</span>
             </p>
           </div>
-        </div>
+        </RouterLink>
       </div>
     </div>
   </div>
@@ -141,15 +141,12 @@ export default defineComponent({
       router.replace({query: {q: query.value}});
     };
 
-    const viewBookDetail = (book: BookSearchResult) => {
-      // Owned books already have a real row — go to their detail page, not the
-      // external-lookup search-detail view (which would 404 on a UUID).
-      if (book.source === 'library') {
-        router.push({name: 'book-detail', params: {id: book.id}});
-      } else {
-        router.push({name: 'search-detail', params: {id: book.id}});
-      }
-    };
+    // Owned books already have a real row — link to their detail page, not the
+    // external-lookup search-detail view (which would 404 on a UUID).
+    const bookRoute = (book: BookSearchResult) => ({
+      name: book.source === 'library' ? 'book-detail' : 'search-detail',
+      params: {id: book.id},
+    });
 
     const sourceLabel = (source: BookSearchResult['source']) =>
         t(`search.source.${source}`);
@@ -184,7 +181,7 @@ export default defineComponent({
       hasSearched,
       showScanner,
       searchBooks: searchBooksWrapper,
-      viewBookDetail,
+      bookRoute,
       sourceLabel,
       onBarcodeDetected,
     };

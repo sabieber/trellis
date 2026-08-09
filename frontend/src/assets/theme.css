@@ -114,3 +114,14 @@ body {
 .hoverable-card:hover {
     outline-color: #7a9e7e;
 }
+
+/* Makes one link inside a card cover the whole card, so the card stays
+   clickable everywhere while still being a real <a href> — that is what gives
+   right-click "open in new tab" and cmd/middle-click. Put it on the link and
+   `relative` on the card. Other links or buttons in the same card need
+   `relative z-1` to stay above the overlay. */
+.stretched-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+}

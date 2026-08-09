@@ -1,19 +1,21 @@
 <template>
   <div class="flex flex-wrap gap-3">
-    <BookCover
+    <RouterLink
         v-for="book in books"
         :key="book.id"
-        :title="book.title"
-        :author="book.author"
-        :width="tileWidth"
-        :cover-url="resolvedCoverUrl(book.id, bookCoverUrl(book))"
-        :book-id="book.id"
-        :rating="book.rating"
-        hoverable
-        class="cursor-pointer"
-        @click="$emit('viewBook', book.id)"
-        @resolve-cover="onResolveCover"
-    />
+        :to="{ name: 'book-detail', params: { id: book.id } }"
+    >
+      <BookCover
+          :title="book.title"
+          :author="book.author"
+          :width="tileWidth"
+          :cover-url="resolvedCoverUrl(book.id, bookCoverUrl(book))"
+          :book-id="book.id"
+          :rating="book.rating"
+          hoverable
+          @resolve-cover="onResolveCover"
+      />
+    </RouterLink>
   </div>
 </template>
 
@@ -26,10 +28,6 @@ import type {ShelfBook} from '@/types/shelf';
 defineProps<{
   books: ShelfBook[];
   tileWidth: number;
-}>();
-
-defineEmits<{
-  viewBook: [id: string];
 }>();
 
 const { resolvedCoverUrl, onResolveCover } = useBookCovers();

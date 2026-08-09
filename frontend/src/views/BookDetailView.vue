@@ -27,10 +27,10 @@
                    sibling books only if their stored `books.author` string agrees. -->
               <template v-for="(a, i) in (book.authors || [])" :key="a">
                 <span v-if="i > 0">, </span>
-                <span
-                    class="hover:text-green-soft hover:underline transition-colors duration-150 cursor-pointer"
-                    @click="viewAuthor(a)"
-                >{{ a }}</span>
+                <RouterLink
+                    class="hover:text-green-soft hover:underline transition-colors duration-150"
+                    :to="authorRoute(a)"
+                >{{ a }}</RouterLink>
               </template>
             </p>
             <div class="mt-2">
@@ -42,12 +42,12 @@
               <span v-if="book.category"> · {{ book.category }}</span>
             </p>
             <p v-if="book.series" class="t-meta mt-1">
-              <span
-                  class="hover:text-green-soft hover:underline transition-colors duration-150 cursor-pointer"
-                  @click="viewSeries(book.series.key)"
+              <RouterLink
+                  class="hover:text-green-soft hover:underline transition-colors duration-150"
+                  :to="seriesRoute(book.series.key)"
               >{{ book.series.position
                     ? $t('bookDetail.seriesEntry', { name: book.series.name, position: book.series.position })
-                    : book.series.name }}</span>
+                    : book.series.name }}</RouterLink>
             </p>
           </div>
         </div>
@@ -142,8 +142,8 @@
                 :key="reading.id"
                 class="flex justify-between items-center py-3 border-b border-line-soft group"
             >
-              <div
-                  @click="viewReadingDetail(reading.id)"
+              <RouterLink
+                  :to="{ name: 'reading-detail', params: { id: reading.id } }"
                   class="flex justify-between items-center flex-1 min-w-0 cursor-pointer"
               >
                 <span class="text-sm text-ink group-hover:text-green-soft transition-colors duration-150">{{
@@ -154,7 +154,7 @@
                   <span class="badge badge-sm">{{ reading.mode === 'percentage' ? $t('readingModal.modePercentage') : $t('readingModal.modePages') }}</span>
                   <span class="t-meta group-hover:text-green-soft transition-colors duration-150">{{ reading.mode === 'percentage' ? `${reading.progress}%` : $t('bookDetail.pagesProgress', { current: reading.progress, total: reading.total_pages }) }}</span>
                 </span>
-              </div>
+              </RouterLink>
               <button
                   @click.stop="confirmDeleteReading(reading.id)"
                   class="flex items-center justify-center size-7 rounded-full flex-none ml-2 text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
@@ -232,8 +232,8 @@
 <script lang="ts">
 import {defineComponent, reactive, ref, computed, onMounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
-import {goToAuthor} from '@/utils/authorRoute';
-import {goToSeries} from '@/utils/seriesRoute';
+import {authorRoute} from '@/utils/authorRoute';
+import {seriesRoute} from '@/utils/seriesRoute';
 import {useI18n} from 'vue-i18n';
 import {ChevronLeftIcon, BookOpenIcon, CheckIcon, Trash2Icon, ExternalLinkIcon} from "@lucide/vue";
 import {fetchBookDetail, searchBooks, resolveGoogleId} from '@/api/bookApi';
@@ -481,13 +481,7 @@ export default defineComponent({
       }
     };
 
-    const viewReadingDetail = (readingId: string) => {
-      router.push({name: 'reading-detail', params: {id: readingId}});
-    };
 
-    const viewAuthor = (author: string) => goToAuthor(router, author);
-
-    const viewSeries = (key: string) => goToSeries(router, key);
 
     const startReadingSession = async (mode: string, totalPages: number, startedAt: string) => {
       try {
@@ -610,9 +604,8 @@ export default defineComponent({
       pendingDeleteReadingId,
       toastMessage,
       toastType,
-      viewReadingDetail,
-      viewAuthor,
-      viewSeries,
+      authorRoute,
+      seriesRoute,
       startReadingSession,
       isOnShelf,
       toggleShelf,

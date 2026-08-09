@@ -7,15 +7,14 @@
         <h1 class="t-display text-2xl">{{ $t('nav.library') }}</h1>
         <!-- The book count doubles as the link to the browse view, so the
              header carries no extra button. -->
-        <button
-            type="button"
+        <RouterLink
+            :to="{ name: 'books' }"
             class="t-meta mt-1 flex items-center gap-1 cursor-pointer hover:text-ink transition-colors duration-150"
             :aria-label="$t('library.allBooks')"
-            @click="goToBooks"
         >
           {{ $t('library.booksTotal', { count: totalBooks }) }}
           <ChevronRightIcon class="size-4"/>
-        </button>
+        </RouterLink>
       </div>
       <CreateShelfModal @shelfCreated="fetchData"/>
     </div>
@@ -47,7 +46,7 @@
             <Button variant="ghost" class="px-2! py-2! text-[13px]!" @click="confirmRemoveShelf(shelf.id)">
               <MinusIcon class="size-4"/>
             </Button>
-            <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" @click="goToShelf(shelf.id)">
+            <Button variant="ghost" class="px-3.5! py-2! text-[13px]!" :to="{ name: 'shelf-detail', params: { id: shelf.id } }">
               {{ $t('common.seeAll') }}
               <ChevronRightIcon class="size-4"/>
             </Button>
@@ -57,39 +56,41 @@
         <!-- Book tile row -->
         <div class="flex gap-3 -m-1 p-2 overflow-hidden">
           <template v-if="(shelfBooks[shelf.id] || []).length > 0">
-            <BookCover
+            <RouterLink
                 v-for="book in (shelfBooks[shelf.id] || []).slice(0, visibleCount(shelfBooks[shelf.id] || []))"
                 :key="book.id"
-                :title="book.title"
-                :author="book.author"
-                :width="tileWidth"
-                :cover-url="resolvedCoverUrl(book.id, bookCoverUrl(book))"
-                :book-id="book.id"
-                @resolve-cover="onResolveCover"
-                :rating="book.rating"
-                hoverable
-                class="cursor-pointer"
-                @click="goToBook(book.id)"
-            />
-            <div
+                :to="{ name: 'book-detail', params: { id: book.id } }"
+            >
+              <BookCover
+                  :title="book.title"
+                  :author="book.author"
+                  :width="tileWidth"
+                  :cover-url="resolvedCoverUrl(book.id, bookCoverUrl(book))"
+                  :book-id="book.id"
+                  @resolve-cover="onResolveCover"
+                  :rating="book.rating"
+                  hoverable
+              />
+            </RouterLink>
+            <RouterLink
                 v-if="(shelfBooks[shelf.id] || []).length > visibleCount(shelfBooks[shelf.id] || [])"
-                @click="goToShelf(shelf.id)"
+                :to="{ name: 'shelf-detail', params: { id: shelf.id } }"
                 class="flex-none aspect-2/3 rounded-cover bg-surface border border-line flex items-center justify-center cursor-pointer hoverable-card"
                 :style="{ width: tileWidth + 'px' }"
             >
               <span class="t-title text-sm text-ink-dim">+{{
                   (shelfBooks[shelf.id] || []).length - visibleCount(shelfBooks[shelf.id] || [])
                 }}</span>
-            </div>
+            </RouterLink>
           </template>
-          <div
+          <RouterLink
               v-else
-              @click="goToShelf(shelf.id)"
+              :to="{ name: 'shelf-detail', params: { id: shelf.id } }"
               class="flex-none aspect-2/3 rounded-cover bg-surface border border-dashed border-line flex items-center justify-center cursor-pointer hoverable-card"
               :style="{ width: tileWidth + 'px' }"
           >
             <span class="t-meta text-faint text-center px-1">{{ $t('library.empty') }}</span>
-          </div>
+          </RouterLink>
         </div>
       </div>
 
@@ -116,7 +117,6 @@
 
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted, onUnmounted, watch, nextTick} from 'vue';
-import {useRouter} from 'vue-router';
 import {useI18n} from 'vue-i18n';
 import {MinusIcon, ChevronRightIcon} from '@lucide/vue';
 import CreateShelfModal from '@/components/CreateShelfModal.vue';
@@ -153,7 +153,6 @@ export default defineComponent({
       cover_url: string | null;
     }>>>({});
     const loading = ref(true);
-    const router = useRouter();
     const toastMessage = ref('');
     const toastType = ref('');
     const sortBy = ref<'name' | 'created_at' | 'updated_at'>('name');
@@ -262,18 +261,6 @@ export default defineComponent({
       }
     };
 
-    const goToBooks = () => {
-      router.push({name: 'books'});
-    };
-
-    const goToShelf = (shelfId: string) => {
-      router.push({name: 'shelf-detail', params: {id: shelfId}});
-    };
-
-    const goToBook = (bookId: string) => {
-      router.push({name: 'book-detail', params: {id: bookId}});
-    };
-
     const confirmRemoveShelf = (shelfId: string) => {
       pendingDeleteShelfId.value = shelfId;
     };
@@ -319,9 +306,6 @@ export default defineComponent({
       visibleCount,
       pendingDeleteShelfId,
       fetchData,
-      goToBooks,
-      goToShelf,
-      goToBook,
       confirmRemoveShelf,
       removeShelf,
       bookCoverUrl,

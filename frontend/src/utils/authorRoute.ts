@@ -8,8 +8,13 @@ export function isLinkableAuthor(author: string | null | undefined): author is s
   return !!author && author !== UNKNOWN_AUTHOR;
 }
 
-// Author pages are keyed by the exact (url-encoded) author string — there is no
-// author entity. Central helper so the route name/encoding lives in one place.
+// Author pages are keyed by the exact author string — there is no author
+// entity. Central helper so the route name lives in one place. Vue Router
+// encodes the param itself, so do not encode it here.
+export function authorRoute(author: string) {
+  return {name: 'author-detail', params: {name: author}};
+}
+
 export function goToAuthor(router: Router, author: string): void {
-  router.push({name: 'author-detail', params: {name: encodeURIComponent(author)}});
+  router.push(authorRoute(author));
 }

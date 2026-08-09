@@ -10,27 +10,22 @@
         :removable="removable"
         :date-label="dateLabel"
         :date-field="dateField"
-        @view-book="$emit('viewBook', $event)"
         @remove-book="$emit('removeBook', $event)"
-        @view-author="$emit('viewAuthor', $event)"
     />
     <ShelfGridView
         v-else-if="mode === 'grid'"
         :books="books"
         :tile-width="gridTileWidth"
-        @view-book="$emit('viewBook', $event)"
     />
     <ShelfBoardView
         v-else-if="mode === 'shelf'"
         :books="books"
         :spine-height="spineHeight"
         :container-width="containerWidth"
-        @view-book="$emit('viewBook', $event)"
     />
     <ShelfPileView
         v-else
         :books="books"
-        @view-book="$emit('viewBook', $event)"
     />
   </div>
 </template>
@@ -67,9 +62,7 @@ withDefaults(defineProps<{
 });
 
 defineEmits<{
-  viewBook: [id: string];
   removeBook: [id: string];
-  viewAuthor: [author: string];
 }>();
 
 const contentRef = ref<HTMLElement | null>(null);

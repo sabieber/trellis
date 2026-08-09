@@ -1,8 +1,9 @@
 <template>
   <div class="book-pile">
-    <div
+    <RouterLink
         v-for="book in books"
         :key="book.id"
+        :to="{ name: 'book-detail', params: { id: book.id } }"
         class="pile-book"
         :style="{
           height: bookHeight(book) + 'px',
@@ -10,10 +11,9 @@
           background: bookColors(book.title).bg,
           color: bookColors(book.title).text,
         }"
-        @click="$emit('viewBook', book.id)"
     >
       <span class="pile-title">{{ book.title }}</span>
-    </div>
+    </RouterLink>
   </div>
 </template>
 
@@ -34,10 +34,6 @@ const PILE_WIDTH_MAX = 95;
 
 defineProps<{
   books: ShelfBook[];
-}>();
-
-defineEmits<{
-  viewBook: [id: string];
 }>();
 
 function bookHeight(book: ShelfBook): number {
@@ -74,6 +70,7 @@ function bookColors(title: string) {
   padding: 0 16px;
   border-radius: 2px;
   cursor: pointer;
+  text-decoration: none;
   box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.08),
   inset 0 -2px 0 rgb(0 0 0 / 0.18),
   0 1px 2px rgb(0 0 0 / 0.15);

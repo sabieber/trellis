@@ -67,8 +67,6 @@
       <BookLayout
           :books="books"
           :mode="layoutMode"
-          @view-book="viewBookDetail"
-          @view-author="viewAuthor"
       />
 
       <div v-if="books.length < total" class="flex justify-center py-6">
@@ -85,7 +83,6 @@
         v-if="pickerCandidates.length"
         :books="pickerCandidates"
         @close="pickerCandidates = []"
-        @view-book="viewBookDetail"
     />
   </PageContainer>
 </template>
@@ -101,7 +98,6 @@ import RandomBookModal from '@/components/shelf/RandomBookModal.vue';
 import Button from '@/components/ui/Button.vue';
 import FilterSelect from '@/components/ui/FilterSelect.vue';
 import {apiFetch} from '@/api/client';
-import {goToAuthor} from '@/utils/authorRoute';
 import {useLayoutMode} from '@/composables/useLayoutMode';
 import type {ShelfBook} from '@/types/shelf';
 
@@ -240,8 +236,6 @@ watch([shelfId, author, genre, tag], () => {
   fetchBooks();
 });
 
-const viewBookDetail = (id: string) => router.push({name: 'book-detail', params: {id}});
-const viewAuthor = (name: string) => goToAuthor(router, name);
 
 onMounted(() => {
   fetchFilterOptions();

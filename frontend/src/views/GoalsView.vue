@@ -27,13 +27,13 @@
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4">
             <div v-for="goal in section.goals" :key="goal.id" class="bg-surface border border-line rounded-md p-4 hoverable-card">
               <div class="flex justify-between items-start mb-1">
-                <button
+                <RouterLink
                     v-if="goal.goal_type === 'books'"
-                    @click="viewGoalDetail(goal)"
+                    :to="{ name: 'goal-detail', params: { id: goal.id } }"
                     class="t-title text-base leading-tight cursor-pointer hover:text-[#7a9e7e] transition-colors duration-150 text-left"
                 >
                   {{ formatGoalLabel(goal) }}
-                </button>
+                </RouterLink>
                 <h3 v-else class="t-title text-base leading-tight">{{ formatGoalLabel(goal) }}</h3>
                 <button
                     @click="confirmDelete(goal)"
@@ -76,7 +76,6 @@
 
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted} from 'vue';
-import {useRouter} from 'vue-router';
 import {useI18n} from 'vue-i18n';
 import CreateGoalModal from '@/components/CreateGoalModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
@@ -102,7 +101,6 @@ export default defineComponent({
   components: {PlainProgress, CreateGoalModal, ConfirmDialog, PlusIcon, Trash2Icon, Button},
   setup() {
     const {t, locale} = useI18n();
-    const router = useRouter();
     const goals = ref<Goal[]>([]);
     const loading = ref(true);
     const showCreateModal = ref(false);
@@ -187,12 +185,6 @@ export default defineComponent({
       }
     };
 
-    const viewGoalDetail = (goal: Goal) => {
-      if (goal.goal_type === 'books') {
-        router.push({name: 'goal-detail', params: {id: goal.id}});
-      }
-    };
-
     const formatPeriod = (start: string, end: string) =>
         t('goals.periodRange', {from: moment(start).format('MMM D'), to: moment(end).format('MMM D, YYYY')});
 
@@ -221,7 +213,6 @@ export default defineComponent({
       doDelete,
       formatGoalLabel,
       formatPeriod,
-      viewGoalDetail,
     };
   },
 });

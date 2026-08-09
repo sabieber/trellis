@@ -28,8 +28,6 @@
         v-else-if="books.length"
         :books="sortedBooks"
         :mode="layoutMode"
-        @view-book="viewBookDetail"
-        @view-author="viewAuthor"
     />
 
     <div v-else class="t-meta text-center py-12">{{ $t('shelf.noBooks') }}</div>
@@ -38,13 +36,12 @@
 
 <script lang="ts">
 import {defineComponent, ref, computed, onMounted, watch} from 'vue';
-import {useRoute, useRouter} from 'vue-router';
+import {useRoute} from 'vue-router';
 import PageContainer from '@/components/PageContainer.vue';
 import BookLayout from '@/components/shelf/BookLayout.vue';
 import LayoutModeSelect from '@/components/shelf/LayoutModeSelect.vue';
 import {apiFetch} from '@/api/client';
 import {useLayoutMode} from '@/composables/useLayoutMode';
-import {goToAuthor} from '@/utils/authorRoute';
 import type {ShelfBook} from '@/types/shelf';
 
 export default defineComponent({
@@ -53,14 +50,13 @@ export default defineComponent({
   },
   setup() {
     const route = useRoute();
-    const router = useRouter();
     const books = ref<ShelfBook[]>([]);
     const loading = ref(true);
     const sortBy = ref<'added_at' | 'title' | 'author'>('added_at');
     const pageContainer = ref<any>(null);
     const layoutMode = useLayoutMode();
 
-    const authorName = computed(() => decodeURIComponent(route.params.name as string));
+    const authorName = computed(() => route.params.name as string);
 
     const avgRating = computed(() => {
       const rated = books.value.filter((b) => b.rating != null);
@@ -105,12 +101,6 @@ export default defineComponent({
       }
     };
 
-    const viewBookDetail = (id: string) => {
-      router.push({name: 'book-detail', params: {id}});
-    };
-
-    const viewAuthor = (author: string) => goToAuthor(router, author);
-
     onMounted(() => fetchAuthorBooks(authorName.value));
     // Re-fetch when navigating between authors without unmounting the view.
     watch(authorName, (name) => fetchAuthorBooks(name));
@@ -118,7 +108,6 @@ export default defineComponent({
     return {
       books, sortedBooks, loading, sortBy, authorName,
       avgRating, totalPages, layoutMode, pageContainer,
-      viewBookDetail, viewAuthor,
     };
   },
 });
