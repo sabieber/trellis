@@ -33,6 +33,13 @@
           :label="$t('books.filterTag')"
           :no-match-text="$t('books.noMatch')"
       />
+      <FilterSelect
+          v-model="rating"
+          :options="ratingOptions"
+          :all-label="$t('books.allRatings')"
+          :label="$t('books.filterRating')"
+          :no-match-text="$t('books.noMatch')"
+      />
       <Button v-if="hasFilters" variant="ghost" class="col-span-2 px-3.5! py-2! text-[13px]!" @click="clearFilters">
         <XIcon class="size-4"/>
         {{ $t('books.clearFilters') }}
@@ -130,8 +137,10 @@ const shelfId = ref(asQuery(route.query.shelf));
 const author = ref(asQuery(route.query.author));
 const genre = ref(asQuery(route.query.genre));
 const tag = ref(asQuery(route.query.tag));
+const rating = ref(asQuery(route.query.rating));
 
-const hasFilters = computed(() => !!(shelfId.value || author.value || genre.value || tag.value));
+const hasFilters = computed(
+    () => !!(shelfId.value || author.value || genre.value || tag.value || rating.value));
 
 // Authors, genres and tags filter on the value the user reads; a shelf filters
 // on its id, so only that one needs a label of its own. All four are computed
@@ -148,6 +157,14 @@ const genreOptions = computed(
     () => [{value: UNLABELLED, label: t('books.noGenre')}, ...asOptions(genres.value)]);
 const tagOptions = computed(
     () => [{value: UNLABELLED, label: t('books.noTag')}, ...asOptions(tags.value)]);
+// The rating scale is fixed at 1..5, so this list needs nothing from the server.
+const ratingOptions = computed(() => [
+  {value: UNLABELLED, label: t('books.noRating')},
+  ...[5, 4, 3, 2, 1].map((value) => ({
+    value: String(value),
+    label: t('common.ratingAria', {rating: value}),
+  })),
+]);
 
 // Only the newest request may write the list; changing two filters quickly
 // otherwise lets the slower response overwrite the fresher one.
@@ -167,6 +184,7 @@ const fetchBooks = async (append = false) => {
         author: author.value,
         genre: genre.value,
         tag: tag.value,
+        rating: rating.value,
         offset: append ? books.value.length : 0,
       }),
     });
@@ -205,6 +223,7 @@ const openPicker = async () => {
         author: author.value,
         genre: genre.value,
         tag: tag.value,
+        rating: rating.value,
       }),
     });
     if (response.ok) {
@@ -238,10 +257,17 @@ const clearFilters = () => {
   author.value = '';
   genre.value = '';
   tag.value = '';
+  rating.value = '';
 };
 
-watch([shelfId, author, genre, tag], () => {
-  const query = {shelf: shelfId.value, author: author.value, genre: genre.value, tag: tag.value};
+watch([shelfId, author, genre, tag, rating], () => {
+  const query = {
+    shelf: shelfId.value,
+    author: author.value,
+    genre: genre.value,
+    tag: tag.value,
+    rating: rating.value,
+  };
   router.replace({query: Object.fromEntries(Object.entries(query).filter(([, value]) => value))});
   fetchBooks();
 });

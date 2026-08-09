@@ -1018,6 +1018,7 @@ pub struct BrowseRequest {
     pub author: Option<String>,
     pub genre: Option<String>,
     pub tag: Option<String>,
+    pub rating: Option<String>,
     pub offset: Option<i64>,
 }
 
@@ -1025,8 +1026,8 @@ pub struct BrowseRequest {
 /// response carries the total, so it knows when to stop asking.
 const BROWSE_PAGE_SIZE: i64 = 100;
 
-/// Sentinel genre/tag filter value meaning "no label of this kind at all". It
-/// rides in the same field as a real label so the whole filter path — URL state,
+/// Sentinel genre/tag/rating filter value meaning "nothing set at all". It rides
+/// in the same field as a real value so the whole filter path — URL state,
 /// browse, random picker — stays one mechanism.
 /// ponytail: a user who names a label exactly this string collides with it;
 /// give the filter its own boolean field if that ever happens.
@@ -1039,6 +1040,8 @@ struct BrowseFilters {
     author: Option<String>,
     genre: Option<String>,
     tag: Option<String>,
+    /// Outer `None` does not filter; inner `None` means "no rating set".
+    rating: Option<Option<i16>>,
 }
 
 /// Builds the filtered book query. Called once for the count and once for the
@@ -1067,6 +1070,12 @@ fn browse_query<'a>(
     if let Some(ref author) = filters.author {
         query = query.filter(b::author.eq(author.clone()));
     }
+
+    query = match filters.rating {
+        Some(Some(rating)) => query.filter(b::rating.eq(rating)),
+        Some(None) => query.filter(b::rating.is_null()),
+        None => query,
+    };
 
     for (kind, value) in [
         (LabelKind::Genre, &filters.genre),
@@ -1112,12 +1121,24 @@ fn parse_browse_filters(
         None => None,
     };
 
+    // The column only ever holds 1..=5, so anything else is a bad request rather
+    // than an empty result.
+    let rating = match normalize(payload.rating.clone()) {
+        Some(raw) if raw == UNLABELLED => Some(None),
+        Some(raw) => match raw.parse::<i16>() {
+            Ok(value) if (1..=5).contains(&value) => Some(Some(value)),
+            _ => return Err("Invalid rating."),
+        },
+        None => None,
+    };
+
     Ok(BrowseFilters {
         user_id,
         shelf_id,
         author: normalize(payload.author.clone()),
         genre: normalize(payload.genre.clone()),
         tag: normalize(payload.tag.clone()),
+        rating,
     })
 }
 
