@@ -275,7 +275,6 @@ export default defineComponent({
   setup() {
     const {t} = useI18n();
     const route = useRoute();
-    const router = useRouter();
     const book = ref<BookSearchResult | null>(null);
     const readings = ref<Array<{
       id: string;
