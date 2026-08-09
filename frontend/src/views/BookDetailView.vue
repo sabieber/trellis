@@ -112,8 +112,15 @@
           </aside>
 
           <!-- Full width below the description/rail grid: wrapping badges look
-               cramped inside the one-third rail. -->
-          <div class="mt-8 flex flex-col gap-5 lg:col-span-3 lg:row-start-2">
+               cramped inside the one-third rail. Without a description the
+               first row's left cell is empty, so the labels move up into it
+               instead of leaving the rail's height as a gap. -->
+          <div
+              class="mt-8 flex flex-col gap-5"
+              :class="book.description
+                  ? 'lg:col-span-3 lg:row-start-2'
+                  : 'lg:col-span-2 lg:col-start-1 lg:row-start-1 lg:mt-0'"
+          >
             <BookLabels
                 :title="$t('bookDetail.genres')"
                 :labels="labels.genre"
