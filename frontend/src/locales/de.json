@@ -180,7 +180,8 @@
     "link": "Mit Katalog verknüpfen",
     "relink": "Katalogeintrag ändern",
     "linked": "Katalogeintrag verknüpft.",
-    "conflict": "Ein anderes Buch ist bereits mit diesem Eintrag verknüpft."
+    "conflict": "Ein anderes Buch ist bereits mit diesem Eintrag verknüpft.",
+    "preview": "Eintrag in neuem Tab ansehen"
   },
   "shelfModal": {
     "newShelf": "Neues Regal",

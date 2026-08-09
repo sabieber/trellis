@@ -29,34 +29,47 @@
       </div>
 
       <div v-else-if="books.length" class="flex flex-col max-h-96 overflow-y-auto">
-        <button
+        <div
             v-for="book in books"
-            :key="`${book.source}:${book.source_id}`"
-            type="button"
-            class="flex gap-3 py-2.5 text-left border-b border-line-soft cursor-pointer group"
-            :disabled="submitting"
-            @click="$emit('select', book)"
+            :key="book.id"
+            class="flex items-center gap-2 border-b border-line-soft group"
         >
-          <BookCover
-              :title="book.title || $t('common.untitled')"
-              :author="book.authors?.join(', ') || ''"
-              :width="46"
-              :cover-url="book.cover_url"
-              hoverable
-          />
-          <div class="min-w-0 flex flex-col justify-center">
-            <div class="flex items-center gap-2 min-w-0">
-              <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
-              <span class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border border-line text-muted">{{ $t(`search.source.${book.source}`) }}</span>
+          <button
+              type="button"
+              class="flex gap-3 py-2.5 flex-1 min-w-0 text-left cursor-pointer"
+              :disabled="submitting"
+              @click="$emit('select', book)"
+          >
+            <BookCover
+                :title="book.title || $t('common.untitled')"
+                :author="book.authors?.join(', ') || ''"
+                :width="46"
+                :cover-url="book.cover_url"
+                hoverable
+            />
+            <div class="min-w-0 flex flex-col justify-center">
+              <div class="flex items-center gap-2 min-w-0">
+                <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
+                <span class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border border-line text-muted">{{ $t(`search.source.${book.source}`) }}</span>
+              </div>
+              <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
+              <p class="t-meta mt-1">
+                {{ book.published_year }}
+                <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
+                <span v-if="book.category"> · {{ book.category }}</span>
+              </p>
             </div>
-            <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
-            <p class="t-meta mt-1">
-              {{ book.published_year }}
-              <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
-              <span v-if="book.category"> · {{ book.category }}</span>
-            </p>
-          </div>
-        </button>
+          </button>
+          <RouterLink
+              :to="{ name: 'search-detail', params: { id: book.id } }"
+              target="_blank"
+              class="flex items-center justify-center size-8 rounded-full flex-none text-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+              :title="$t('linkCatalog.preview')"
+              :aria-label="$t('linkCatalog.preview')"
+          >
+            <ArrowUpRightIcon class="size-4"/>
+          </RouterLink>
+        </div>
       </div>
 
       <p v-else-if="hasSearched" class="t-meta text-center py-6">{{ $t('search.emptyTitle') }}</p>
@@ -71,14 +84,14 @@
 
 <script lang="ts">
 import {defineComponent, onMounted, ref} from 'vue';
-import {SearchIcon} from '@lucide/vue';
+import {SearchIcon, ArrowUpRightIcon} from '@lucide/vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
 import {searchBooks} from '@/api/bookApi';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
-  components: {SearchIcon, BookCover, Button},
+  components: {SearchIcon, ArrowUpRightIcon, BookCover, Button},
   props: {
     initialQuery: {
       type: String,

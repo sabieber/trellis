@@ -180,7 +180,8 @@
     "link": "Link to catalog",
     "relink": "Change catalog record",
     "linked": "Catalog record linked.",
-    "conflict": "Another book is already linked to this record."
+    "conflict": "Another book is already linked to this record.",
+    "preview": "Open record in a new tab"
   },
   "shelfModal": {
     "newShelf": "New Shelf",
