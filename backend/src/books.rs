@@ -1099,38 +1099,48 @@ pub(crate) async fn suggest_labels(auth: AuthUser) -> impl IntoResponse {
 }
 
 /// Request type for listing all of a user's books by a given author. The author
-/// is a free-text string matched exactly, mirroring how the stats "Top Authors"
-/// grouping treats authors (there is no author entity).
+/// is a free-text string, matched as described on `books_by_author` (there is no
+/// author entity).
 #[derive(Debug, Deserialize)]
 pub struct AuthorBooksRequest {
     pub author: String,
 }
 
-/// Lists the current user's books whose `author` equals the requested string.
+/// Loads the current user's books by one author, newest first.
+///
+/// The spelling of an author name is not one thing: a GoodReads import writes
+/// "J.R.R. Tolkien", the catalogs write "J. R. R. Tolkien", and an author page
+/// is reached from both — from a shelf row, which carries the stored string, and
+/// from a book detail, which carries the catalog's. So the match ignores case,
+/// punctuation and spacing. It also holds a shelf together when the same author
+/// arrived under two spellings.
+/// ponytail: normalizing in Rust means loading the user's books and filtering
+/// them here. A personal library is small; give the column a normalized twin and
+/// an index if that ever stops being true.
+pub(crate) fn books_by_author(user_id: Uuid, author: &str) -> Vec<Book> {
+    let wanted = crate::open_library_client::squashed(author);
+    let conn = &mut connect();
+    books
+        .filter(schema::books::dsl::user.eq(user_id))
+        .order(schema::books::dsl::added_at.desc())
+        .select(Book::as_select())
+        .load::<Book>(conn)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|book| {
+            book.author
+                .as_deref()
+                .is_some_and(|name| crate::open_library_client::squashed(name) == wanted)
+        })
+        .collect()
+}
+
+/// Lists the current user's books by the requested author.
 pub(crate) async fn list_author_books(
     auth: AuthUser,
     Json(payload): Json<AuthorBooksRequest>,
 ) -> impl IntoResponse {
-    let connection = &mut connect();
-
-    let results = match books
-        .filter(schema::books::dsl::user.eq(auth.0))
-        .filter(schema::books::dsl::author.eq(&payload.author))
-        .order(schema::books::dsl::added_at.desc())
-        .select(Book::as_select())
-        .load::<Book>(connection)
-    {
-        Ok(r) => r,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!(ErrorResponse {
-                    error: format!("Error loading books: {}", e)
-                })),
-            )
-        }
-    };
-
+    let results = books_by_author(auth.0, &payload.author);
     let json_books: Vec<_> = results.iter().map(book_json).collect();
 
     (

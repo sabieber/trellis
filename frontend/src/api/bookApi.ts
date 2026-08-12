@@ -72,6 +72,39 @@ export const fetchSeries = async (
   }
 }
 
+export interface AuthorLink {
+  title: string
+  url: string
+}
+
+export interface AuthorInfo {
+  key: string
+  name: string
+  bio: string | null
+  birth_date: string | null
+  death_date: string | null
+  photo_url: string | null
+  alternate_names: string[]
+  links: AuthorLink[]
+  work_count: number | null
+  // The author's most-read works, minus the ones the user owns.
+  works: BookSearchResult[]
+}
+
+// Null when Open Library knows no author under that name — the screen works
+// without it.
+export const fetchAuthorInfo = async (name: string): Promise<AuthorInfo | null> => {
+  try {
+    const response = await apiFetch(`/api/authors/info?name=${encodeURIComponent(name)}`)
+    if (response.ok) {
+      return await response.json()
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 export const resolveGoogleId = async (bookId: string): Promise<string | null> => {
   try {
     const response = await apiFetch('/api/books/resolve-google-id', {

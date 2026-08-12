@@ -14,28 +14,7 @@
     <div v-else-if="books.length">
       <!-- Series members are external catalog hits — link to the
            external-lookup detail view (mirrors SearchView), not book-detail. -->
-      <RouterLink
-          v-for="book in books"
-          :key="book.id"
-          class="flex gap-3 py-2.5 border-b border-line-soft cursor-pointer group"
-          :to="{ name: 'search-detail', params: { id: book.id } }"
-      >
-        <BookCover
-            :title="book.title || $t('common.untitled')"
-            :author="book.authors?.join(', ') || ''"
-            :width="46"
-            :cover-url="book.cover_url"
-            hoverable
-        />
-        <div class="min-w-0 flex flex-col justify-center">
-          <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">{{ book.title }}</h3>
-          <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
-          <p class="t-meta mt-1">
-            {{ book.published_year }}
-            <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
-          </p>
-        </div>
-      </RouterLink>
+      <BookResultRow v-for="book in books" :key="book.id" :book="book"/>
     </div>
 
     <div v-else class="t-meta text-center py-12">{{ $t('series.empty') }}</div>
@@ -46,12 +25,12 @@
 import {defineComponent, ref, computed, onMounted, watch} from 'vue';
 import {useRoute} from 'vue-router';
 import PageContainer from '@/components/PageContainer.vue';
-import BookCover from '@/components/ui/BookCover.vue';
+import BookResultRow from '@/components/ui/BookResultRow.vue';
 import {fetchSeries} from '@/api/bookApi';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
-  components: {PageContainer, BookCover},
+  components: {PageContainer, BookResultRow},
   setup() {
     const route = useRoute();
     const books = ref<BookSearchResult[]>([]);

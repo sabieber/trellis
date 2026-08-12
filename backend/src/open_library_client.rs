@@ -1,5 +1,6 @@
 use crate::book_search::{DetailBook, NormalizedBook, SeriesRef};
 use reqwest::Client;
+use serde::Serialize;
 use serde_json::Value;
 
 const OL_BASE: &str = "https://openlibrary.org";
@@ -464,6 +465,301 @@ pub async fn resolve_cover_by_isbn(client: &Client, isbn: &str) -> Option<String
     first_cover_url(&work)
 }
 
+/// An outbound link for an author: the author's own pages from the record's
+/// `links`, plus the reader-facing sites from its `remote_ids`.
+#[derive(Debug, Serialize)]
+pub struct AuthorLink {
+    pub title: String,
+    pub url: String,
+}
+
+/// The reader-facing sites we build a link for out of an author's `remote_ids`.
+/// The rest of that map is library-science plumbing (viaf, isni, gnd, …) that no
+/// reader follows.
+const REMOTE_ID_SITES: [(&str, &str, &str); 5] = [
+    ("goodreads", "Goodreads", "https://www.goodreads.com/author/show/"),
+    ("librarything", "LibraryThing", "https://www.librarything.com/author/"),
+    ("storygraph", "The StoryGraph", "https://app.thestorygraph.com/authors/"),
+    ("amazon", "Amazon", "https://www.amazon.com/-/e/"),
+    ("wikidata", "Wikidata", "https://www.wikidata.org/wiki/"),
+];
+
+/// The public Open Library record for an author. Every field beside the key and
+/// the name is optional — author records are sparse.
+#[derive(Debug, Serialize)]
+pub struct AuthorInfo {
+    pub key: String,
+    pub name: String,
+    /// Rendered and sanitized HTML, same treatment as a work's description.
+    pub bio: Option<String>,
+    pub birth_date: Option<String>,
+    pub death_date: Option<String>,
+    pub photo_url: Option<String>,
+    /// Pen names and spelling variants, minus the ones that only re-order or
+    /// re-case the name itself.
+    pub alternate_names: Vec<String>,
+    pub links: Vec<AuthorLink>,
+    /// Works Open Library knows, not works the user owns.
+    pub work_count: Option<u64>,
+    /// The author's most-read works, in Open Library's reading-log order. The
+    /// caller drops the ones the user owns.
+    pub works: Vec<NormalizedBook>,
+}
+
+/// How many of the author's works the works search asks for. The caller drops
+/// the owned ones from this list, so it must hold more than a screen's worth.
+const AUTHOR_WORKS_LIMIT: &str = "16";
+
+/// Resolves an author by display name: one work search for the author key, then
+/// the author record and a works search on that key.
+///
+/// The author record must carry the requested name (see `same_name`), otherwise
+/// the search's best guess is dropped. A wrong biography is worse than none.
+///
+/// This goes through the work search, not `/search/authors.json`: the author
+/// search answered the same query in 4s and in 83s on two tries, the work search
+/// in 1s.
+/// ponytail: no cache, three requests per page view. Add one if Open Library
+/// throttles us.
+pub async fn find_author(client: &Client, name: &str) -> Option<AuthorInfo> {
+    let key = resolve_author_key(client, name).await?;
+
+    // The works search doubles as the work count. The count must come from a
+    // search on the key, not from the name search above: a name query only
+    // counts the works spelling the name the same way (27 of J. K. Rowling's
+    // 418).
+    let (record, (works, work_count)) =
+        tokio::join!(fetch_author_record(client, &key), fetch_works(client, &key));
+    let record = record?;
+    let record_name = record["name"].as_str()?;
+    let alternates = record["alternate_names"]
+        .as_array()
+        .map(|a| a.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+        .unwrap_or_default();
+    if !same_name(name, record_name) && !alternates.iter().any(|alt| same_name(name, alt)) {
+        return None;
+    }
+
+    Some(AuthorInfo {
+        name: record_name.to_string(),
+        bio: record["bio"]
+            .as_str()
+            .or_else(|| record["bio"]["value"].as_str())
+            .map(render_ol_description),
+        birth_date: record["birth_date"].as_str().map(String::from),
+        death_date: record["death_date"].as_str().map(String::from),
+        // A deleted photo is stored as a negative id, so filter before formatting.
+        photo_url: record["photos"]
+            .as_array()
+            .and_then(|a| a.iter().filter_map(Value::as_i64).find(|id| *id > 0))
+            .map(|id| format!("https://covers.openlibrary.org/a/id/{}-M.jpg", id)),
+        alternate_names: pick_alternate_names(record_name, &alternates),
+        links: collect_links(&record),
+        work_count,
+        works,
+        key,
+    })
+}
+
+/// Keeps the alternate names that say something new: a pen name or a foreign
+/// spelling. Drops the ones that only re-order or re-case the words of the name
+/// itself ("King, Stephen"), the duplicates among themselves, and the long
+/// composite entries that Open Library's importers leave behind.
+/// ponytail: length cap as the junk filter. Nothing shorter distinguishes
+/// "King, Stephen (1947- )" from a real variant.
+fn pick_alternate_names(name: &str, alternates: &[&str]) -> Vec<String> {
+    let name_words = word_set(name);
+    let mut seen = vec![name_words.clone()];
+    // A name sharing no word with the record's own is a pen name ("Robert
+    // Galbraith"), which is the interesting kind. Those go first, so the limit
+    // below cuts the spelling variants instead of them.
+    let (mut pen_names, mut variants) = (Vec::new(), Vec::new());
+    for alt in alternates {
+        let words = word_set(alt);
+        if alt.chars().count() > 40 || words.is_empty() || seen.contains(&words) {
+            continue;
+        }
+        if words.iter().any(|w| name_words.contains(w)) {
+            variants.push(alt.to_string());
+        } else {
+            pen_names.push(alt.to_string());
+        }
+        seen.push(words);
+    }
+    pen_names.append(&mut variants);
+    pen_names.truncate(5);
+    pen_names
+}
+
+/// The words of a name, lowercased, stripped of punctuation and sorted, so two
+/// orderings of the same name compare equal.
+fn word_set(s: &str) -> Vec<String> {
+    let mut words: Vec<String> = s
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    words.sort();
+    words.dedup();
+    words
+}
+
+/// Collects the author's outbound links: the record's own `links` first (the
+/// official site, encyclopedia entries), then the reader-facing `remote_ids`.
+fn collect_links(record: &Value) -> Vec<AuthorLink> {
+    let mut links: Vec<AuthorLink> = record["links"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|l| {
+                    let url = l["url"].as_str()?;
+                    // Only web links reach the frontend's href.
+                    if !url.starts_with("http://") && !url.starts_with("https://") {
+                        return None;
+                    }
+                    // Editors park housekeeping links on the record
+                    // ("needs-merge-openlibrary"), and the author's own Open
+                    // Library page is a link the caller adds itself.
+                    if url.contains("openlibrary.org") {
+                        return None;
+                    }
+                    Some(AuthorLink {
+                        title: l["title"].as_str().unwrap_or("Link").to_string(),
+                        url: url.to_string(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    for (field, title, prefix) in REMOTE_ID_SITES {
+        if let Some(id) = record["remote_ids"][field].as_str() {
+            links.push(AuthorLink {
+                title: title.to_string(),
+                url: format!("{}{}", prefix, id),
+            });
+        }
+    }
+
+    links
+}
+
+/// Finds the Open Library key of the author with this name.
+///
+/// The work search answers first because it is the quick one (~1s, against 4s
+/// and 83s measured on two tries of the author search). It matches the author
+/// name literally though, so a work by "J.R.R. Tolkien" is no hit for "J. R. R.
+/// Tolkien" — and the top hit for that spelling is a conference named after him.
+/// When no name in its results is the one we asked for, the author search
+/// decides: that endpoint knows the spellings, and only the odd names pay its
+/// latency.
+async fn resolve_author_key(client: &Client, name: &str) -> Option<String> {
+    let url = format!("{}/search.json", OL_BASE);
+    let body = get_json(
+        client,
+        &url,
+        &[
+            ("q", format!("author:\"{}\"", name.replace('"', "")).as_str()),
+            ("limit", "5"),
+            ("fields", "author_key,author_name"),
+        ],
+    )
+    .await;
+
+    // A work lists every one of its authors, and `author_key` and `author_name`
+    // are parallel arrays — so the key we want sits at the index of the matching
+    // name, which is not always the first.
+    if let Some(body) = body {
+        let hit = body["docs"].as_array().into_iter().flatten().find_map(|doc| {
+            let names = doc["author_name"].as_array()?;
+            let index = names
+                .iter()
+                .position(|n| n.as_str().is_some_and(|n| same_name(name, n)))?;
+            doc["author_key"].as_array()?.get(index)?.as_str().map(String::from)
+        });
+        if hit.is_some() {
+            return hit;
+        }
+    }
+
+    let url = format!("{}/search/authors.json", OL_BASE);
+    let body = get_json(client, &url, &[("q", name), ("limit", "5")]).await?;
+    body["docs"].as_array()?.iter().find_map(|doc| {
+        if same_name(name, doc["name"].as_str()?) {
+            doc["key"].as_str().map(|k| k.trim_start_matches("/authors/").to_string())
+        } else {
+            None
+        }
+    })
+}
+
+/// GETs a JSON body, or `None` on any failure. Every Open Library call is
+/// optional enrichment, so a failure is an absent panel, never an error.
+async fn get_json(client: &Client, url: &str, query: &[(&str, &str)]) -> Option<Value> {
+    let resp = client
+        .get(url)
+        .query(query)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    resp.json().await.ok()
+}
+
+/// Compares two author names without case, punctuation and spacing, so
+/// "J.K. Rowling" matches "J. K. Rowling".
+fn same_name(a: &str, b: &str) -> bool {
+    squashed(a) == squashed(b)
+}
+
+/// A title or name stripped to its lowercase alphanumerics, for comparing two
+/// spellings of the same thing. Two catalogs differ on apostrophes, hyphens and
+/// spacing ("Philosopher's" vs "Philosopher’s") far more often than on letters.
+pub fn squashed(s: &str) -> String {
+    s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+}
+
+/// Searches the works filed under an author key, most-read first, and returns
+/// them together with the total the search reports.
+async fn fetch_works(client: &Client, key: &str) -> (Vec<NormalizedBook>, Option<u64>) {
+    let url = format!("{}/search.json", OL_BASE);
+    let body = match get_json(
+        client,
+        &url,
+        &[
+            ("q", format!("author_key:{}", key).as_str()),
+            ("limit", AUTHOR_WORKS_LIMIT),
+            ("sort", "readinglog"),
+            (
+                "fields",
+                "key,title,cover_i,first_publish_year,author_name,number_of_pages_median",
+            ),
+        ],
+    )
+    .await
+    {
+        Some(b) => b,
+        None => return (vec![], None),
+    };
+
+    let works = body["docs"]
+        .as_array()
+        .map(|docs| docs.iter().filter_map(normalize_search_doc).collect())
+        .unwrap_or_default();
+
+    (works, body["numFound"].as_u64())
+}
+
+/// Fetches the raw author record. `bio` is a plain string on older records and a
+/// `{type, value}` object on newer ones, so the caller reads both shapes.
+async fn fetch_author_record(client: &Client, key: &str) -> Option<Value> {
+    let url = format!("{}/authors/{}.json", OL_BASE, key);
+    get_json(client, &url, &[]).await
+}
+
 /// Formats the ISBN-based Open Library covers URL. Used as a last-resort
 /// fallback when no `covers` id could be resolved for an edition or work.
 pub fn cover_url_from_isbn(isbn: &str) -> String {
@@ -666,6 +962,81 @@ fn normalize_work(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pick_alternate_names_drops_reorderings_and_junk() {
+        let alternates = vec![
+            "Stephen king",             // only case
+            "King, Stephen",            // only order
+            "Richard Bachman",          // pen name — keep
+            "Stiven King",              // foreign spelling — keep
+            "Richard Bachman ( LI CHA BA HE MAN ) . Stephen King ( SI DI FEN", // junk
+        ];
+        assert_eq!(
+            pick_alternate_names("Stephen King", &alternates),
+            vec!["Richard Bachman", "Stiven King"]
+        );
+    }
+
+    #[test]
+    fn collect_links_takes_record_links_and_known_remote_ids() {
+        let record = serde_json::json!({
+            "links": [
+                {"title": "Official Site", "url": "https://jkrowling.com/"},
+                {"title": "Broken", "url": "javascript:alert(1)"},
+            ],
+            "remote_ids": {"goodreads": "1077326", "viaf": "116796842"},
+        });
+        let links = collect_links(&record);
+        assert_eq!(links.len(), 2);
+        assert_eq!(links[0].url, "https://jkrowling.com/");
+        assert_eq!(links[1].url, "https://www.goodreads.com/author/show/1077326");
+    }
+
+    #[test]
+    fn same_name_ignores_case_punctuation_and_spacing() {
+        assert!(same_name("J.K. Rowling", "J. K. Rowling"));
+        assert!(same_name("stephen king", "Stephen King"));
+        assert!(!same_name("Stephen King", "Stephen Fry"));
+    }
+
+    #[test]
+    fn squashed_ignores_the_apostrophe_two_catalogs_disagree_on() {
+        assert_eq!(
+            squashed("Harry Potter and the Philosopher's Stone"),
+            squashed("Harry Potter and the Philosopher\u{2019}s Stone")
+        );
+    }
+
+    #[tokio::test]
+    #[ignore = "requires network"]
+    async fn known_author_returns_bio_and_photo() {
+        let info = find_author(&Client::new(), "Stephen King").await.unwrap();
+        assert_eq!(info.key, "OL19981A");
+        assert!(info.bio.unwrap().contains("horror"));
+        assert!(info.photo_url.unwrap().starts_with("https://covers.openlibrary.org/a/id/"));
+        assert!(info.work_count.unwrap() > 0);
+        assert!(!info.works.is_empty());
+        assert!(info.links.iter().any(|l| l.title == "Goodreads"));
+    }
+
+    /// The work search matches the author name literally, so this spelling finds
+    /// a conference named after him instead. The author search has to catch it.
+    #[tokio::test]
+    #[ignore = "requires network"]
+    async fn author_spelled_unlike_the_catalog_still_resolves() {
+        let info = find_author(&Client::new(), "J. R. R. Tolkien").await.unwrap();
+        assert_eq!(info.key, "OL26320A");
+        assert_eq!(info.name, "J.R.R. Tolkien");
+    }
+
+    #[tokio::test]
+    #[ignore = "requires network"]
+    async fn unknown_author_returns_none() {
+        assert!(find_author(&Client::new(), "Qzxwv Nonexistent Author")
+            .await
+            .is_none());
+    }
 
     #[tokio::test]
     async fn empty_isbn_lookup_returns_none() {

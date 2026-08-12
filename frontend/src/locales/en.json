@@ -95,7 +95,15 @@
   "author": {
     "bookCount": "{n} books",
     "avgRating": "avg rating {r}",
-    "totalPages": "{n} pages"
+    "totalPages": "{n} pages",
+    "born": "born {date}",
+    "died": "died {date}",
+    "coverage": "you own {owned} of {total} works",
+    "alsoKnownAs": "also writes as {names}",
+    "onYourShelf": "On your shelf",
+    "moreWorks": "More by this author",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "series": {
     "bookCount": "{n} books",

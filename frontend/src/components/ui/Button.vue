@@ -1,9 +1,13 @@
-<!-- Primary / ghost / soft button. Pass `to` when it navigates: it then renders
-     a real link, which is what gives right-click "open in new tab". -->
+<!-- Primary / ghost / soft button. Pass `to` when it navigates inside the app and
+     `href` when it leaves it: both render a real link, which is what gives
+     right-click "open in new tab". -->
 <template>
   <component
-      :is="to ? RouterLink : 'button'"
+      :is="to ? RouterLink : (href ? 'a' : 'button')"
       :to="to"
+      :href="href"
+      :target="href ? '_blank' : undefined"
+      :rel="href ? 'noopener' : undefined"
       class="button"
       :class="[`button--${variant}`, { 'button--block': block, 'button--icon': icon }]"
   >
@@ -20,8 +24,9 @@ withDefaults(
       block?: boolean;
       icon?: boolean; // square 42px icon-only button
       to?: RouteLocationRaw;
+      href?: string; // external target; opens in a new tab
     }>(),
-    {variant: 'primary', block: false, icon: false, to: undefined},
+    {variant: 'primary', block: false, icon: false, to: undefined, href: undefined},
 );
 </script>
 

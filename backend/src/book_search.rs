@@ -69,11 +69,74 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/books/external/{source}/{id}", get(external_detail))
         .route("/api/books/editions/{id}", get(work_editions))
         .route("/api/series/{key}", get(series_detail))
+        .route("/api/authors/info", get(author_info))
 }
 
 #[derive(Deserialize)]
 pub struct SearchQuery {
     pub query: String,
+}
+
+#[derive(Deserialize)]
+pub struct AuthorQuery {
+    pub name: String,
+}
+
+/// Open Library's public record for an author, keyed by the display name the
+/// user's own books carry. Responds with `null` when no record matches, which
+/// the author screen renders as "nothing to show" rather than as an error.
+///
+/// The works in the response are the ones the user does not own yet — that is
+/// what makes them worth a row on a screen whose other half is the shelf.
+pub(crate) async fn author_info(
+    auth: AuthUser,
+    Query(params): Query<AuthorQuery>,
+) -> impl IntoResponse {
+    let client = Client::new();
+    let mut info = match crate::open_library_client::find_author(&client, &params.name).await {
+        Some(i) => i,
+        None => return (StatusCode::OK, Json(Value::Null)),
+    };
+
+    let owned = crate::books::books_by_author(auth.0, &params.name);
+    info.works.retain(|work| !owns_work(&owned, work));
+
+    (StatusCode::OK, Json(json!(info)))
+}
+
+/// Matches an Open Library work against the user's books by the stored catalog
+/// id first, then by title.
+/// ponytail: a translation carries neither the work key nor the original title,
+/// so "Harry Potter und der Feuerkelch" does not hide "…and the Goblet of Fire".
+/// Linking the book to its work in the catalog is what fixes that, per book.
+fn owns_work(owned: &[Book], work: &NormalizedBook) -> bool {
+    let work_key = work.source_id.trim_start_matches('/');
+    owned.iter().any(|book| {
+        book.open_library_id
+            .as_deref()
+            .is_some_and(|id| id.trim_start_matches('/') == work_key)
+            || book
+                .title
+                .as_deref()
+                .is_some_and(|title| same_title(title, &work.title))
+    })
+}
+
+/// Compares a shelved title against a catalog title. Either one may carry what
+/// the other leaves out — a GoodReads import appends the series ("… Prisoner of
+/// Azkaban (Harry Potter, #3)") and the printing ("… Chamber of Secrets:
+/// MinaLima Edition") — so a prefix in either direction counts as a match.
+/// ponytail: a short catalog title ("Fantastic Beasts") is a prefix of a longer
+/// owned one and hides itself. The length floor keeps that to whole titles.
+fn same_title(owned: &str, work: &str) -> bool {
+    let (owned, work) = (
+        crate::open_library_client::squashed(owned),
+        crate::open_library_client::squashed(work),
+    );
+    if owned.len().min(work.len()) < 10 {
+        return owned == work;
+    }
+    owned.starts_with(&work) || work.starts_with(&owned)
 }
 
 pub(crate) async fn unified_search(
@@ -460,6 +523,31 @@ mod tests {
     use super::*;
     use axum::Router;
     use tower::ServiceExt;
+
+    #[test]
+    fn same_title_matches_across_import_suffixes_and_punctuation() {
+        // GoodReads appends the series, Open Library does not.
+        assert!(same_title(
+            "Harry Potter and the Prisoner of Azkaban (Harry Potter, #3)",
+            "Harry Potter and the Prisoner of Azkaban"
+        ));
+        // The printing is part of the shelved title only.
+        assert!(same_title(
+            "Harry Potter and the Chamber of Secrets: MinaLima Edition",
+            "Harry Potter and the Chamber of Secrets"
+        ));
+        // The two catalogs disagree on the apostrophe.
+        assert!(same_title(
+            "Harry Potter and the Philosopher\u{2019}s Stone",
+            "Harry Potter and the Philosopher's Stone"
+        ));
+        assert!(!same_title(
+            "Harry Potter und der Feuerkelch",
+            "Harry Potter and the Goblet of Fire"
+        ));
+        // Below the length floor only a full match counts.
+        assert!(!same_title("Beasts and more", "Beasts"));
+    }
 
     #[test]
     fn merge_deduplicates_by_isbn() {
