@@ -26,6 +26,7 @@
     <ShelfPileView
         v-else
         :books="books"
+        :container-width="containerWidth"
     />
   </div>
 </template>
