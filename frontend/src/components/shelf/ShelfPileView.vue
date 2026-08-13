@@ -5,7 +5,7 @@
     <RouterLink
         v-for="(book, i) in books"
         :key="book.id"
-        :to="{ name: 'book-detail', params: { id: book.id } }"
+        :to="bookRoute(book)"
         class="pile-link"
     >
       <PileBook
@@ -29,6 +29,7 @@ import PileBook from '@/components/ui/PileBook.vue';
 import {spineWidthForTitle} from '@/utils/bookColorway';
 import {TILT_CLOSED_DEG, TILT_OPEN_DEG} from '@/utils/bookStack';
 import {bookCoverUrl} from '@/utils/coverUrl';
+import {bookRoute} from '@/utils/bookRoute';
 import {useBookCovers} from '@/composables/useBookCovers';
 import type {ShelfBook} from '@/types/shelf';
 

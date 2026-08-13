@@ -3,7 +3,7 @@
     <RouterLink
         v-for="book in books"
         :key="book.id"
-        :to="{ name: 'book-detail', params: { id: book.id } }"
+        :to="bookRoute(book)"
     >
       <BookCover
           :title="book.title"
@@ -22,6 +22,7 @@
 <script setup lang="ts">
 import BookCover from '@/components/ui/BookCover.vue';
 import {bookCoverUrl} from '@/utils/coverUrl';
+import {bookRoute} from '@/utils/bookRoute';
 import {useBookCovers} from '@/composables/useBookCovers';
 import type {ShelfBook} from '@/types/shelf';
 

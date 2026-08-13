@@ -18,7 +18,7 @@
         <h3 class="t-title text-[15px] md:text-base truncate group-hover:text-green-soft transition-colors duration-150">
           <RouterLink
               class="stretched-link"
-              :to="{ name: 'book-detail', params: { id: book.id } }"
+              :to="bookRoute(book)"
           >{{ book.title }}</RouterLink>
         </h3>
         <p class="t-meta mt-0.5">
@@ -43,6 +43,7 @@ import {MinusIcon} from '@lucide/vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Rating from '@/components/ui/Rating.vue';
 import {bookCoverUrl} from '@/utils/coverUrl';
+import {bookRoute} from '@/utils/bookRoute';
 import {authorRoute} from '@/utils/authorRoute';
 import {useBookCovers} from '@/composables/useBookCovers';
 import moment from 'moment';

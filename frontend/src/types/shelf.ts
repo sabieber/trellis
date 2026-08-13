@@ -1,5 +1,12 @@
+import type {BookSearchResult} from '@/types/book';
+
 export interface ShelfBook {
   id: string;
+  /**
+   * Set only on a catalog hit the shelf layouts render (see `asShelfBook`).
+   * A book of the user's own leaves it out.
+   */
+  source?: BookSearchResult['source'];
   title: string;
   author: string;
   isbn13: string | null;

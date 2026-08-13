@@ -7,7 +7,7 @@
         <RouterLink
             v-for="(book, bi) in row.books"
             :key="book.id"
-            :to="{ name: 'book-detail', params: { id: book.id } }"
+            :to="bookRoute(book)"
             class="spine-link"
         >
         <BookSpine
@@ -32,6 +32,7 @@
 import {computed} from 'vue';
 import BookSpine from '@/components/ui/BookSpine.vue';
 import {bookCoverUrl} from '@/utils/coverUrl';
+import {bookRoute} from '@/utils/bookRoute';
 import {packShelfRows} from '@/utils/shelfRows';
 import {useBookCovers} from '@/composables/useBookCovers';
 import type {ShelfBook} from '@/types/shelf';

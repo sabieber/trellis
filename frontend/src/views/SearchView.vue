@@ -44,47 +44,39 @@
       <!-- Results and the trending list are the same rows; only the heading
            tells them apart. -->
       <div v-else-if="displayedBooks.length">
-        <h2 v-if="!books.length" class="t-title text-sm text-muted uppercase tracking-wide mb-3">{{ $t('search.trending') }}</h2>
-        <template v-for="book in displayedBooks" :key="book.id">
-          <!-- The row carries its own edition toggle, so the anchor sits on the
-               title and its ::after covers the row (see CLAUDE.md). -->
-          <div class="relative flex gap-3 py-2.5 border-b border-line-soft cursor-pointer group">
-            <BookCover
-                :title="book.title || $t('common.untitled')"
-                :author="book.authors?.join(', ') || ''"
-                :width="46"
-                :cover-url="book.cover_url"
-                hoverable
-            />
-            <div class="min-w-0 flex-1 flex flex-col justify-center">
-              <div class="flex items-center gap-2 min-w-0">
-                <h3 class="t-title text-[15px] truncate group-hover:text-green-soft transition-colors duration-150">
-                  <RouterLink class="stretched-link" :to="bookRoute(book)">{{ book.title }}</RouterLink>
-                </h3>
-                <span
-                    class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border"
-                    :class="book.source === 'library' ? 'border-green/40 text-green-soft' : 'border-line text-muted'"
-                >{{ sourceLabel(book.source) }}</span>
-              </div>
-              <p class="t-meta mt-0.5 truncate">{{ book.authors?.join(', ') }}</p>
-              <p class="t-meta mt-1">
-                {{ book.published_year }}
-                <span v-if="book.page_count"> · {{ $t('search.pagesAbbr', { count: book.page_count }) }}</span>
-                <span v-if="book.category"> · {{ book.category }}</span>
-              </p>
-            </div>
-            <button
-                v-if="isWork(book)"
-                type="button"
-                class="relative z-1 self-center flex items-center justify-center size-8 rounded-full flex-none cursor-pointer transition-colors duration-150"
-                :class="expanded === book.id ? 'text-green-soft bg-surface-2' : 'text-muted hover:text-ink hover:bg-surface-2'"
-                :title="$t('search.editions')"
-                :aria-label="$t('search.editions')"
-                @click="toggleEditions(book)"
-            >
-              <ChevronDownIcon class="size-4 transition-transform duration-150" :class="expanded === book.id ? 'rotate-180' : ''"/>
-            </button>
-          </div>
+        <div class="flex items-center gap-2 mb-3">
+          <h2 v-if="!books.length" class="t-title text-sm text-muted uppercase tracking-wide">{{ $t('search.trending') }}</h2>
+          <LayoutModeSelect v-model="layoutMode" class="ml-auto"/>
+        </div>
+
+        <!-- Only the row shows where a hit comes from and what editions it has.
+             The other modes draw covers alone, so they show neither. -->
+        <BookLayout v-if="layoutMode !== 'list'" :books="layoutBooks" :mode="layoutMode"/>
+
+        <template v-for="book in (layoutMode === 'list' ? displayedBooks : [])" :key="book.id">
+          <!-- Search adds two things to the shared row: where the hit comes
+               from, and the toggle for the editions of a work. -->
+          <BookResultRow :book="book">
+            <template #badge>
+              <span
+                  class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border"
+                  :class="book.source === 'library' ? 'border-green/40 text-green-soft' : 'border-line text-muted'"
+              >{{ sourceLabel(book.source) }}</span>
+            </template>
+            <template #action>
+              <button
+                  v-if="isWork(book)"
+                  type="button"
+                  class="relative z-1 flex items-center justify-center size-8 rounded-full flex-none cursor-pointer transition-colors duration-150"
+                  :class="expanded === book.id ? 'text-green-soft bg-surface-2' : 'text-muted hover:text-ink hover:bg-surface-2'"
+                  :title="$t('search.editions')"
+                  :aria-label="$t('search.editions')"
+                  @click="toggleEditions(book)"
+              >
+                <ChevronDownIcon class="size-4 transition-transform duration-150" :class="expanded === book.id ? 'rotate-180' : ''"/>
+              </button>
+            </template>
+          </BookResultRow>
 
           <div v-if="expanded === book.id" class="flex flex-col bg-surface/60">
             <div v-if="loadingEditions" class="flex justify-center py-4">
@@ -118,15 +110,24 @@ import {computed, defineComponent, ref, onMounted} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {useRouter, useRoute} from 'vue-router';
 import {SearchIcon, QrCodeIcon, ChevronDownIcon} from '@lucide/vue';
-import BookCover from '@/components/ui/BookCover.vue';
+import BookResultRow from '@/components/ui/BookResultRow.vue';
+import BookLayout from '@/components/shelf/BookLayout.vue';
+import LayoutModeSelect from '@/components/shelf/LayoutModeSelect.vue';
 import BarcodeScanner from '@/components/BarcodeScanner.vue';
 import {searchBooks, fetchTrendingBooks} from '@/api/bookApi';
 import {useEditions} from '@/composables/useEditions';
+import {useLayoutMode} from '@/composables/useLayoutMode';
+import {asShelfBook} from '@/utils/catalogBook';
 import type {BookSearchResult} from '@/types/book';
 
 export default defineComponent({
-  components: {SearchIcon, QrCodeIcon, ChevronDownIcon, BookCover, BarcodeScanner},
+  components: {
+    SearchIcon, QrCodeIcon, ChevronDownIcon, BookResultRow, BookLayout, LayoutModeSelect, BarcodeScanner,
+  },
   setup() {
+    // Its own key: search results are a different set of books from the shelf,
+    // and the list is the only mode that shows the source and the editions.
+    const layoutMode = useLayoutMode('search-layout-mode');
     const query = ref('');
     const books = ref<BookSearchResult[]>([]);
     const trendingBooks = ref<BookSearchResult[]>([]);
@@ -141,6 +142,10 @@ export default defineComponent({
 
     const displayedBooks = computed(() => (books.value.length ? books.value : trendingBooks.value));
 
+    // Computed, not mapped in the template: the pile measures itself whenever
+    // the list changes, and a fresh array on every keystroke is a fresh list.
+    const layoutBooks = computed(() => displayedBooks.value.map(asShelfBook));
+
     const searchBooksWrapper = async () => {
       if (!query.value.trim()) return;
       loading.value = true;
@@ -150,13 +155,6 @@ export default defineComponent({
       loading.value = false;
       router.replace({query: {q: query.value}});
     };
-
-    // Owned books already have a real row — link to their detail page, not the
-    // external-lookup search-detail view (which would 404 on a UUID).
-    const bookRoute = (book: BookSearchResult) => ({
-      name: book.source === 'library' ? 'book-detail' : 'search-detail',
-      params: {id: book.id},
-    });
 
     const sourceLabel = (source: BookSearchResult['source']) =>
         t(`search.source.${source}`);
@@ -192,9 +190,10 @@ export default defineComponent({
       hasSearched,
       showScanner,
       searchBooks: searchBooksWrapper,
-      bookRoute,
       sourceLabel,
       onBarcodeDetected,
+      layoutMode,
+      layoutBooks,
       expanded,
       editions,
       loadingEditions,

@@ -18,6 +18,9 @@ export function useBookCovers() {
   const pending = new Set<string>()
 
   const onResolveCover = async (bookId: string) => {
+    // A catalog hit (`openlibrary:/works/OL…`) has no row to resolve against,
+    // so the lookup would only spend a request on a 404.
+    if (bookId.includes(':')) return
     if (pending.has(bookId) || resolvedUrls.value[bookId]) return
     pending.add(bookId)
     try {
