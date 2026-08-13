@@ -504,6 +504,30 @@ pub struct AuthorInfo {
     /// The author's most-read works, in Open Library's reading-log order. The
     /// caller drops the ones the user owns.
     pub works: Vec<NormalizedBook>,
+    /// The series those works belong to. Open Library files series on the work,
+    /// so this is what the works above are part of, not a complete bibliography.
+    pub series: Vec<AuthorSeries>,
+}
+
+/// A series an author writes in.
+#[derive(Debug, Serialize)]
+pub struct AuthorSeries {
+    pub name: String,
+    /// Set when Open Library files the series as an entity of its own, which is
+    /// what makes it linkable. The `series:` subjects carry a name only.
+    pub key: Option<String>,
+}
+
+/// One page of an author's works: what the search returned, how many there are
+/// in total, and the two places the works name their series.
+struct WorksPage {
+    works: Vec<NormalizedBook>,
+    total: Option<u64>,
+    /// Keys of series filed as entities (`/series/OL…L`).
+    series_keys: Vec<String>,
+    /// Series named by a `series:<name>` subject. Sanderson's works carry these
+    /// and no entity at all, so both sources are needed.
+    series_subjects: Vec<String>,
 }
 
 /// How many of the author's works the works search asks for. The caller drops
@@ -528,7 +552,7 @@ pub async fn find_author(client: &Client, name: &str) -> Option<AuthorInfo> {
     // search on the key, not from the name search above: a name query only
     // counts the works spelling the name the same way (27 of J. K. Rowling's
     // 418).
-    let (record, (works, work_count)) =
+    let (record, works_page) =
         tokio::join!(fetch_author_record(client, &key), fetch_works(client, &key));
     let record = record?;
     let record_name = record["name"].as_str()?;
@@ -539,6 +563,9 @@ pub async fn find_author(client: &Client, name: &str) -> Option<AuthorInfo> {
     if !same_name(name, record_name) && !alternates.iter().any(|alt| same_name(name, alt)) {
         return None;
     }
+
+    let keyed = fetch_series_refs(client, &works_page.series_keys).await;
+    let series = merge_series(keyed, works_page.series_subjects);
 
     Some(AuthorInfo {
         name: record_name.to_string(),
@@ -555,10 +582,43 @@ pub async fn find_author(client: &Client, name: &str) -> Option<AuthorInfo> {
             .map(|id| format!("https://covers.openlibrary.org/a/id/{}-M.jpg", id)),
         alternate_names: pick_alternate_names(record_name, &alternates),
         links: collect_links(&record),
-        work_count,
-        works,
+        work_count: works_page.total,
+        works: works_page.works,
+        series,
         key,
     })
+}
+
+/// Resolves series keys to their names, dropping the ones Open Library cannot
+/// name. The lookups run together — an author has a handful of series at most.
+async fn fetch_series_refs(client: &Client, keys: &[String]) -> Vec<AuthorSeries> {
+    let lookups = keys.iter().map(|key| async move {
+        Some(AuthorSeries {
+            name: fetch_series_name(client, Some(key)).await?,
+            key: Some(key.clone()),
+        })
+    });
+    futures::future::join_all(lookups).await.into_iter().flatten().collect()
+}
+
+/// How many series an author's panel shows. A handful names the shelf; a list of
+/// every printing variant does not.
+const AUTHOR_SERIES_LIMIT: usize = 8;
+
+/// Appends the series known only by name to the ones known as entities, and
+/// drops the repeats. The two sources spell the same series differently —
+/// `Harry_Potter` as a subject against "Harry Potter" as an entity — so they
+/// compare squashed.
+fn merge_series(keyed: Vec<AuthorSeries>, subject_names: Vec<String>) -> Vec<AuthorSeries> {
+    let mut series = keyed;
+    for name in subject_names {
+        if series.iter().any(|s| squashed(&s.name) == squashed(&name)) {
+            continue;
+        }
+        series.push(AuthorSeries { name, key: None });
+    }
+    series.truncate(AUTHOR_SERIES_LIMIT);
+    series
 }
 
 /// Keeps the alternate names that say something new: a pen name or a foreign
@@ -724,7 +784,7 @@ pub fn squashed(s: &str) -> String {
 
 /// Searches the works filed under an author key, most-read first, and returns
 /// them together with the total the search reports.
-async fn fetch_works(client: &Client, key: &str) -> (Vec<NormalizedBook>, Option<u64>) {
+async fn fetch_works(client: &Client, key: &str) -> WorksPage {
     let url = format!("{}/search.json", OL_BASE);
     let body = match get_json(
         client,
@@ -735,22 +795,59 @@ async fn fetch_works(client: &Client, key: &str) -> (Vec<NormalizedBook>, Option
             ("sort", "readinglog"),
             (
                 "fields",
-                "key,title,cover_i,first_publish_year,author_name,number_of_pages_median",
+                "key,title,cover_i,first_publish_year,author_name,number_of_pages_median,series_key,subject",
             ),
         ],
     )
     .await
     {
         Some(b) => b,
-        None => return (vec![], None),
+        None => {
+            return WorksPage {
+                works: vec![],
+                total: None,
+                series_keys: vec![],
+                series_subjects: vec![],
+            }
+        }
     };
 
-    let works = body["docs"]
-        .as_array()
-        .map(|docs| docs.iter().filter_map(normalize_search_doc).collect())
-        .unwrap_or_default();
+    let docs = body["docs"].as_array().cloned().unwrap_or_default();
 
-    (works, body["numFound"].as_u64())
+    let mut series_keys: Vec<String> = docs
+        .iter()
+        .filter_map(|doc| doc["series_key"].as_array())
+        .flatten()
+        .filter_map(|k| k.as_str().map(String::from))
+        .collect();
+    series_keys.sort();
+    series_keys.dedup();
+
+    let series_subjects: Vec<String> = docs
+        .iter()
+        .filter_map(|doc| doc["subject"].as_array())
+        .flatten()
+        .filter_map(|s| series_subject_name(s.as_str()?))
+        .collect();
+
+    WorksPage {
+        works: docs.iter().filter_map(normalize_search_doc).collect(),
+        total: body["numFound"].as_u64(),
+        series_keys,
+        series_subjects,
+    }
+}
+
+/// Reads the series name out of a `series:<name>` subject. Open Library writes
+/// these with the spaces replaced by underscores about as often as not.
+fn series_subject_name(subject: &str) -> Option<String> {
+    let rest = subject.strip_prefix("series:").or_else(|| subject.strip_prefix("Series:"))?;
+    let name = rest.replace('_', " ").trim().to_string();
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
 }
 
 /// Fetches the raw author record. `bio` is a plain string on older records and a
@@ -979,6 +1076,24 @@ mod tests {
     }
 
     #[test]
+    fn merge_series_keeps_the_linkable_spelling_of_a_repeat() {
+        let keyed = vec![AuthorSeries {
+            name: "Harry Potter".into(),
+            key: Some("OL326110L".into()),
+        }];
+        let subjects = vec![
+            series_subject_name("series:Harry_Potter").unwrap(),
+            series_subject_name("series:The Mistborn Saga").unwrap(),
+            series_subject_name("series:The Mistborn Saga").unwrap(),
+        ];
+        let merged = merge_series(keyed, subjects);
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].key.as_deref(), Some("OL326110L"));
+        assert_eq!(merged[1].name, "The Mistborn Saga");
+        assert!(merged[1].key.is_none());
+    }
+
+    #[test]
     fn collect_links_takes_record_links_and_known_remote_ids() {
         let record = serde_json::json!({
             "links": [
@@ -1028,6 +1143,18 @@ mod tests {
         let info = find_author(&Client::new(), "J. R. R. Tolkien").await.unwrap();
         assert_eq!(info.key, "OL26320A");
         assert_eq!(info.name, "J.R.R. Tolkien");
+        assert!(info.series.iter().any(|s| s.name == "The Lord of the Rings"));
+    }
+
+    /// None of Sanderson's works is filed under a series entity, so only the
+    /// `series:` subjects name them.
+    #[tokio::test]
+    #[ignore = "requires network"]
+    async fn series_known_only_by_subject_still_show() {
+        let info = find_author(&Client::new(), "Brandon Sanderson").await.unwrap();
+        let names: Vec<&str> = info.series.iter().map(|s| s.name.as_str()).collect();
+        assert!(names.iter().any(|n| n.contains("Mistborn")), "{names:?}");
+        assert!(names.iter().any(|n| n.contains("Stormlight")), "{names:?}");
     }
 
     #[tokio::test]
