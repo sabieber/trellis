@@ -3,7 +3,7 @@
      Rolled by hand on the existing date helpers — daisyUI only themes third-party
      date pickers, none of which allow arbitrary content inside a day cell. -->
 <template>
-  <PageContainer :title="$t('calendar.title')" :description="$t('calendar.description')" wide>
+  <PageContainer :title="$t('calendar.title')" :description="$t('calendar.description')">
     <!-- Covers are sized so the whole month always fits the viewport, and the
          grid spreads across the page so the days get room to breathe rather than
          sitting shoulder to shoulder in a hugged-in card. -->

@@ -1,7 +1,10 @@
 <template>
-  <div :class="['min-h-screen flex flex-col', { 'items-center': !wide }]">
-    <div :class="['w-full flex flex-col grow', wide ? 'px-4 pt-5 pb-4' : 'max-w-lg p-6']">
-      <div class="flex justify-between items-start mb-4 gap-4">
+  <div class="min-h-screen flex flex-col">
+    <div class="w-full flex flex-col grow px-4 pt-5 pb-4">
+      <!-- Stacked below `sm`: title and controls in one row leave the title a few
+           pixels, because the controls hold their content width and the title
+           column is the only one that shrinks. -->
+      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 gap-3 sm:gap-4">
         <div class="min-w-0">
           <slot name="title">
             <h2 class="t-display text-2xl truncate">{{ title }}</h2>
@@ -32,10 +35,6 @@ export default defineComponent({
     description: {
       type: String,
       default: ''
-    },
-    wide: {
-      type: Boolean,
-      default: false
     }
   },
   setup(_, {expose}) {

@@ -2,7 +2,7 @@
      server (see `/api/books/browse`): this view never holds the whole library,
      it renders whatever the current filter state returns. -->
 <template>
-  <PageContainer :title="$t('books.title')" wide>
+  <PageContainer :title="$t('books.title')">
     <!-- Two columns on a phone, one row from `sm` up. -->
     <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center mb-4">
       <FilterSelect

@@ -1,8 +1,8 @@
 <template>
-  <PageContainer :title="goalLabel" :description="periodDescription" wide ref="pageContainer">
+  <PageContainer :title="goalLabel" :description="periodDescription" ref="pageContainer">
     <template #title-button>
       <div v-if="!loading && books.length" class="flex items-center gap-2">
-        <select v-model="sortBy" class="select select-sm w-36">
+        <select v-model="sortBy" class="select w-36">
           <option value="finished_at">{{ $t('shelf.sortFinished') }}</option>
           <option value="title">{{ $t('shelf.sortTitle') }}</option>
           <option value="author">{{ $t('shelf.sortAuthor') }}</option>

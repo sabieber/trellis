@@ -1,5 +1,5 @@
 <template>
-  <PageContainer :title="shelf.name || shelf.code" :description="shelf.description" wide ref="pageContainer">
+  <PageContainer :title="shelf.name || shelf.code" :description="shelf.description" ref="pageContainer">
     <template #title>
       <h2 class="t-display text-2xl truncate">
         <InlineEdit
@@ -19,7 +19,7 @@
                 @click="pickerOpen = true">
           <Dice3Icon/>
         </Button>
-        <select v-model="sortBy" class="select select-sm w-36">
+        <select v-model="sortBy" class="select w-36">
           <option value="added_at">{{ $t('shelf.sortAdded') }}</option>
           <option value="title">{{ $t('shelf.sortTitle') }}</option>
           <option value="author">{{ $t('shelf.sortAuthor') }}</option>

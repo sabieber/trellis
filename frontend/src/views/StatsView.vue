@@ -1,5 +1,5 @@
 <template>
-  <PageContainer :title="$t('stats.title')" :description="$t('stats.description')" wide>
+  <PageContainer :title="$t('stats.title')" :description="$t('stats.description')">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-7">
       <SegmentedControl
           :model-value="mode"

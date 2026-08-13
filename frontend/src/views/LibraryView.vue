@@ -21,7 +21,7 @@
 
     <!-- Sorting belongs to the shelf list below, not to the title block. -->
     <div class="px-4 pb-3 flex justify-end">
-      <select v-model="sortBy" class="select select-sm w-36">
+      <select v-model="sortBy" class="select w-36">
         <option value="name">{{ $t('library.sortName') }}</option>
         <option value="created_at">{{ $t('library.sortCreated') }}</option>
         <option value="updated_at">{{ $t('library.sortUpdated') }}</option>
