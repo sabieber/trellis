@@ -1,17 +1,33 @@
 <template>
-  <PageContainer :title="authorName" wide ref="pageContainer">
+  <PageContainer :title="authorName" ref="pageContainer">
+    <!-- Photo beside the name, like the cover on the book detail page. -->
     <template #title>
-      <h2 class="t-display text-2xl truncate">{{ authorName }}</h2>
-      <p v-if="!loading && books.length" class="t-meta mt-1">
-        <span>{{ $t('author.bookCount', { n: books.length }) }}</span>
-        <span v-if="avgRating !== null"> · {{ $t('author.avgRating', { r: avgRating }) }}</span>
-        <span v-if="totalPages > 0"> · {{ $t('author.totalPages', { n: totalPages.toLocaleString() }) }}</span>
-      </p>
+      <div class="flex gap-3 sm:gap-4">
+        <img
+            v-if="info?.photo_url"
+            :src="info.photo_url"
+            :alt="info.name"
+            class="w-20 sm:w-24 rounded-sm shrink-0 self-start"
+            loading="lazy"
+            @error="info.photo_url = null"
+        />
+        <div class="min-w-0 flex flex-col justify-end">
+          <h2 class="t-display text-2xl truncate">{{ authorName }}</h2>
+          <p v-if="!loading && books.length" class="t-meta mt-1">
+            <span class="whitespace-nowrap">{{ $t('author.bookCount', { n: books.length }) }}</span>
+            <span v-if="avgRating !== null"> · <span class="whitespace-nowrap">{{ $t('author.avgRating', { r: avgRating }) }}</span></span>
+            <span v-if="totalPages > 0"> · <span class="whitespace-nowrap">{{ $t('author.totalPages', { n: totalPages.toLocaleString() }) }}</span></span>
+          </p>
+        </div>
+      </div>
     </template>
 
+    <!-- Sorting belongs to the user's own shelf; the layout mode also governs
+         the catalog works below, so it appears for an author of whom the user
+         owns nothing. -->
     <template #title-button>
-      <div v-if="!loading && books.length" class="flex items-center gap-2">
-        <select v-model="sortBy" class="select select-sm w-36">
+      <div v-if="!loading && (books.length || info?.works.length)" class="flex items-center justify-between gap-2">
+        <select v-if="books.length" v-model="sortBy" class="select w-full sm:w-36">
           <option value="added_at">{{ $t('shelf.sortAdded') }}</option>
           <option value="title">{{ $t('shelf.sortTitle') }}</option>
           <option value="author">{{ $t('shelf.sortAuthor') }}</option>
@@ -22,19 +38,25 @@
 
     <!-- Open Library's author record. It loads on its own and never blocks the
          books below, so the screen stays useful for an author no catalog knows. -->
-    <section v-if="info" class="flex gap-4 mb-8 pb-6 border-b border-line-soft">
-      <img
-          v-if="info.photo_url"
-          :src="info.photo_url"
-          :alt="info.name"
-          class="w-24 rounded-sm shrink-0 self-start"
-          loading="lazy"
-          @error="info.photo_url = null"
-      />
+    <section v-if="info" class="mb-8 pb-6 border-b border-line-soft">
       <div class="min-w-0">
         <p v-if="authorMeta" class="t-meta">{{ authorMeta }}</p>
         <p v-if="info.alternate_names.length" class="t-meta mt-0.5">
           {{ $t('author.alsoKnownAs', { names: info.alternate_names.join(', ') }) }}
+        </p>
+        <p v-if="info.series.length" class="t-meta mt-0.5">
+          {{ $t('author.seriesLabel') }}:
+          <!-- A series Open Library only names in a `series:` subject has no
+               page to link to, so it stays plain text. -->
+          <template v-for="(entry, i) in info.series" :key="entry.name">
+            <span v-if="i"> · </span>
+            <RouterLink
+                v-if="entry.key"
+                class="hover:text-green-soft hover:underline transition-colors duration-150"
+                :to="seriesRoute(entry.key)"
+            >{{ entry.name }}</RouterLink>
+            <span v-else>{{ entry.name }}</span>
+          </template>
         </p>
         <div
             v-if="info.bio"
@@ -49,11 +71,25 @@
         >
           {{ bioExpanded ? $t('author.showLess') : $t('author.showMore') }}
         </button>
-        <div class="flex flex-wrap gap-2 mt-4">
-          <Button v-for="link in authorLinks" :key="link.url" variant="ghost" :href="link.url">
-            <ExternalLinkIcon class="size-4"/>
-            {{ link.title }}
-          </Button>
+        <!-- Folded away: five full-size buttons pushed the user's own shelf
+             below the fold on a phone. -->
+        <div class="collapse collapse-arrow border border-line-soft rounded-sm mt-4">
+          <input type="checkbox"/>
+          <div class="collapse-title t-eyebrow">{{ $t('author.links') }}</div>
+          <div class="collapse-content">
+            <div class="flex flex-wrap gap-2">
+              <Button
+                  v-for="link in authorLinks"
+                  :key="link.url"
+                  variant="ghost"
+                  :href="link.url"
+                  class="max-w-full min-w-0"
+              >
+                <ExternalLinkIcon class="size-4 shrink-0"/>
+                <span class="truncate">{{ link.title }}</span>
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -70,13 +106,16 @@
 
     <div v-else class="t-meta text-center py-12">{{ $t('shelf.noBooks') }}</div>
 
-    <!-- Works the user does not own. They are catalog hits, so they get the
-         search result row and link to the external-lookup detail view. The
-         layout mode above governs the shelf only: it sizes spines and piles
-         from what the user owns, which a catalog hit has no data for. -->
+    <!-- Works the user does not own. They are catalog hits, so they link to the
+         external-lookup detail view. The layout mode governs this list too, but
+         in list mode they keep their own row: a catalog hit has a year and a
+         page count to show where an owned book shows the date it was added. -->
     <section v-if="info?.works.length" class="mt-10 pt-6 border-t border-line-soft">
       <h3 class="t-eyebrow mb-4">{{ $t('author.moreWorks') }}</h3>
-      <BookResultRow v-for="work in info.works" :key="work.id" :book="work"/>
+      <template v-if="layoutMode === 'list'">
+        <BookResultRow v-for="work in info.works" :key="work.id" :book="work"/>
+      </template>
+      <BookLayout v-else :books="workBooks" :mode="layoutMode"/>
     </section>
   </PageContainer>
 </template>
@@ -92,6 +131,8 @@ import LayoutModeSelect from '@/components/shelf/LayoutModeSelect.vue';
 import BookResultRow from '@/components/ui/BookResultRow.vue';
 import Button from '@/components/ui/Button.vue';
 import {apiFetch} from '@/api/client';
+import {seriesRoute} from '@/utils/seriesRoute';
+import {asShelfBook} from '@/utils/catalogBook';
 import {fetchAuthorInfo, type AuthorInfo} from '@/api/bookApi';
 import {useLayoutMode} from '@/composables/useLayoutMode';
 import type {ShelfBook} from '@/types/shelf';
@@ -141,6 +182,8 @@ export default defineComponent({
         ...info.value.links,
       ];
     });
+
+    const workBooks = computed(() => (info.value?.works ?? []).map(asShelfBook));
 
     const totalPages = computed(() =>
         books.value.reduce((acc, b) => acc + (b.page_count || 0), 0)
@@ -196,7 +239,7 @@ export default defineComponent({
     return {
       books, sortedBooks, loading, sortBy, authorName,
       avgRating, totalPages, layoutMode, pageContainer,
-      info, bioExpanded, authorMeta, authorLinks,
+      info, bioExpanded, authorMeta, authorLinks, seriesRoute, workBooks,
     };
   },
 });

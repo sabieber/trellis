@@ -77,6 +77,13 @@ export interface AuthorLink {
   url: string
 }
 
+export interface AuthorSeries {
+  name: string
+  // Only a series Open Library files as an entity has a key, and only a key can
+  // be linked to the series page.
+  key: string | null
+}
+
 export interface AuthorInfo {
   key: string
   name: string
@@ -89,6 +96,7 @@ export interface AuthorInfo {
   work_count: number | null
   // The author's most-read works, minus the ones the user owns.
   works: BookSearchResult[]
+  series: AuthorSeries[]
 }
 
 // Null when Open Library knows no author under that name — the screen works

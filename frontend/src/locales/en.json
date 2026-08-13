@@ -100,6 +100,8 @@
     "died": "died {date}",
     "coverage": "you own {owned} of {total} works",
     "alsoKnownAs": "also writes as {names}",
+    "seriesLabel": "Series",
+    "links": "Links",
     "onYourShelf": "On your shelf",
     "moreWorks": "More by this author",
     "showMore": "Show more",
