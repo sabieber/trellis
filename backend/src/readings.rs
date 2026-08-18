@@ -465,6 +465,7 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
 
     match rows {
         Ok(rows) => {
+            let noted = crate::notes::noted_book_ids(connection, auth.0);
             let items: Vec<_> = rows
                 .into_iter()
                 .map(
@@ -493,6 +494,7 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
                             "total_pages": total_pages,
                             "mode": mode.to_string(),
                             "cover_url": cover_url,
+                            "has_notes": noted.contains(&book_id),
                         })
                     },
                 )

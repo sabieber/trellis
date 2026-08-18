@@ -985,6 +985,8 @@ pub(crate) async fn calendar(
         }
     };
 
+    let noted = crate::notes::noted_book_ids(connection, auth.0);
+
     // Books per day, keeping the order they were first logged in. A reading can
     // have several entries on one day, so their pages are folded into one book.
     let mut per_day: HashMap<NaiveDate, Vec<serde_json::Value>> = HashMap::new();
@@ -1034,6 +1036,7 @@ pub(crate) async fn calendar(
                     "author": author,
                     "cover_url": cover_url,
                     "rating": rating,
+                    "has_notes": noted.contains(&book_id),
                     "pages": pages,
                     "finished": finished_at == Some(read_at),
                 }));
@@ -1078,6 +1081,7 @@ pub(crate) async fn calendar(
                     "author": author,
                     "cover_url": cover_url,
                     "rating": rating,
+                    "has_notes": noted.contains(&book_id),
                     "pages": 0,
                     "finished": true,
                 }));

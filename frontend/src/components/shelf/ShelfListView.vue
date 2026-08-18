@@ -11,6 +11,7 @@
           :width="coverWidth"
           :cover-url="resolvedCoverUrl(book.id, bookCoverUrl(book))"
           :book-id="book.id"
+          :has-note="book.has_notes"
           hoverable
           @resolve-cover="onResolveCover"
       />

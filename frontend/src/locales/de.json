@@ -159,6 +159,7 @@
   "bookDetail": {
     "tabInfo": "Info",
     "tabLog": "Verlauf",
+    "tabNotes": "Notizen",
     "tabShelves": "Regale",
     "seriesEntry": "{name} #{position}",
     "about": "Über",
@@ -182,7 +183,22 @@
     "removeFromShelfTitle": "Aus Regal entfernen",
     "deleteReadingTitle": "Lesung löschen",
     "deleteReadingMessage": "Möchtest du diese Lesesitzung und alle Einträge wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
-    "readingDeleted": "Lesung gelöscht."
+    "readingDeleted": "Lesung gelöscht.",
+    "noNotes": "Noch keine Notizen.",
+    "addNote": "Notiz hinzufügen",
+    "notePage": "S. {page}",
+    "noteEdited": "bearbeitet",
+    "noteMore": "Mehr anzeigen",
+    "noteLess": "Weniger anzeigen",
+    "deleteNoteTitle": "Notiz löschen",
+    "deleteNoteMessage": "Möchtest du diese Notiz wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
+    "noteDeleted": "Notiz gelöscht."
+  },
+  "noteModal": {
+    "newTitle": "Neue Notiz",
+    "editTitle": "Notiz bearbeiten",
+    "text": "Notiz",
+    "page": "Seite"
   },
   "linkCatalog": {
     "title": "Katalogeintrag verknüpfen",

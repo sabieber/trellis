@@ -32,6 +32,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    book_notes (id) {
+        id -> Uuid,
+        book -> Uuid,
+        user -> Uuid,
+        text -> Text,
+        page -> Nullable<Int4>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     book_shelves (book, shelf) {
         book -> Uuid,
         shelf -> Uuid,
@@ -132,6 +144,8 @@ diesel::table! {
 
 diesel::joinable!(book_labels -> books (book));
 diesel::joinable!(book_labels -> users (user));
+diesel::joinable!(book_notes -> books (book));
+diesel::joinable!(book_notes -> users (user));
 diesel::joinable!(book_shelves -> books (book));
 diesel::joinable!(book_shelves -> shelves (shelf));
 diesel::joinable!(books -> users (user));
@@ -145,6 +159,7 @@ diesel::joinable!(shelves -> users (user));
 
 diesel::allow_tables_to_appear_in_same_query!(
     book_labels,
+    book_notes,
     book_shelves,
     books,
     reading_entries,

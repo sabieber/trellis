@@ -26,6 +26,10 @@
       <div v-if="!isSm" class="cv-author">{{ shortAuthor }}</div>
       <div class="cv-title">{{ title }}</div>
     </template>
+    <!-- "This book has notes" — a mark, not a count: the number is only interesting once you open the book. -->
+    <div v-if="hasNote" class="cv-note">
+      <StickyNoteIcon class="cv-note-icon" fill="color-mix(in srgb, currentColor 50%, transparent)"/>
+    </div>
     <div v-if="rating" class="cv-rating">
       <FlowerIcon class="cv-rating-icon" fill="color-mix(in srgb, currentColor 50%, transparent)"/>
       <span class="cv-rating-num">{{ rating }}</span>
@@ -35,7 +39,7 @@
 
 <script setup lang="ts">
 import {computed} from 'vue';
-import {FlowerIcon} from '@lucide/vue';
+import {FlowerIcon, StickyNoteIcon} from '@lucide/vue';
 import {useCoverImage} from '@/composables/useCoverImage';
 
 const props = withDefaults(
@@ -46,11 +50,13 @@ const props = withDefaults(
       colorway?: '' | 'moss' | 'clay' | 'ink' | 'plum' | 'gold' | 'char' | 'sage' | 'rust' | 'teal' | 'navy';
       coverUrl?: string | null;
       rating?: number | null;
+      /** Marks the cover with a note badge when the book carries at least one. */
+      hasNote?: boolean;
       hoverable?: boolean;
       /** Internal book UUID; when set, emit `resolve-cover` on image failure so parent can look up the real cover. */
       bookId?: string | null;
     }>(),
-    {author: '', width: 108, colorway: '', coverUrl: null, rating: null, hoverable: false, bookId: null},
+    {author: '', width: 108, colorway: '', coverUrl: null, rating: null, hasNote: false, hoverable: false, bookId: null},
 );
 
 const emit = defineEmits<{
@@ -209,6 +215,28 @@ const shortAuthor = computed(() => {
 .cv--navy {
   background: #1d2740;
   color: #dfe3ee;
+}
+
+/* Bottom left, mirroring the rating badge on the right, so both can sit on
+   one cover without touching. */
+.cv-note {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  padding: 3px;
+  line-height: 1;
+  z-index: 2;
+}
+
+.cv-note-icon {
+  color: var(--color-green-soft);
+  width: 10px;
+  height: 10px;
 }
 
 .cv-rating {

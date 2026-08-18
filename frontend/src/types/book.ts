@@ -27,6 +27,16 @@ export interface BookSearchResult {
 /// headings; this discriminator is all that separates them.
 export type LabelKind = 'genre' | 'tag'
 
+/// A note the user wrote about a book. `page` is optional: a note about the
+/// book as a whole carries none.
+export interface BookNote {
+  id: string
+  text: string
+  page: number | null
+  created_at: string
+  updated_at: string
+}
+
 export interface SeriesRef {
   key: string
   name: string

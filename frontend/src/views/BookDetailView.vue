@@ -30,7 +30,8 @@
                 <RouterLink
                     class="hover:text-green-soft hover:underline transition-colors duration-150"
                     :to="authorRoute(a)"
-                >{{ a }}</RouterLink>
+                >{{ a }}
+                </RouterLink>
               </template>
             </p>
             <div class="mt-2">
@@ -38,16 +39,19 @@
             </div>
             <p class="t-meta mt-2">
               {{ book.published_year }}
-              <span v-if="displayedPageCount"> · {{ $t('search.pagesAbbr', { count: displayedPageCount }) }}</span>
+              <span v-if="displayedPageCount"> · {{ $t('search.pagesAbbr', {count: displayedPageCount}) }}</span>
               <span v-if="book.category"> · {{ book.category }}</span>
             </p>
             <p v-if="book.series" class="t-meta mt-1">
               <RouterLink
                   class="hover:text-green-soft hover:underline transition-colors duration-150"
                   :to="seriesRoute(book.series.key)"
-              >{{ book.series.position
-                    ? $t('bookDetail.seriesEntry', { name: book.series.name, position: book.series.position })
-                    : book.series.name }}</RouterLink>
+              >{{
+                  book.series.position
+                      ? $t('bookDetail.seriesEntry', {name: book.series.name, position: book.series.position})
+                      : book.series.name
+                }}
+              </RouterLink>
             </p>
           </div>
         </div>
@@ -102,15 +106,15 @@
               </Button>
               <Button v-if="sourceUrl" variant="ghost" block @click="openExternal(sourceUrl)">
                 <ExternalLinkIcon class="size-4"/>
-                {{ $t('bookDetail.viewOn', { source: book.source === 'google' ? 'Google Books' : 'Open Library' }) }}
+                {{ $t('bookDetail.viewOn', {source: book.source === 'google' ? 'Google Books' : 'Open Library'}) }}
               </Button>
               <Button v-if="goodreadsUrl" variant="ghost" block @click="openExternal(goodreadsUrl)">
                 <ExternalLinkIcon class="size-4"/>
-                {{ $t('bookDetail.viewOn', { source: 'Goodreads' }) }}
+                {{ $t('bookDetail.viewOn', {source: 'Goodreads'}) }}
               </Button>
               <Button v-if="amazonUrl" variant="ghost" block @click="openExternal(amazonUrl)">
                 <ExternalLinkIcon class="size-4"/>
-                {{ $t('bookDetail.viewOn', { source: 'Amazon' }) }}
+                {{ $t('bookDetail.viewOn', {source: 'Amazon'}) }}
               </Button>
             </div>
           </aside>
@@ -161,9 +165,18 @@
                     formatDate(reading.started_at)
                   }}</span>
                 <span class="flex items-center gap-2">
-                  <span class="badge badge-sm" :class="readingState(reading).badgeClass">{{ readingState(reading).label }}</span>
-                  <span class="badge badge-sm">{{ reading.mode === 'percentage' ? $t('readingModal.modePercentage') : $t('readingModal.modePages') }}</span>
-                  <span class="t-meta group-hover:text-green-soft transition-colors duration-150">{{ reading.mode === 'percentage' ? `${reading.progress}%` : $t('bookDetail.pagesProgress', { current: reading.progress, total: reading.total_pages }) }}</span>
+                  <span class="badge badge-sm" :class="readingState(reading).badgeClass">{{
+                      readingState(reading).label
+                    }}</span>
+                  <span class="badge badge-sm">{{
+                      reading.mode === 'percentage' ? $t('readingModal.modePercentage') : $t('readingModal.modePages')
+                    }}</span>
+                  <span class="t-meta group-hover:text-green-soft transition-colors duration-150">{{
+                      reading.mode === 'percentage' ? `${reading.progress}%` : $t('bookDetail.pagesProgress', {
+                        current: reading.progress,
+                        total: reading.total_pages
+                      })
+                    }}</span>
                 </span>
               </RouterLink>
               <button
@@ -181,6 +194,53 @@
           </Button>
         </div>
 
+        <div v-else-if="activeTab === 'Notes'">
+          <div v-if="notes.length" class="flex flex-col mb-4">
+            <div
+                v-for="note in notes"
+                :key="note.id"
+                class="flex justify-between items-start gap-2 py-3 border-b border-line-soft group"
+            >
+              <div class="min-w-0 flex-1">
+                <p class="t-meta">
+                  {{ formatDate(note.created_at) }}
+                  <span v-if="note.page"> · {{ $t('bookDetail.notePage', {page: note.page}) }}</span>
+                  <span v-if="note.updated_at !== note.created_at"> · {{ $t('bookDetail.noteEdited') }}</span>
+                </p>
+                <!-- Plain text, so line breaks are all the formatting there is. -->
+                <p class="text-sm text-ink-dim mt-1 whitespace-pre-wrap wrap-break-word">{{ notePreview(note) }}</p>
+                <button
+                    v-if="isLongNote(note.text)"
+                    @click="toggleNote(note.id)"
+                    class="t-meta mt-1 text-green-soft cursor-pointer hover:underline"
+                >{{ expandedNotes.has(note.id) ? $t('bookDetail.noteLess') : $t('bookDetail.noteMore') }}
+                </button>
+              </div>
+              <div class="flex items-center gap-1 flex-none">
+                <button
+                    @click="editNote(note)"
+                    :aria-label="$t('common.edit')"
+                    class="flex items-center justify-center size-7 rounded-full text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+                >
+                  <PencilIcon class="size-4"/>
+                </button>
+                <button
+                    @click="pendingDeleteNoteId = note.id"
+                    :aria-label="$t('common.delete')"
+                    class="flex items-center justify-center size-7 rounded-full text-muted cursor-pointer hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+                >
+                  <Trash2Icon class="size-4"/>
+                </button>
+              </div>
+            </div>
+          </div>
+          <p v-else class="t-meta text-center py-4">{{ $t('bookDetail.noNotes') }}</p>
+          <Button variant="soft" block class="mt-2" @click="addNote">
+            <PencilIcon class="size-4"/>
+            {{ $t('bookDetail.addNote') }}
+          </Button>
+        </div>
+
         <div v-else-if="activeTab === 'Shelves'">
           <div v-if="loadingShelves" class="flex justify-center py-4">
             <span class="loading loading-spinner loading-md"></span>
@@ -192,7 +252,8 @@
                 @click="toggleShelf(shelf.id)"
                 class="flex items-center justify-between py-3 border-b border-line-soft cursor-pointer group"
             >
-              <span class="text-sm group-hover:text-green-soft transition-colors duration-150" :class="isOnShelf(shelf.id) ? 'text-ink' : 'text-ink-dim'">{{ shelf.name || shelf.code }}</span>
+              <span class="text-sm group-hover:text-green-soft transition-colors duration-150"
+                    :class="isOnShelf(shelf.id) ? 'text-ink' : 'text-ink-dim'">{{ shelf.name || shelf.code }}</span>
               <div
                   class="size-7 rounded-full flex items-center justify-center border transition-colors duration-150"
                   :class="isOnShelf(shelf.id) ? 'bg-green/13 border-green/32' : 'bg-surface border-line'"
@@ -232,6 +293,21 @@
         @cancel="pendingRemoveShelfId = null"
     />
 
+    <NoteModal
+        v-if="showNoteModal"
+        :note="editingNote"
+        @save="saveNote"
+        @close="showNoteModal = false"
+    />
+
+    <ConfirmDialog
+        v-if="pendingDeleteNoteId"
+        :title="$t('bookDetail.deleteNoteTitle')"
+        :message="$t('bookDetail.deleteNoteMessage')"
+        @confirm="deleteNote"
+        @cancel="pendingDeleteNoteId = null"
+    />
+
     <ConfirmDialog
         v-if="pendingDeleteReadingId"
         :title="$t('bookDetail.deleteReadingTitle')"
@@ -250,15 +326,24 @@
 
 <script lang="ts">
 import {defineComponent, reactive, ref, computed, onMounted} from 'vue';
-import {useRoute, useRouter} from 'vue-router';
+import {useRoute} from 'vue-router';
 import {authorRoute} from '@/utils/authorRoute';
 import {seriesRoute} from '@/utils/seriesRoute';
 import {useI18n} from 'vue-i18n';
-import {ChevronLeftIcon, BookOpenIcon, CheckIcon, Trash2Icon, ExternalLinkIcon, Link2Icon} from "@lucide/vue";
+import {
+  ChevronLeftIcon,
+  BookOpenIcon,
+  CheckIcon,
+  Trash2Icon,
+  ExternalLinkIcon,
+  Link2Icon,
+  PencilIcon
+} from "@lucide/vue";
 import {fetchBookDetail, searchBooks, resolveGoogleId} from '@/api/bookApi';
 import {apiErrorMessage} from '@/utils/apiError';
 import StartReadingModal from '@/components/StartReadingModal.vue';
 import LinkCatalogModal from '@/components/LinkCatalogModal.vue';
+import NoteModal from '@/components/NoteModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import BookLabels from '@/components/BookLabels.vue';
@@ -268,10 +353,28 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import Rating from '@/components/ui/Rating.vue';
 import {apiFetch} from '@/api/client';
 import moment from 'moment';
-import type {BookSearchResult, LabelKind} from '@/types/book';
+import type {BookNote, BookSearchResult, LabelKind} from '@/types/book';
 
 export default defineComponent({
-  components: {ChevronLeftIcon, BookOpenIcon, CheckIcon, Trash2Icon, ExternalLinkIcon, Link2Icon, StartReadingModal, LinkCatalogModal, ConfirmDialog, BookCover, BookLabels, Button, InlineEdit, SegmentedControl, Rating},
+  components: {
+    ChevronLeftIcon,
+    BookOpenIcon,
+    CheckIcon,
+    Trash2Icon,
+    ExternalLinkIcon,
+    Link2Icon,
+    PencilIcon,
+    StartReadingModal,
+    LinkCatalogModal,
+    NoteModal,
+    ConfirmDialog,
+    BookCover,
+    BookLabels,
+    Button,
+    InlineEdit,
+    SegmentedControl,
+    Rating
+  },
   setup() {
     const {t} = useI18n();
     const route = useRoute();
@@ -291,10 +394,17 @@ export default defineComponent({
     const linking = ref(false);
     const activeTab = ref((route.query.tab as string) || 'Info');
     const tabs = computed(() => [
-      { value: 'Info', label: t('bookDetail.tabInfo') },
-      { value: 'Log', label: t('bookDetail.tabLog') },
-      { value: 'Shelves', label: t('bookDetail.tabShelves') },
+      {value: 'Info', label: t('bookDetail.tabInfo')},
+      {value: 'Log', label: t('bookDetail.tabLog')},
+      {value: 'Notes', label: t('bookDetail.tabNotes')},
+      {value: 'Shelves', label: t('bookDetail.tabShelves')},
     ]);
+    const notes = ref<BookNote[]>([]);
+    const showNoteModal = ref(false);
+    const editingNote = ref<BookNote | null>(null);
+    const pendingDeleteNoteId = ref<string | null>(null);
+    // Ids of the notes the user unfolded; resets on reload, which is fine.
+    const expandedNotes = ref(new Set<string>());
     const shelves = ref<Array<{ id: string; code: string; name: string | null; description: string }>>([]);
     const shelfIds = ref<string[]>([]);
     const loadingShelves = ref(false);
@@ -339,6 +449,7 @@ export default defineComponent({
           pageCountOverride.value = data.page_count ?? null;
           labels.genre = data.genres ?? [];
           labels.tag = data.tags ?? [];
+          notes.value = data.notes ?? [];
           return {
             googleBooksId: data.google_books_id as string | null,
             openLibraryId: data.open_library_id as string | null,
@@ -515,7 +626,73 @@ export default defineComponent({
       }
     };
 
+    // A note is cut to a preview in the list, both by characters and by lines —
+    // a phone shows very little of a long note otherwise, and one tall note
+    // pushes every other one off-screen.
+    const PREVIEW_CHARS = 240;
+    const PREVIEW_LINES = 4;
 
+    const isLongNote = (text: string) =>
+        text.length > PREVIEW_CHARS || text.split('\n').length > PREVIEW_LINES;
+
+    const notePreview = (note: BookNote) => {
+      if (expandedNotes.value.has(note.id) || !isLongNote(note.text)) return note.text;
+      return note.text
+          .split('\n')
+          .slice(0, PREVIEW_LINES)
+          .join('\n')
+          .slice(0, PREVIEW_CHARS)
+          .trimEnd() + '…';
+    };
+
+    const toggleNote = (noteId: string) => {
+      if (!expandedNotes.value.delete(noteId)) expandedNotes.value.add(noteId);
+    };
+
+    const addNote = () => {
+      editingNote.value = null;
+      showNoteModal.value = true;
+    };
+
+    const editNote = (note: BookNote) => {
+      editingNote.value = note;
+      showNoteModal.value = true;
+    };
+
+    // Both write endpoints answer with the book's full note list, so there is
+    // nothing to patch by hand here.
+    const writeNote = async (path: string, body: Record<string, unknown>) => {
+      try {
+        const response = await apiFetch(path, {method: 'POST', body: JSON.stringify(body)});
+        if (response.ok) {
+          notes.value = (await response.json()).notes;
+          return true;
+        }
+        showToast(apiErrorMessage(response.status, t), 'alert-error');
+      } catch {
+        showToast(t('error.network'), 'alert-error');
+      }
+      return false;
+    };
+
+    const saveNote = async (text: string, page: number | null) => {
+      const saved = await writeNote('/api/books/notes/save', {
+        book_id: route.params.id,
+        note_id: editingNote.value?.id ?? null,
+        text,
+        page,
+      });
+      if (saved) showNoteModal.value = false;
+    };
+
+    const deleteNote = async () => {
+      const noteId = pendingDeleteNoteId.value;
+      if (!noteId) return;
+      pendingDeleteNoteId.value = null;
+      if (await writeNote('/api/books/notes/delete', {note_id: noteId})) {
+        showToast(t('bookDetail.noteDeleted'), 'alert-success');
+      }
+    };
 
     const startReadingSession = async (mode: string, totalPages: number, startedAt: string) => {
       try {
@@ -682,6 +859,18 @@ export default defineComponent({
       suggestions,
       addLabel,
       removeLabel,
+      notes,
+      showNoteModal,
+      editingNote,
+      pendingDeleteNoteId,
+      expandedNotes,
+      isLongNote,
+      notePreview,
+      toggleNote,
+      addNote,
+      editNote,
+      saveNote,
+      deleteNote,
       pendingRemoveShelfId,
       pendingDeleteReadingId,
       toastMessage,

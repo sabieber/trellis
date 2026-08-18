@@ -9,12 +9,16 @@ use axum::{extract::Json, http::StatusCode, response::IntoResponse, Router};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::HashSet;
 use uuid::Uuid;
 
 /// The wire shape of a book, as every handler that returns a list of them sends
 /// it — and as the frontend's `ShelfBook` type reads it. One function, so a new
 /// field reaches all of those responses at once.
-pub(crate) fn book_json(book: &Book) -> serde_json::Value {
+///
+/// `noted` is the caller's set of books that carry a note (see
+/// `notes::noted_book_ids`), loaded once for the whole list.
+pub(crate) fn book_json(book: &Book, noted: &HashSet<Uuid>) -> serde_json::Value {
     json!({
         "id": book.id.to_string(),
         "title": book.title,
@@ -27,6 +31,7 @@ pub(crate) fn book_json(book: &Book) -> serde_json::Value {
         "rating": book.rating,
         "cover_url": book.cover_url,
         "page_count": book.page_count,
+        "has_notes": noted.contains(&book.id),
     })
 }
 
@@ -279,9 +284,10 @@ pub struct BookInfoResponse {
     pub readings: Vec<serde_json::Value>,
     pub shelf_ids: Vec<String>,
     // The user's own labels ride along here rather than in a route of their
-    // own: this response is already fetched on page load.
+    // own: this response is already fetched on page load. So do the notes.
     pub genres: Vec<String>,
     pub tags: Vec<String>,
+    pub notes: Vec<serde_json::Value>,
 }
 
 /// Fetches book information by book ID.
@@ -352,6 +358,7 @@ pub(crate) async fn get_book_info(
     {
         Ok(book) => {
             let (genres, tags) = labels_for_book(connection, book_id).unwrap_or_default();
+            let notes = crate::notes::notes_for_book(connection, book_id).unwrap_or_default();
             (
                 StatusCode::OK,
                 Json(json!(BookInfoResponse {
@@ -367,6 +374,7 @@ pub(crate) async fn get_book_info(
                     shelf_ids,
                     genres,
                     tags,
+                    notes,
                 })),
             )
         }
@@ -915,7 +923,7 @@ fn labels_for_book(
 
 /// Resolves the book's owner, ensuring it is the authenticated user. The label
 /// row's `user` is taken from here, never from the request payload.
-fn owned_book(conn: &mut PgConnection, book_id: Uuid, user_id: Uuid) -> QueryResult<Uuid> {
+pub(crate) fn owned_book(conn: &mut PgConnection, book_id: Uuid, user_id: Uuid) -> QueryResult<Uuid> {
     books
         .filter(schema::books::dsl::id.eq(book_id))
         .filter(schema::books::dsl::user.eq(user_id))
@@ -1141,7 +1149,8 @@ pub(crate) async fn list_author_books(
     Json(payload): Json<AuthorBooksRequest>,
 ) -> impl IntoResponse {
     let results = books_by_author(auth.0, &payload.author);
-    let json_books: Vec<_> = results.iter().map(book_json).collect();
+    let noted = crate::notes::noted_book_ids(&mut connect(), auth.0);
+    let json_books: Vec<_> = results.iter().map(|b| book_json(b, &noted)).collect();
 
     (
         StatusCode::OK,
@@ -1369,7 +1378,8 @@ pub(crate) async fn browse_books(
         Vec::new()
     };
 
-    let json_books: Vec<_> = results.iter().map(book_json).collect();
+    let noted = crate::notes::noted_book_ids(connection, auth.0);
+    let json_books: Vec<_> = results.iter().map(|b| book_json(b, &noted)).collect();
 
     (
         StatusCode::OK,
@@ -1427,7 +1437,8 @@ pub(crate) async fn random_books(
         }
     };
 
-    let json_books: Vec<_> = results.iter().map(book_json).collect();
+    let noted = crate::notes::noted_book_ids(connection, auth.0);
+    let json_books: Vec<_> = results.iter().map(|b| book_json(b, &noted)).collect();
 
     (StatusCode::OK, Json(json!({ "books": json_books })))
 }

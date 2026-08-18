@@ -84,6 +84,7 @@
                   :width="64"
                   :cover-url="resolvedCoverUrl(reading.book_id, bookCoverUrl(reading))"
                   :book-id="reading.book_id"
+                  :has-note="reading.has_notes"
                   @resolve-cover="onResolveCover"
               />
               <div class="flex-1 min-w-0 flex flex-col justify-between">
@@ -198,6 +199,7 @@ interface ActiveReading {
   progress: number;
   total_pages: number;
   mode: string;
+  has_notes: boolean;
 }
 
 import {bookCoverUrl} from '@/utils/coverUrl';

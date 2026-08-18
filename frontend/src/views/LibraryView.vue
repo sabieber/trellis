@@ -69,6 +69,7 @@
                   :book-id="book.id"
                   @resolve-cover="onResolveCover"
                   :rating="book.rating"
+                  :has-note="book.has_notes"
                   hoverable
               />
             </RouterLink>
@@ -151,6 +152,7 @@ export default defineComponent({
       open_library_id: string | null;
       rating: number | null;
       cover_url: string | null;
+      has_notes: boolean;
     }>>>({});
     const loading = ref(true);
     const toastMessage = ref('');
@@ -249,6 +251,7 @@ export default defineComponent({
           open_library_id: string | null;
           rating: number | null;
           cover_url: string | null;
+          has_notes: boolean;
         }>> = {};
         data.shelves.forEach((shelf: { id: string }, i: number) => {
           map[shelf.id] = bookResults[i].books;

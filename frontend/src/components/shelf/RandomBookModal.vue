@@ -20,6 +20,7 @@
               :cover-url="resolvedCoverUrl(pick.id, bookCoverUrl(pick))"
               :book-id="pick.id"
               :rating="pick.rating"
+              :has-note="pick.has_notes"
               hoverable
               @resolve-cover="onResolveCover"
           />

@@ -106,6 +106,7 @@
                   :cover-url="resolvedCoverUrl(book.book_id, book.cover_url ?? undefined)"
                   :book-id="book.book_id"
                   :rating="book.rating"
+                  :has-note="book.has_notes"
                   :width="44"
                   @resolve-cover="onResolveCover"
               />
@@ -153,6 +154,7 @@ interface CalendarBook {
   author: string | null;
   cover_url: string | null;
   rating: number | null;
+  has_notes: boolean;
   pages: number;
   finished: boolean;
 }

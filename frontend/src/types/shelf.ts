@@ -17,4 +17,6 @@ export interface ShelfBook {
   rating: number | null;
   cover_url: string | null;
   page_count: number | null;
+  /** True when the user wrote at least one note about this book. */
+  has_notes?: boolean;
 }

@@ -159,6 +159,7 @@
   "bookDetail": {
     "tabInfo": "Info",
     "tabLog": "Log",
+    "tabNotes": "Notes",
     "tabShelves": "Shelves",
     "seriesEntry": "{name} #{position}",
     "about": "About",
@@ -182,7 +183,22 @@
     "removeFromShelfTitle": "Remove from Shelf",
     "deleteReadingTitle": "Delete Reading",
     "deleteReadingMessage": "Are you sure you want to delete this reading session and all its entries? This cannot be undone.",
-    "readingDeleted": "Reading deleted."
+    "readingDeleted": "Reading deleted.",
+    "noNotes": "No notes yet.",
+    "addNote": "Add note",
+    "notePage": "p. {page}",
+    "noteEdited": "edited",
+    "noteMore": "Show more",
+    "noteLess": "Show less",
+    "deleteNoteTitle": "Delete Note",
+    "deleteNoteMessage": "Are you sure you want to delete this note? This cannot be undone.",
+    "noteDeleted": "Note deleted."
+  },
+  "noteModal": {
+    "newTitle": "New Note",
+    "editTitle": "Edit Note",
+    "text": "Note",
+    "page": "Page"
   },
   "linkCatalog": {
     "title": "Link catalog record",

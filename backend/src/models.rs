@@ -82,6 +82,23 @@ pub struct BookLabel {
     pub added_at: chrono::NaiveDateTime,
 }
 
+/// A free-text note the user wrote about a book, with an optional page it
+/// refers to. Notes belong to the book, not to a single reading of it.
+#[derive(Queryable, Selectable, Insertable)]
+#[diesel(table_name = crate::schema::book_notes)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+#[diesel(belongs_to(Book))]
+#[diesel(belongs_to(User))]
+pub struct BookNote {
+    pub id: Uuid,
+    pub book: Uuid,
+    pub user: Uuid,
+    pub text: String,
+    pub page: Option<i32>,
+    pub created_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::NaiveDateTime,
+}
+
 #[derive(Debug, diesel_derive_enum::DbEnum)]
 #[ExistingTypePath = "crate::schema::sql_types::ReadingMode"]
 pub enum ReadingMode {

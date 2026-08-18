@@ -267,7 +267,8 @@ pub(crate) async fn list_shelf_books(
         ),
     };
 
-    let json_books: Vec<_> = results.iter().map(crate::books::book_json).collect();
+    let noted = crate::notes::noted_book_ids(connection, auth.0);
+    let json_books: Vec<_> = results.iter().map(|b| crate::books::book_json(b, &noted)).collect();
 
     (StatusCode::OK, Json(json!({
         "shelf": {
