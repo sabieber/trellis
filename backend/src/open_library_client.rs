@@ -335,9 +335,7 @@ fn normalize_edition_entry(entry: &Value) -> Option<DetailBook> {
 /// therefore an edition choice only the user can make.
 pub async fn list_editions(client: &Client, work_key: &str) -> Vec<DetailBook> {
     let key = work_key.trim_start_matches('/');
-    // ponytail: one page of 100. Works with more editions than that are rare;
-    // paginate when one shows up.
-    let url = format!("{}/{}/editions.json?limit=100", OL_BASE, key);
+    let url = format!("{}/{}/editions.json?limit=300", OL_BASE, key);
     let resp = match client.get(&url).send().await {
         Ok(r) if r.status().is_success() => r,
         _ => return vec![],

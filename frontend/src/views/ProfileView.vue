@@ -28,7 +28,8 @@
             <span class="t-meta block">{{ $t('profile.deriveReadingDaysDesc') }}</span>
           </span>
         </label>
-        <div v-if="importResult" :class="['mt-4 p-3 rounded-md border', importResult.success ? 'bg-success/10 border-success/30' : 'bg-error/10 border-error/30']">
+        <div v-if="importResult"
+             :class="['mt-4 p-3 rounded-md border', importResult.success ? 'bg-success/10 border-success/30' : 'bg-error/10 border-error/30']">
           <div class="flex items-center gap-2">
             <span :class="importResult.success ? 'text-success' : 'text-error'">{{ importResult.message }}</span>
           </div>
@@ -40,6 +41,22 @@
       <h3 class="t-eyebrow mb-2">{{ $t('common.language') }}</h3>
       <div class="bg-surface border border-line rounded-md p-4">
         <SegmentedControl v-model="language" :options="languageOptions"/>
+      </div>
+    </div>
+
+    <div class="mt-6">
+      <h3 class="t-eyebrow mb-2">{{ $t('profile.editionLanguages') }}</h3>
+      <div class="bg-surface border border-line rounded-md p-4">
+        <p class="t-meta mb-3">{{ $t('profile.editionLanguagesDesc') }}</p>
+        <!-- Same control as the genres and tags on a book: chips to remove, type-ahead to add. -->
+        <BookLabels
+            :labels="selectedLanguageNames"
+            :suggestions="languageSuggestions"
+            :empty-text="$t('profile.allLanguages')"
+            :add-label="$t('profile.addLanguage')"
+            @add="addEditionLanguage"
+            @remove="removeEditionLanguage"
+        />
       </div>
     </div>
 
@@ -64,13 +81,15 @@ import {useI18n} from 'vue-i18n';
 import PageContainer from '@/components/PageContainer.vue';
 import Button from '@/components/ui/Button.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import BookLabels from '@/components/BookLabels.vue';
 import {PowerIcon} from "@lucide/vue";
 import {apiFetch} from '@/api/client';
 import {useAuthStore} from '@/stores/auth';
 import {setLocale, type Locale} from '@/i18n';
+import {editionLanguageOptions, editionLanguages, languageLabel, setEditionLanguages} from '@/utils/editionLanguages';
 
 export default defineComponent({
-  components: {PageContainer, PowerIcon, Button, SegmentedControl},
+  components: {PageContainer, PowerIcon, Button, SegmentedControl, BookLabels},
   setup() {
     const router = useRouter();
     const {t, locale} = useI18n();
@@ -81,6 +100,28 @@ export default defineComponent({
       get: () => locale.value,
       set: (value: string) => setLocale(value as Locale),
     });
+    // No selection means no filter: a new reader sees every edition. The order
+    // is the order they picked, and the edition lists follow it.
+    //
+    // BookLabels speaks in the names the user reads, so both directions go
+    // through the option list of the current UI language. Names are unique
+    // within a locale — the codes that share one are filtered out there.
+    const options = computed(() => editionLanguageOptions(locale.value));
+    const selectedLanguageNames = computed(() =>
+        editionLanguages.value.map((code) => languageLabel(code, locale.value)));
+    const languageSuggestions = computed(() => options.value.map((option) => option.label));
+
+    // A typed name that matches no language is dropped: unlike a tag, this is a
+    // pick from a fixed list, not free text.
+    const addEditionLanguage = (name: string) => {
+      const picked = options.value.find((option) => option.label === name);
+      if (picked && !editionLanguages.value.includes(picked.code)) {
+        setEditionLanguages([...editionLanguages.value, picked.code]);
+      }
+    };
+
+    const removeEditionLanguage = (name: string) => setEditionLanguages(
+        editionLanguages.value.filter((code) => languageLabel(code, locale.value) !== name));
     const pageContainer = ref<any>(null);
     const selectedFile = ref<File | null>(null);
     const isUploading = ref(false);
@@ -150,20 +191,36 @@ export default defineComponent({
           });
           const failed = d.books_failed > 0 ? ' ' + t('profile.importFailed', {failed: d.books_failed}) : '';
           const days = d.entries_created > 0 ? ' ' + t('profile.importReadingDays', {days: d.entries_created}) : '';
-          importResult.value = { success: true, message: summary + days + failed };
+          importResult.value = {success: true, message: summary + days + failed};
         } else {
           console.error('Failed to import file:', await response.json());
-          importResult.value = { success: false, message: t('profile.importError') };
+          importResult.value = {success: false, message: t('profile.importError')};
         }
       } catch (error) {
         console.error('Failed to import file:', error);
-        importResult.value = { success: false, message: t('profile.importError') };
+        importResult.value = {success: false, message: t('profile.importError')};
       } finally {
         isUploading.value = false;
       }
     };
 
-    return {logout, pageContainer, handleFileChange, uploadFile, isUploading, importResult, deriveReadingDays, language, languageOptions, isReloading, reloadWithoutCaches};
+    return {
+      logout,
+      pageContainer,
+      handleFileChange,
+      uploadFile,
+      isUploading,
+      importResult,
+      deriveReadingDays,
+      language,
+      languageOptions,
+      selectedLanguageNames,
+      languageSuggestions,
+      addEditionLanguage,
+      removeEditionLanguage,
+      isReloading,
+      reloadWithoutCaches
+    };
   }
 });
 </script>

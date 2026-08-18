@@ -243,7 +243,9 @@
       "openlibrary": "Open Library"
     },
     "editions": "Show editions",
-    "noEditions": "No editions found."
+    "noEditions": "No editions found.",
+    "unknownLanguage": "Unknown language",
+    "noEditionsInLanguages": "No editions in your preferred languages."
   },
   "scanner": {
     "pointCamera": "Point camera at a barcode…",
@@ -352,7 +354,11 @@
     "app": "App",
     "hardReloadTitle": "Reload without caches",
     "hardReloadDesc": "Removes the offline cache and reloads everything from the server. Use this if the app still shows an old version.",
-    "hardReloadAction": "Reload"
+    "hardReloadAction": "Reload",
+    "editionLanguages": "Edition languages",
+    "editionLanguagesDesc": "Show only editions in these languages, plus editions that state no language. Add none to show all of them.",
+    "addLanguage": "Add a language…",
+    "allLanguages": "All languages"
   },
   "auth": {
     "tagline": "a garden library",

@@ -243,7 +243,9 @@
       "openlibrary": "Open Library"
     },
     "editions": "Ausgaben anzeigen",
-    "noEditions": "Keine Ausgaben gefunden."
+    "noEditions": "Keine Ausgaben gefunden.",
+    "unknownLanguage": "Unbekannte Sprache",
+    "noEditionsInLanguages": "Keine Ausgaben in deinen bevorzugten Sprachen."
   },
   "scanner": {
     "pointCamera": "Kamera auf einen Barcode richten…",
@@ -352,7 +354,11 @@
     "app": "App",
     "hardReloadTitle": "Ohne Cache neu laden",
     "hardReloadDesc": "Entfernt den Offline-Cache und lädt alles neu vom Server. Nutze das, wenn die App noch eine alte Version anzeigt.",
-    "hardReloadAction": "Neu laden"
+    "hardReloadAction": "Neu laden",
+    "editionLanguages": "Sprachen der Ausgaben",
+    "editionLanguagesDesc": "Zeigt nur Ausgaben in diesen Sprachen sowie Ausgaben ohne Sprachangabe. Ohne Auswahl werden alle angezeigt.",
+    "addLanguage": "Sprache hinzufügen…",
+    "allLanguages": "Alle Sprachen"
   },
   "auth": {
     "tagline": "eine Bibliothek zum Wachsen",

@@ -85,37 +85,47 @@
           <div v-if="loadingEditions" class="flex justify-center py-4">
             <span class="loading loading-spinner loading-sm"></span>
           </div>
-          <p v-else-if="!editions.length" class="t-meta py-3 pl-6">{{ $t('search.noEditions') }}</p>
-          <div
-              v-for="edition in editions"
-              :key="edition.id"
-              class="flex items-center gap-2 pl-6 border-b border-line-soft"
-          >
+          <p v-else-if="hiddenByLanguage" class="t-meta py-3 pl-6">{{ $t('search.noEditionsInLanguages') }}</p>
+          <p v-else-if="!editionGroups.length" class="t-meta py-3 pl-6">{{ $t('search.noEditions') }}</p>
+          <template v-for="group in editionGroups" :key="group.language || 'unknown'">
             <button
                 type="button"
-                class="flex-1 min-w-0 text-left py-2 cursor-pointer group/edition"
-                :disabled="submitting"
-                @click="$emit('select', edition)"
+                class="flex items-center gap-2 w-full pl-6 pr-4 py-2.5 text-left border-b border-line-soft cursor-pointer hover:bg-surface-2 transition-colors duration-150"
+                :aria-expanded="isGroupOpen(group.language)"
+                @click="toggleGroup(group.language)"
             >
-              <div class="flex items-center gap-2 min-w-0">
-                <span
-                    v-if="edition.language"
-                    class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border border-green/40 text-green-soft"
-                >{{ edition.language }}</span>
-                <span class="text-sm text-ink truncate group-hover/edition:text-green-soft transition-colors duration-150">{{ edition.title }}</span>
-              </div>
-              <p class="t-meta mt-0.5 truncate">{{ editionMeta(edition) }}</p>
+              <ChevronDownIcon
+                  class="size-4 flex-none text-muted transition-transform duration-150"
+                  :class="isGroupOpen(group.language) ? 'rotate-180' : '-rotate-90'"
+              />
+              <span class="text-sm font-medium text-ink">{{ group.label }}</span>
+              <span class="t-meta">{{ group.editions.length }}</span>
             </button>
-            <RouterLink
-                :to="{ name: 'search-detail', params: { id: edition.id } }"
-                target="_blank"
-                class="flex items-center justify-center size-7 rounded-full flex-none text-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
-                :title="$t('linkCatalog.preview')"
-                :aria-label="$t('linkCatalog.preview')"
+            <div
+                v-for="edition in (isGroupOpen(group.language) ? group.editions : [])"
+                :key="edition.id"
+                class="flex items-center gap-2 pl-12 border-b border-line-soft"
             >
-              <ArrowUpRightIcon class="size-3.5"/>
-            </RouterLink>
-          </div>
+              <button
+                  type="button"
+                  class="flex-1 min-w-0 text-left py-2 cursor-pointer group/edition"
+                  :disabled="submitting"
+                  @click="$emit('select', edition)"
+              >
+                <span class="block text-sm text-ink truncate group-hover/edition:text-green-soft transition-colors duration-150">{{ edition.title }}</span>
+                <p class="t-meta mt-0.5 truncate">{{ editionMeta(edition) }}</p>
+              </button>
+              <RouterLink
+                  :to="{ name: 'search-detail', params: { id: edition.id } }"
+                  target="_blank"
+                  class="flex items-center justify-center size-7 rounded-full flex-none text-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+                  :title="$t('linkCatalog.preview')"
+                  :aria-label="$t('linkCatalog.preview')"
+              >
+                <ArrowUpRightIcon class="size-3.5"/>
+              </RouterLink>
+            </div>
+          </template>
         </div>
         </template>
       </div>
@@ -158,7 +168,7 @@ export default defineComponent({
     const books = ref<BookSearchResult[]>([]);
     const loading = ref(false);
     const hasSearched = ref(false);
-    const {expanded, editions, loadingEditions, isWork, toggleEditions, collapse, editionMeta} =
+    const {expanded, editionGroups, hiddenByLanguage, isGroupOpen, toggleGroup, loadingEditions, isWork, toggleEditions, collapse, editionMeta} =
         useEditions();
 
     const search = async () => {
@@ -181,7 +191,10 @@ export default defineComponent({
       hasSearched,
       search,
       expanded,
-      editions,
+      editionGroups,
+      hiddenByLanguage,
+      isGroupOpen,
+      toggleGroup,
       loadingEditions,
       isWork,
       toggleEditions,

@@ -82,22 +82,34 @@
             <div v-if="loadingEditions" class="flex justify-center py-4">
               <span class="loading loading-spinner loading-sm"></span>
             </div>
-            <p v-else-if="!editions.length" class="t-meta py-3 pl-6">{{ $t('search.noEditions') }}</p>
-            <RouterLink
-                v-for="edition in editions"
-                :key="edition.id"
-                :to="{ name: 'search-detail', params: { id: edition.id } }"
-                class="flex flex-col pl-6 py-2 border-b border-line-soft cursor-pointer group/edition"
-            >
-              <div class="flex items-center gap-2 min-w-0">
-                <span
-                    v-if="edition.language"
-                    class="flex-none text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border border-green/40 text-green-soft"
-                >{{ edition.language }}</span>
-                <span class="text-sm text-ink truncate group-hover/edition:text-green-soft transition-colors duration-150">{{ edition.title }}</span>
-              </div>
-              <p class="t-meta mt-0.5 truncate">{{ editionMeta(edition) }}</p>
-            </RouterLink>
+            <p v-else-if="hiddenByLanguage" class="t-meta py-3 pl-6">{{ $t('search.noEditionsInLanguages') }}</p>
+            <p v-else-if="!editionGroups.length" class="t-meta py-3 pl-6">{{ $t('search.noEditions') }}</p>
+            <template v-for="group in editionGroups" :key="group.language || 'unknown'">
+              <button
+                  type="button"
+                  class="flex items-center gap-2 w-full pl-6 pr-4 py-2.5 text-left border-b border-line-soft cursor-pointer hover:bg-surface-2 transition-colors duration-150"
+                  :aria-expanded="isGroupOpen(group.language)"
+                  @click="toggleGroup(group.language)"
+              >
+                <ChevronDownIcon
+                    class="size-4 flex-none text-muted transition-transform duration-150"
+                    :class="isGroupOpen(group.language) ? 'rotate-180' : '-rotate-90'"
+                />
+                <span class="text-sm font-medium text-ink">{{ group.label }}</span>
+                <span class="t-meta">{{ group.editions.length }}</span>
+              </button>
+              <template v-if="isGroupOpen(group.language)">
+                <RouterLink
+                    v-for="edition in group.editions"
+                    :key="edition.id"
+                    :to="{ name: 'search-detail', params: { id: edition.id } }"
+                    class="flex flex-col pl-12 py-2 border-b border-line-soft cursor-pointer group/edition"
+                >
+                  <span class="text-sm text-ink truncate group-hover/edition:text-green-soft transition-colors duration-150">{{ edition.title }}</span>
+                  <p class="t-meta mt-0.5 truncate">{{ editionMeta(edition) }}</p>
+                </RouterLink>
+              </template>
+            </template>
           </div>
         </template>
       </div>
@@ -137,7 +149,7 @@ export default defineComponent({
     const router = useRouter();
     const route = useRoute();
     const {t} = useI18n();
-    const {expanded, editions, loadingEditions, isWork, toggleEditions, collapse, editionMeta} =
+    const {expanded, editionGroups, hiddenByLanguage, isGroupOpen, toggleGroup, loadingEditions, isWork, toggleEditions, collapse, editionMeta} =
         useEditions();
 
     const displayedBooks = computed(() => (books.value.length ? books.value : trendingBooks.value));
@@ -195,7 +207,10 @@ export default defineComponent({
       layoutMode,
       layoutBooks,
       expanded,
-      editions,
+      editionGroups,
+      hiddenByLanguage,
+      isGroupOpen,
+      toggleGroup,
       loadingEditions,
       isWork,
       toggleEditions,

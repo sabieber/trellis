@@ -4,7 +4,9 @@
      persistence stays with the parent view. -->
 <template>
   <section>
-    <h2 class="t-eyebrow mb-2">{{ title }}</h2>
+    <!-- Optional: a caller that already labels the section (the profile's
+         settings cards do) would otherwise show the heading twice. -->
+    <h2 v-if="title" class="t-eyebrow mb-2">{{ title }}</h2>
     <div class="flex flex-wrap items-center gap-2">
       <Chip v-for="label in labels" :key="label">
         {{ label }}
@@ -88,7 +90,7 @@ import Chip from '@/components/ui/Chip.vue';
 const MAX_LABEL_LENGTH = 40;
 
 const props = defineProps<{
-  title: string; // already translated section heading
+  title?: string; // already translated section heading; omit to render none
   labels: string[];
   suggestions: string[]; // every label of this kind the user has used before
   emptyText: string;

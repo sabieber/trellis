@@ -1,6 +1,7 @@
-import {ref} from 'vue';
+import {computed, ref} from 'vue';
 import {useI18n} from 'vue-i18n';
 import {fetchEditions} from '@/api/bookApi';
+import {editionLanguages, languageLabel, normalizeLanguage} from '@/utils/editionLanguages';
 import type {BookSearchResult} from '@/types/book';
 
 /**
@@ -15,7 +16,7 @@ import type {BookSearchResult} from '@/types/book';
  * costs one request each rather than one per click.
  */
 export function useEditions() {
-  const {t} = useI18n();
+  const {t, locale} = useI18n();
   const expanded = ref<string | null>(null);
   const editions = ref<BookSearchResult[]>([]);
   const loadingEditions = ref(false);
@@ -24,8 +25,21 @@ export function useEditions() {
   const isWork = (book: BookSearchResult) =>
       book.source === 'openlibrary' && book.source_id.includes('/works/');
 
+  // Every language group starts closed, so a work answers "which languages do
+  // I have?" in one screen. Opening one is the second question.
+  const openGroups = ref<string[]>([]);
+
+  const isGroupOpen = (language: string) => openGroups.value.includes(language);
+
+  const toggleGroup = (language: string) => {
+    openGroups.value = isGroupOpen(language)
+        ? openGroups.value.filter((open) => open !== language)
+        : [...openGroups.value, language];
+  };
+
   const collapse = () => {
     expanded.value = null;
+    openGroups.value = [];
   };
 
   const toggleEditions = async (book: BookSearchResult) => {
@@ -34,6 +48,7 @@ export function useEditions() {
       return;
     }
     expanded.value = book.id;
+    openGroups.value = [];
     const cached = cache[book.id];
     if (cached) {
       editions.value = cached;
@@ -50,6 +65,47 @@ export function useEditions() {
     loadingEditions.value = false;
   };
 
+  /**
+   * The editions to show, in groups of one language.
+   *
+   * The language preference filters the list. An edition that states no
+   * language stays — Open Library leaves that field empty on a third of its
+   * records, and dropping them hides untagged English hardbacks as well.
+   *
+   * The preferred languages come first, in the order the user picked them, then
+   * the rest, then the editions of unknown language.
+   */
+  const editionGroups = computed(() => {
+    const wanted = editionLanguages.value;
+    const groups = new Map<string, BookSearchResult[]>();
+
+    for (const edition of editions.value) {
+      const language = normalizeLanguage(edition.language);
+      if (wanted.length && language && !wanted.includes(language)) continue;
+      const key = language ?? '';
+      const group = groups.get(key);
+      if (group) group.push(edition);
+      else groups.set(key, [edition]);
+    }
+
+    const rank = (language: string) => {
+      if (!language) return Number.MAX_SAFE_INTEGER;
+      const preferred = wanted.indexOf(language);
+      return preferred >= 0 ? preferred : wanted.length;
+    };
+
+    return [...groups.entries()]
+        .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
+        .map(([language, group]) => ({
+          language,
+          label: language ? languageLabel(language, locale.value) : t('search.unknownLanguage'),
+          editions: group,
+        }));
+  });
+
+  // Nothing left after the filter is a different answer than nothing at all.
+  const hiddenByLanguage = computed(() => !editionGroups.value.length && editions.value.length > 0);
+
   const editionMeta = (edition: BookSearchResult) =>
       [
         edition.published_date,
@@ -58,5 +114,17 @@ export function useEditions() {
         edition.isbn13 || edition.isbn10,
       ].filter(Boolean).join(' · ');
 
-  return {expanded, editions, loadingEditions, isWork, toggleEditions, collapse, editionMeta};
+  return {
+    expanded,
+    editions,
+    editionGroups,
+    hiddenByLanguage,
+    isGroupOpen,
+    toggleGroup,
+    loadingEditions,
+    isWork,
+    toggleEditions,
+    collapse,
+    editionMeta,
+  };
 }
