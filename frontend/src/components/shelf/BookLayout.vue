@@ -2,7 +2,10 @@
      every view that shows books does it at the same sizes. Pair it with
      `LayoutModeSelect`, which picks the mode. -->
 <template>
-  <div ref="contentRef">
+  <!-- `isolate` keeps the z-index values inside the views (the spine titles, the
+       stacking order of a pile) in their own stacking context. Without it they
+       sit in the page's root context and paint over the filter dropdowns. -->
+  <div ref="contentRef" class="isolate">
     <ShelfListView
         v-if="mode === 'list'"
         :books="books"
