@@ -16,7 +16,10 @@
           <ChevronRightIcon class="size-4"/>
         </RouterLink>
       </div>
-      <CreateShelfModal @shelfCreated="fetchData"/>
+      <div class="flex flex-wrap justify-end gap-2 shrink-0">
+        <CreateBookModal @bookCreated="fetchData"/>
+        <CreateShelfModal @shelfCreated="fetchData"/>
+      </div>
     </div>
 
     <!-- Sorting belongs to the shelf list below, not to the title block. -->
@@ -121,6 +124,7 @@ import {defineComponent, ref, computed, onMounted, onUnmounted, watch, nextTick}
 import {useI18n} from 'vue-i18n';
 import {MinusIcon, ChevronRightIcon} from '@lucide/vue';
 import CreateShelfModal from '@/components/CreateShelfModal.vue';
+import CreateBookModal from '@/components/CreateBookModal.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import Button from '@/components/ui/Button.vue';
@@ -131,7 +135,7 @@ import {bookCoverUrl} from '@/utils/coverUrl';
 import {useBookCovers} from '@/composables/useBookCovers';
 
 export default defineComponent({
-  components: {CreateShelfModal, ConfirmDialog, MinusIcon, ChevronRightIcon, BookCover, Button},
+  components: {CreateShelfModal, CreateBookModal, ConfirmDialog, MinusIcon, ChevronRightIcon, BookCover, Button},
   setup() {
     const {t} = useI18n();
     const shelves = ref<Array<{

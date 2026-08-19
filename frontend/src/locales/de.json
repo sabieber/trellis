@@ -157,6 +157,7 @@
     "viewSource": "Auf {source} ansehen"
   },
   "bookDetail": {
+    "sourceCustom": "Eigenes",
     "tabInfo": "Info",
     "tabLog": "Verlauf",
     "tabNotes": "Notizen",
@@ -213,6 +214,14 @@
     "newShelf": "Neues Regal",
     "namePlaceholder": "z. B. Möchte ich lesen",
     "descPlaceholder": "Eine kurze Beschreibung"
+  },
+  "bookModal": {
+    "newBook": "Neues Buch",
+    "bookTitle": "Titel",
+    "titlePlaceholder": "z. B. Eine Studie in Smaragdgrün",
+    "author": "Autor",
+    "authorPlaceholder": "z. B. Neil Gaiman",
+    "shelf": "Regal"
   },
   "goalModal": {
     "title": "Ziel erstellen",

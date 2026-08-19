@@ -157,6 +157,7 @@
     "viewSource": "View on {source}"
   },
   "bookDetail": {
+    "sourceCustom": "Custom",
     "tabInfo": "Info",
     "tabLog": "Log",
     "tabNotes": "Notes",
@@ -213,6 +214,14 @@
     "newShelf": "New Shelf",
     "namePlaceholder": "e.g. Want to Read",
     "descPlaceholder": "A short description"
+  },
+  "bookModal": {
+    "newBook": "New Book",
+    "bookTitle": "Title",
+    "titlePlaceholder": "e.g. A Study in Emerald",
+    "author": "Author",
+    "authorPlaceholder": "e.g. Neil Gaiman",
+    "shelf": "Shelf"
   },
   "goalModal": {
     "title": "Create Goal",

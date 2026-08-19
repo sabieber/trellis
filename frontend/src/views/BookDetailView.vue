@@ -38,7 +38,11 @@
               <Rating :rating="rating" :size="18" interactive @update="rateBook"/>
             </div>
             <p class="t-meta mt-2">
-              {{ book.published_year }}
+              <!-- Which record the book hangs off: a catalog, or nothing but
+                   what the user typed. Same badge markup as the link-catalog
+                   list, where the sources are told apart the same way. -->
+              <span class="text-[10px] leading-none uppercase tracking-wide px-1.5 py-0.5 rounded-sm border border-line text-muted">{{ sourceLabel }}</span>
+              <span v-if="book.published_year"> · {{ book.published_year }}</span>
               <span v-if="displayedPageCount"> · {{ $t('search.pagesAbbr', {count: displayedPageCount}) }}</span>
               <span v-if="book.category"> · {{ book.category }}</span>
             </p>
@@ -389,6 +393,10 @@ export default defineComponent({
       mode: string;
     }>>([]);
     const loading = ref(true);
+    // The stored source ids, not `book.source`: `book` is overwritten by the
+    // catalog record, so a lookup that fails would make a linked book read as
+    // custom. The ids are what the row actually holds.
+    const linkedSource = ref<'google' | 'openlibrary' | null>(null);
     const showStartReadingModal = ref(false);
     const showLinkModal = ref(false);
     const linking = ref(false);
@@ -450,6 +458,9 @@ export default defineComponent({
           labels.genre = data.genres ?? [];
           labels.tag = data.tags ?? [];
           notes.value = data.notes ?? [];
+          linkedSource.value = data.google_books_id
+              ? 'google'
+              : data.open_library_id ? 'openlibrary' : null;
           return {
             googleBooksId: data.google_books_id as string | null,
             openLibraryId: data.open_library_id as string | null,
@@ -798,6 +809,9 @@ export default defineComponent({
       return {label: t('bookDetail.stateReading'), badgeClass: 'badge-warning'};
     };
 
+    const sourceLabel = computed(() =>
+        linkedSource.value ? t(`search.source.${linkedSource.value}`) : t('bookDetail.sourceCustom'));
+
     const sourceUrl = computed(() => {
       if (!book.value) return null;
       // A book only we know has a UUID as its source id, which no catalog
@@ -889,6 +903,7 @@ export default defineComponent({
       savePageCount,
       formatDate,
       readingState,
+      sourceLabel,
       sourceUrl,
       goodreadsUrl,
       amazonUrl,
