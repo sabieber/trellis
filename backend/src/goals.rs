@@ -446,7 +446,7 @@ pub(crate) async fn goal_detail(
                         "rating": rating,
                         "finished_at": finished_at.map(|d| d.to_string()),
                         "total_pages": total_pages,
-                        "cover_url": cover_url,
+                        "cover_url": crate::covers::proxy_url(book_id, cover_url.as_deref()),
                     })
                 })
                 .collect::<Vec<_>>()

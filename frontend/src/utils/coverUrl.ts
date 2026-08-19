@@ -1,28 +1,17 @@
 import { apiFetch } from '@/api/client'
 
-export function googleCoverUrl(googleBooksId: string | null | undefined): string | undefined {
-  if (!googleBooksId) return undefined;
-  return `https://books.google.com/books/content?id=${googleBooksId}&printsec=frontcover&img=1&zoom=1&source=gbs_api`;
-}
-
-export function openLibraryCoverUrl(isbn13: string | null | undefined, isbn10?: string | null): string | undefined {
-  const isbn = isbn13 || isbn10;
-  if (!isbn) return undefined;
-  return `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`;
-}
-
-export function bookCoverUrl(book: {
-  cover_url?: string | null;
-  google_books_id?: string | null;
-  isbn13?: string | null;
-  isbn10?: string | null;
-}): string | undefined {
-  // Prefer the server-resolved and cached cover URL. Falls back to
-  // generating URLs from identifiers (Google Books thumbnail, then the
-  // ISBN-based Open Library cover which may fail when the cover lives on
-  // the work rather than the edition).
-  if (book.cover_url) return book.cover_url;
-  return googleCoverUrl(book.google_books_id) ?? openLibraryCoverUrl(book.isbn13, book.isbn10);
+export function bookCoverUrl(book: { cover_url?: string | null }): string | undefined {
+  // The only cover URL the frontend ever builds for one of the user's own
+  // books. The backend sends `cover_url` as its own cover-proxy URL
+  // (`/api/books/{id}/cover?v=…`): served from the cover cache, and kept by the
+  // browser for a year.
+  //
+  // Nothing is hotlinked here any more, not even a Google thumbnail. A book
+  // with no `cover_url` yet has never been resolved, and `useCoverImage` asks
+  // the backend to resolve it on mount — once, into the cache — rather than the
+  // frontend guessing a catalog URL that stays slow (Open Library) or silently
+  // renders Google's "image not available" placeholder.
+  return book.cover_url ?? undefined;
 }
 
 /**

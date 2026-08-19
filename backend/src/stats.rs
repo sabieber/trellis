@@ -1034,7 +1034,7 @@ pub(crate) async fn calendar(
                     "reading_id": reading_id,
                     "title": title,
                     "author": author,
-                    "cover_url": cover_url,
+                    "cover_url": crate::covers::proxy_url(book_id, cover_url.as_deref()),
                     "rating": rating,
                     "has_notes": noted.contains(&book_id),
                     "pages": pages,
@@ -1079,7 +1079,7 @@ pub(crate) async fn calendar(
                     "reading_id": reading_id,
                     "title": title,
                     "author": author,
-                    "cover_url": cover_url,
+                    "cover_url": crate::covers::proxy_url(book_id, cover_url.as_deref()),
                     "rating": rating,
                     "has_notes": noted.contains(&book_id),
                     "pages": 0,
@@ -1179,14 +1179,14 @@ pub(crate) async fn breakdown(
     let top_rated: Vec<serde_json::Value> = top_rated
         .into_iter()
         .map(|(id, title, author, cover, rating)| {
-            json!({"book_id": id, "title": title, "author": author, "cover_url": cover, "rating": rating})
+            json!({"book_id": id, "title": title, "author": author, "cover_url": crate::covers::proxy_url(id, cover.as_deref()), "rating": rating})
         })
         .collect();
 
     let most_read: Vec<serde_json::Value> = most_read
         .into_iter()
         .map(|(id, title, author, cover, count)| {
-            json!({"book_id": id, "title": title, "author": author, "cover_url": cover, "readings": count})
+            json!({"book_id": id, "title": title, "author": author, "cover_url": crate::covers::proxy_url(id, cover.as_deref()), "readings": count})
         })
         .collect();
 

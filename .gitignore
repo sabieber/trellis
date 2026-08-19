@@ -15,5 +15,14 @@
 .env
 db/
 
+### Cached cover images (regenerable, see backend/src/covers.rs)
+backend/cache/
+
 ### Git worktrees
 .worktrees/
+
+inspiration/
+
+### Claude Code (local only)
+.claude/settings.local.json
+.playwright-mcp

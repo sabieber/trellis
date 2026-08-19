@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 /**
  * Shared broken-cover detection for the two image-based book cover components
@@ -22,11 +22,25 @@ export function useCoverImage(
     imgFailed.value = false
   })
 
-  const onError = () => {
-    imgFailed.value = true
+  const requestResolve = () => {
     const id = bookId()
     if (id) onResolve(id)
   }
+
+  const onError = () => {
+    imgFailed.value = true
+    requestResolve()
+  }
+
+  // A book whose cover was never resolved and that has no Google thumbnail to
+  // fall back on renders no `<img>` at all — so there is no load or error to
+  // react to, and the two handlers above never run. Ask for it on mount
+  // instead. `useBookCovers` de-duplicates the calls, and the answer is
+  // persisted, so a book pays for this once and is served from the cover cache
+  // from then on.
+  onMounted(() => {
+    if (!coverUrl()) requestResolve()
+  })
 
   const onLoad = (e: Event) => {
     const img = e.target as HTMLImageElement

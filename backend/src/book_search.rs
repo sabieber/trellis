@@ -183,7 +183,9 @@ pub(crate) fn library_to_normalized(book: &Book) -> NormalizedBook {
         source_id: book.id.to_string(),
         title: book.title.clone().unwrap_or_default(),
         authors: book.author.clone().map(|a| vec![a]).unwrap_or_default(),
-        cover_url: book.cover_url.clone(),
+        // A library hit is one of the user's own rows, so its cover goes
+        // through the proxy. Only genuine catalog hits keep an upstream URL.
+        cover_url: crate::covers::proxy_url(book.id, book.cover_url.as_deref()),
         published_year: None,
         page_count: book.page_count.map(|p| p as u32),
         category: None,

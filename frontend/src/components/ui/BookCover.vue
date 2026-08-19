@@ -10,22 +10,34 @@
       :class="[cw, { sm: isSm, tiny: isTiny, 'hoverable-card': hoverable }]"
       :style="{ width: width + 'px' }"
   >
-    <img
-        v-if="coverUrl && !imgFailed"
-        class="cv-img"
-        :src="coverUrl"
-        :alt="title"
-        loading="lazy"
-        @error="onError"
-        @load="onLoad"
-    />
-    <template v-else-if="isTiny">
+    <!-- The typographic cover is always rendered, and the art paints over it —
+         `.cv-img` is absolutely positioned, so it takes part in no layout. That
+         is what keeps a tile still while it loads: a book whose cover has not
+         been resolved yet draws its lettering immediately and keeps it, and the
+         image, when it arrives, covers that up without moving anything. Swapping
+         the two with v-if/v-else instead made every such tile change its content
+         once the cover resolved, and flash empty whenever one failed to load. -->
+    <template v-if="isTiny">
       <span class="cv-init">{{ (title || '?').charAt(0) }}</span>
     </template>
     <template v-else>
       <div v-if="!isSm" class="cv-author">{{ shortAuthor }}</div>
       <div class="cv-title">{{ title }}</div>
     </template>
+    <!-- Decorative, and `alt` must stay empty: the lettering underneath already
+         carries the title as real text, so alt text here would both announce it
+         twice and — because Firefox paints the alt text of a broken or pending
+         image inside the image's own box — draw the title a second time across
+         the top of the tile until the image resolves or fails. -->
+    <img
+        v-if="showingArt"
+        class="cv-img"
+        :src="coverUrl ?? undefined"
+        alt=""
+        loading="lazy"
+        @error="onError"
+        @load="onLoad"
+    />
     <!-- "This book has notes" — a mark, not a count: the number is only interesting once you open the book. -->
     <div v-if="hasNote" class="cv-note">
       <StickyNoteIcon class="cv-note-icon" fill="color-mix(in srgb, currentColor 50%, transparent)"/>
@@ -78,6 +90,8 @@ const cw = computed(() => {
   for (const ch of props.title) h = (h * 31 + ch.charCodeAt(0)) | 0;
   return `cv--${WAYS[Math.abs(h) % WAYS.length]}`;
 });
+
+const showingArt = computed(() => Boolean(props.coverUrl) && !imgFailed.value);
 
 const isTiny = computed(() => props.width <= 52);
 const isSm = computed(() => !isTiny.value && props.width <= 90);

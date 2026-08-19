@@ -33,8 +33,19 @@ services:
     environment:
       # Override the .env localhost URL so the app reaches the db service.
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_USER}
+      COVER_CACHE_DIR: /app/cache/covers
+    volumes:
+      # Cached cover images. Without a volume the cache is thrown away on every
+      # redeploy, and the first view of each book pays the multi-second Open
+      # Library fetch again. The contents are regenerable, so losing them costs
+      # speed, not data.
+      - cover-cache:/app/cache/covers
     networks:
       - trellis-network
+
+volumes:
+  cover-cache:
+    name: trellis-cover-cache
 
 networks:
   trellis-network:

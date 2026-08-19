@@ -493,7 +493,7 @@ pub(crate) async fn list_active_readings(auth: AuthUser) -> impl IntoResponse {
                             "progress": progress,
                             "total_pages": total_pages,
                             "mode": mode.to_string(),
-                            "cover_url": cover_url,
+                            "cover_url": crate::covers::proxy_url(book_id, cover_url.as_deref()),
                             "has_notes": noted.contains(&book_id),
                         })
                     },

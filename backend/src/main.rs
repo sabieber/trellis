@@ -1,5 +1,6 @@
 mod books;
 mod book_search;
+mod covers;
 mod db;
 mod goals;
 mod google_books_client;
@@ -65,6 +66,7 @@ pub fn build_router(static_dir: PathBuf) -> Router {
     router = users::register_routes(router);
     router = shelves::register_routes(router);
     router = books::register_routes(router);
+    router = covers::register_routes(router);
     router = readings::register_routes(router);
     router = notes::register_routes(router);
     router = goals::register_routes(router);

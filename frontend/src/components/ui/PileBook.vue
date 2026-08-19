@@ -27,18 +27,23 @@
       }"
   >
     <div class="pb-top">
+      <!-- Decorative, and `alt` must stay empty: `.pb-title` below always
+           renders the title as real text. A non-empty `alt` would announce it
+           twice, and Firefox paints the alt text of a broken or pending image
+           inside the image's box — drawing the title across the cover panel
+           until the art resolves or fails. -->
       <img
           v-if="showCover"
           class="pb-top-art"
           :src="coverUrl ?? undefined"
-          :alt="title"
+          alt=""
           loading="lazy"
           @error="onError"
           @load="onLoad"
       />
       <div v-else class="pb-top-blank"></div>
     </div>
-    <!-- Decorative: the cover above already carries the title as its alt text. -->
+    <!-- Decorative, like the cover panel above: `.pb-title` carries the title. -->
     <img
         v-if="showCover"
         class="pb-spine-art"

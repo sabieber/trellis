@@ -29,7 +29,10 @@ pub(crate) fn book_json(book: &Book, noted: &HashSet<Uuid>) -> serde_json::Value
         "open_library_id": book.open_library_id,
         "added_at": book.added_at.to_string(),
         "rating": book.rating,
-        "cover_url": book.cover_url,
+        // The proxy URL, never the upstream one — see `covers`. The frontend
+        // renders this straight into an `<img src>`, so what it must not be is
+        // a slow third-party URL.
+        "cover_url": crate::covers::proxy_url(book.id, book.cover_url.as_deref()),
         "page_count": book.page_count,
         "has_notes": noted.contains(&book.id),
     })
@@ -83,6 +86,10 @@ pub(crate) fn resolve_or_create_book(
     let isbn10 = normalize(isbn10);
     let google_books_id = normalize(google_books_id);
     let open_library_id = normalize(open_library_id);
+    // The caller may be relaying a value the frontend posted back, so this is a
+    // trust boundary: only a real catalog URL is allowed to reach the column
+    // that `covers::serve_cover` later fetches.
+    let cover_url = crate::covers::sanitize_cover_url(cover_url);
     let page_count = page_count.filter(|p| *p > 0);
 
     let base = || b::books.filter(b::user.eq(user_id)).into_boxed();
@@ -368,7 +375,7 @@ pub(crate) async fn get_book_info(
                     isbn13: book.isbn13,
                     isbn10: book.isbn10,
                     rating: book.rating,
-                    cover_url: book.cover_url,
+                    cover_url: crate::covers::proxy_url(book.id, book.cover_url.as_deref()),
                     page_count: book.page_count,
                     readings: json_readings,
                     shelf_ids,
@@ -556,7 +563,8 @@ pub(crate) async fn link_catalog(
             schema::books::dsl::open_library_id.eq(&open_library_id),
             schema::books::dsl::isbn13.eq(normalize(payload.isbn13).or(book.isbn13)),
             schema::books::dsl::isbn10.eq(normalize(payload.isbn10).or(book.isbn10)),
-            schema::books::dsl::cover_url.eq(normalize(payload.cover_url).or(book.cover_url)),
+            schema::books::dsl::cover_url
+                .eq(crate::covers::sanitize_cover_url(payload.cover_url).or(book.cover_url)),
             schema::books::dsl::page_count.eq(page_count),
         ))
         .execute(conn)?;
@@ -642,7 +650,10 @@ pub(crate) async fn resolve_cover(
 
     // 1. Return the cached value if present.
     if let Some(ref url) = book.cover_url {
-        return (StatusCode::OK, Json(json!({ "cover_url": url })));
+        return (
+            StatusCode::OK,
+            Json(json!({ "cover_url": crate::covers::proxy_url(book_id, Some(url)) })),
+        );
     }
 
     let client = crate::HTTP.clone();
@@ -683,7 +694,10 @@ pub(crate) async fn resolve_cover(
         resolved = isbn.map(crate::open_library_client::cover_url_from_isbn);
     }
 
-    // Persist the resolved URL (even if None, to avoid re-probing).
+    // Persist the resolved URL (even if None, to avoid re-probing). The
+    // upstream URL is what gets stored; the proxy URL is only ever a wire
+    // value, derived from it on the way out.
+    let resolved = crate::covers::sanitize_cover_url(resolved);
     if let Some(ref url) = resolved {
         let _ = diesel::update(
             books
@@ -694,7 +708,10 @@ pub(crate) async fn resolve_cover(
         .execute(connection);
     }
 
-    (StatusCode::OK, Json(json!({ "cover_url": resolved })))
+    (
+        StatusCode::OK,
+        Json(json!({ "cover_url": crate::covers::proxy_url(book_id, resolved.as_deref()) })),
+    )
 }
 
 #[derive(Debug, Deserialize)]

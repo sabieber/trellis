@@ -9,11 +9,16 @@
         color: colors.text,
       }"
   >
+    <!-- Decorative, and `alt` must stay empty: `.spine-title` below always
+         renders the title as real text. A non-empty `alt` would announce it
+         twice, and Firefox paints the alt text of a broken or pending image
+         inside the image's box — drawing the title across the spine until the
+         cover resolves or fails. -->
     <img
         v-if="showCover"
         class="spine-cover"
         :src="coverUrl ?? undefined"
-        :alt="title"
+        alt=""
         loading="lazy"
         @error="onError"
         @load="onLoad"

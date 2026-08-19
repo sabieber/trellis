@@ -14,9 +14,10 @@
 
       <div v-else-if="book" class="px-4 pb-8">
         <div class="flex gap-4 mb-6">
+          <!-- Stored title and author, not the enriched ones: see `storedBook`. -->
           <BookCover
-              :title="book.title || $t('common.untitled')"
-              :author="book.authors?.join(', ') || ''"
+              :title="storedBook?.title || book.title || $t('common.untitled')"
+              :author="storedBook?.author || book.authors?.join(', ') || ''"
               :width="108"
               :cover-url="book.cover_url"
           />
@@ -383,6 +384,18 @@ export default defineComponent({
     const {t} = useI18n();
     const route = useRoute();
     const book = ref<BookSearchResult | null>(null);
+
+    // The stored row's own title and author, kept as they arrived and never
+    // enriched. The cover tile draws from these.
+    //
+    // `enrich` replaces `book` with the catalog record, whose title is often a
+    // different length — "Abgetrennt" where the shelf says "Abgetrennt (Paul
+    // Herzfeld #3)". On a cover with no art the title is bottom-anchored, so a
+    // three-line title becomes a one-line title and the lettering visibly drops
+    // to the foot of the tile the moment the catalog answers. Holding the tile
+    // to the stored values keeps it still, and matches how the rest of the app
+    // labels this book — the catalog's title still heads the page.
+    const storedBook = ref<{ title: string; author: string } | null>(null);
     const readings = ref<Array<{
       id: string;
       started_at: string;
@@ -450,6 +463,10 @@ export default defineComponent({
           // Render the stored row at once. The catalog lookup below overwrites
           // it when it finds something, and a book no catalog knows still opens.
           book.value = data.book;
+          storedBook.value = {
+            title: data.book?.title ?? '',
+            author: data.book?.authors?.join(', ') ?? '',
+          };
           loading.value = false;
           readings.value = data.readings;
           shelfIds.value = data.shelf_ids ?? [];
@@ -474,12 +491,17 @@ export default defineComponent({
     };
 
     // Never clears `book`: a failed catalog lookup leaves the stored row that
-    // fetchBookInfo put there. The stored cover also survives a record that
-    // carries none — otherwise the cover shows, then vanishes for the drawn
-    // fallback once the catalog answers.
+    // fetchBookInfo put there.
+    //
+    // The stored cover wins over the catalog's. `fetchBookInfo` sends it as a
+    // cover-proxy URL, served from cache, while the catalog record carries a
+    // raw `covers.openlibrary.org` URL that takes seconds to load — and this is
+    // the one big cover on the page. It is also the same cover every other view
+    // shows for this book, so preferring it keeps the detail view consistent.
+    // The catalog still fills in for a book that has no stored cover yet.
     const enrich = (result: BookSearchResult | null) => {
       if (!result) return;
-      book.value = {...result, cover_url: result.cover_url ?? book.value?.cover_url ?? null};
+      book.value = {...result, cover_url: book.value?.cover_url ?? result.cover_url ?? null};
     };
 
     const fetchBookDetailsWrapper = async (bookId: string) => {
@@ -857,6 +879,7 @@ export default defineComponent({
 
     return {
       book,
+      storedBook,
       readings,
       loading,
       showStartReadingModal,
