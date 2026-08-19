@@ -342,7 +342,7 @@ pub(crate) async fn import_good_reads(
         .into_iter()
         .collect();
 
-    let gb_client = reqwest::Client::new();
+    let gb_client = crate::HTTP.clone();
     use futures::stream::StreamExt;
     // Open Library first, Google Books only when OL has no edition for the ISBN.
     // This mirrors the OL-first policy of the search merge, and OL knows the page

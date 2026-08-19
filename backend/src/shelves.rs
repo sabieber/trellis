@@ -326,7 +326,7 @@ pub(crate) async fn add_book_to_shelf(
 
     let author = if let Some(ref a) = payload.author {
         if crate::open_library_client::is_ol_author_key(a) {
-            let client = reqwest::Client::new();
+            let client = crate::HTTP.clone();
             let key = format!("/authors/{}", a);
             let names = crate::open_library_client::fetch_author_names(&client, &[key]).await;
             names.into_iter().next().or(payload.author)

@@ -25,6 +25,26 @@ use tracing::info;
 /// Migrations compiled into the binary from the `migrations/` directory.
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
+/// The client for every outbound catalog call. Open Library gives an identified
+/// caller a higher rate limit and blocks anonymous traffic first, so the
+/// User-Agent names the app, its version and a contact address — the shape their
+/// docs ask for: `MyAppName/1.0 (myemail@example.com)`. Set `CONTACT_EMAIL` to
+/// your address; without it the client falls back to the repository URL.
+/// Sharing one client also shares its connection pool — `Client::clone` is a
+/// cheap handle, not a second pool.
+pub static HTTP: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(|| {
+    let contact = std::env::var("CONTACT_EMAIL")
+        .unwrap_or_else(|_| "+https://github.com/sabieber/trellis".to_string());
+    reqwest::Client::builder()
+        .user_agent(format!(
+            "trellis/{} ({})",
+            env!("CARGO_PKG_VERSION"),
+            contact
+        ))
+        .build()
+        .expect("failed to build the HTTP client")
+});
+
 /// Apply any pending database migrations. Panics (non-zero exit) on failure so
 /// the app never serves traffic against a broken schema.
 fn run_migrations() {

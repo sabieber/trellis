@@ -447,7 +447,7 @@ pub(crate) async fn resolve_google_id(
         );
     };
 
-    let client = reqwest::Client::new();
+    let client = crate::HTTP.clone();
     let google_id = crate::google_books_client::lookup_id_by_isbn(&client, &isbn).await;
 
     if let Some(ref gid) = google_id {
@@ -645,7 +645,7 @@ pub(crate) async fn resolve_cover(
         return (StatusCode::OK, Json(json!({ "cover_url": url })));
     }
 
-    let client = reqwest::Client::new();
+    let client = crate::HTTP.clone();
     let isbn = book
         .isbn13
         .as_deref()

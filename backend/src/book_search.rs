@@ -92,7 +92,7 @@ pub(crate) async fn author_info(
     auth: AuthUser,
     Query(params): Query<AuthorQuery>,
 ) -> impl IntoResponse {
-    let client = Client::new();
+    let client = crate::HTTP.clone();
     let mut info = match crate::open_library_client::find_author(&client, &params.name).await {
         Some(i) => i,
         None => return (StatusCode::OK, Json(Value::Null)),
@@ -143,7 +143,7 @@ pub(crate) async fn unified_search(
     auth: AuthUser,
     Query(params): Query<SearchQuery>,
 ) -> impl IntoResponse {
-    let client = Client::new();
+    let client = crate::HTTP.clone();
     let query = params.query.clone();
 
     // The user's own library first, so owned books can win dedup and sort to top.
@@ -259,7 +259,7 @@ fn merge_with_library(
 }
 
 pub(crate) async fn trending(_auth: AuthUser) -> impl IntoResponse {
-    let client = Client::new();
+    let client = crate::HTTP.clone();
     let books = crate::open_library_client::trending(&client, 10).await;
     (StatusCode::OK, Json(json!(books)))
 }
@@ -268,7 +268,7 @@ pub(crate) async fn external_detail(
     _auth: AuthUser,
     Path((source, id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let client = Client::new();
+    let client = crate::HTTP.clone();
 
     let result: Option<DetailBook> = match source.as_str() {
         "google" => google_detail(&client, &id).await,
@@ -296,7 +296,7 @@ pub(crate) async fn external_detail(
 /// language and printing they own. Google Books has no equivalent: its volumes
 /// are already one per edition.
 pub(crate) async fn work_editions(_auth: AuthUser, Path(id): Path<String>) -> impl IntoResponse {
-    let client = Client::new();
+    let client = crate::HTTP.clone();
     let editions = crate::open_library_client::list_editions(&client, &id).await;
     (StatusCode::OK, Json(json!(editions)))
 }
@@ -371,7 +371,7 @@ pub(crate) async fn series_detail(
     _auth: AuthUser,
     Path(key): Path<String>,
 ) -> impl IntoResponse {
-    let client = Client::new();
+    let client = crate::HTTP.clone();
     match crate::open_library_client::get_series(&client, &key).await {
         Some((name, books)) => {
             (StatusCode::OK, Json(json!({ "name": name, "books": books }))).into_response()
