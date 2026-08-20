@@ -42,7 +42,8 @@
                   <Trash2Icon class="size-4"/>
                 </button>
               </div>
-              <p class="t-meta mb-3.5">{{ formatPeriod(goal.period_start, goal.period_end) }}</p>
+              <!-- A daily goal starts and ends today, so its range says nothing. -->
+              <p v-if="goal.timeframe !== 'day'" class="t-meta mb-3.5">{{ formatPeriod(goal.period_start, goal.period_end) }}</p>
               <div class="flex justify-between t-meta mb-1.5">
                 <span>{{ goal.progress }} / {{ goal.target }} {{
                     goal.goal_type === 'books' ? $t('common.books') : $t('common.pages')
@@ -121,6 +122,7 @@ export default defineComponent({
       {key: 'year', label: 'goals.yearly', goals: goals.value.filter(g => g.timeframe === 'year')},
       {key: 'month', label: 'goals.monthly', goals: goals.value.filter(g => g.timeframe === 'month')},
       {key: 'week', label: 'goals.weekly', goals: goals.value.filter(g => g.timeframe === 'week')},
+      {key: 'day', label: 'goals.daily', goals: goals.value.filter(g => g.timeframe === 'day')},
     ]);
 
     const fetchGoals = async () => {
@@ -195,6 +197,7 @@ export default defineComponent({
       const month = start.toLocaleDateString(locale.value, {month: 'short'});
       if (goal.timeframe === 'year') return t('home.goalYear', {type, year: start.getFullYear()});
       if (goal.timeframe === 'month') return t('home.goalMonth', {type, month, year: start.getFullYear()});
+      if (goal.timeframe === 'day') return t('home.goalDay', {type});
       return t('home.goalWeek', {type, month, from: start.getDate(), to: end.getDate()});
     };
 

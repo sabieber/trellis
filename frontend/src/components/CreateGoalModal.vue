@@ -16,6 +16,10 @@
             <option value="year">{{ $t('goalModal.year') }}</option>
             <option value="month">{{ $t('goalModal.month') }}</option>
             <option value="week">{{ $t('goalModal.week') }}</option>
+            <!-- A daily goal is the barrier of the reading streak. Finishing a
+                 book every day is not a barrier anyone can hold, so the backend
+                 rejects that combination and it is not offered here. -->
+            <option v-if="goalType === 'pages'" value="day">{{ $t('goalModal.day') }}</option>
           </select>
         </fieldset>
         <fieldset class="flex flex-col gap-1.5">
@@ -33,7 +37,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, watch } from 'vue';
 import Button from '@/components/ui/Button.vue';
 
 export default defineComponent({
@@ -42,6 +46,10 @@ export default defineComponent({
     const goalType = ref('books');
     const timeframe = ref('year');
     const target = ref(1);
+
+    watch(goalType, (type) => {
+      if (type === 'books' && timeframe.value === 'day') timeframe.value = 'week';
+    });
 
     const submitForm = () => {
       emit('submit', {

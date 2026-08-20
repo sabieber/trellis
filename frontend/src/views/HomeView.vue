@@ -313,6 +313,7 @@ export default defineComponent({
       const month = start.toLocaleDateString(locale.value, {month: 'short'});
       if (goal.timeframe === 'year') return t('home.goalYear', {type, year: start.getFullYear()});
       if (goal.timeframe === 'month') return t('home.goalMonth', {type, month, year: start.getFullYear()});
+      if (goal.timeframe === 'day') return t('home.goalDay', {type});
       return t('home.goalWeek', {type, month, from: start.getDate(), to: end.getDate()});
     };
 

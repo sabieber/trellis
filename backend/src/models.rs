@@ -137,6 +137,8 @@ pub enum ReadingGoalTimeframe {
     Year,
     Month,
     Week,
+    /// Not a reporting period, but the daily barrier of the reading streak.
+    Day,
 }
 
 impl Display for ReadingGoalTimeframe {
@@ -145,6 +147,7 @@ impl Display for ReadingGoalTimeframe {
             ReadingGoalTimeframe::Year => write!(f, "year"),
             ReadingGoalTimeframe::Month => write!(f, "month"),
             ReadingGoalTimeframe::Week => write!(f, "week"),
+            ReadingGoalTimeframe::Day => write!(f, "day"),
         }
     }
 }

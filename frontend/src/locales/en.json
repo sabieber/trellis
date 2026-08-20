@@ -230,6 +230,7 @@
     "year": "Year",
     "month": "Month",
     "week": "Week",
+    "day": "Day",
     "numberOfBooks": "Number of Books",
     "numberOfPages": "Number of Pages"
   },
@@ -283,6 +284,7 @@
     "yearly": "Yearly",
     "monthly": "Monthly",
     "weekly": "Weekly",
+    "daily": "Daily",
     "count": "{n} goal | {n} goals",
     "periodRange": "{from} to {to}",
     "deleteTitle": "Delete Goal",
@@ -343,7 +345,8 @@
     "growTagline": "grow your library and reading goals",
     "goalYear": "{type} in {year}",
     "goalMonth": "{type} in {month} {year}",
-    "goalWeek": "{type} in {month} {from}–{to}"
+    "goalWeek": "{type} in {month} {from}–{to}",
+    "goalDay": "{type} today"
   },
   "nav": {
     "home": "Home",

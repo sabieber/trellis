@@ -100,11 +100,14 @@ export default defineComponent({
       const month = start.toLocaleDateString(locale.value, {month: 'short'});
       if (g.timeframe === 'year') return t('home.goalYear', {type, year: start.getFullYear()});
       if (g.timeframe === 'month') return t('home.goalMonth', {type, month, year: start.getFullYear()});
+      if (g.timeframe === 'day') return t('home.goalDay', {type});
       return t('home.goalWeek', {type, month, from: start.getDate(), to: end.getDate()});
     });
 
     const periodDescription = computed(() => {
       if (!goal.value) return '';
+      // A daily goal starts and ends today, so its range says nothing.
+      if (goal.value.timeframe === 'day') return '';
       return t('goals.periodRange', {
         from: moment(goal.value.period_start).format('MMM D'),
         to: moment(goal.value.period_end).format('MMM D, YYYY'),

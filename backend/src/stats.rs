@@ -1,9 +1,10 @@
 use crate::auth::AuthUser;
 use crate::db::connect;
 use crate::goals::{calculate_books_progress, calculate_pages_progress, estimate_pages};
-use crate::models::ReadingMode;
+use crate::models::{ReadingGoalTimeframe, ReadingGoalType, ReadingMode};
 use crate::schema::books::dsl::books;
 use crate::schema::reading_entries::dsl::reading_entries;
+use crate::schema::reading_goals::dsl::reading_goals;
 use crate::schema::readings::dsl::readings;
 use crate::{schema, ErrorResponse};
 use axum::routing::post;
@@ -161,6 +162,63 @@ fn reading_day_set(connection: &mut PgConnection, user_id: Uuid) -> HashSet<Naiv
     }
 }
 
+/// The daily page barrier of the streak, if the user set one: its target and the
+/// day from which it applies. Only a pages goal can be a daily goal, and a user
+/// can hold only one of them.
+fn daily_page_goal(connection: &mut PgConnection, user_id: Uuid) -> Option<(i64, NaiveDate)> {
+    reading_goals
+        .filter(schema::reading_goals::dsl::user_id.eq(user_id))
+        .filter(schema::reading_goals::dsl::goal_type.eq(ReadingGoalType::Pages))
+        .filter(schema::reading_goals::dsl::timeframe.eq(ReadingGoalTimeframe::Day))
+        .select((
+            schema::reading_goals::dsl::target,
+            schema::reading_goals::dsl::created_at,
+        ))
+        .first::<(i32, chrono::NaiveDateTime)>(connection)
+        .ok()
+        .map(|(target, created_at)| (target as i64, created_at.date()))
+}
+
+/// Drops the days that do not clear the daily page barrier.
+///
+/// Days before `from` keep the plain rule that a logged entry is enough, so
+/// setting a goal never takes away a streak the user already earned. From that
+/// day on a day has to reach `target`. A day whose pages cannot be measured is
+/// kept as well — a percentage reading of a book with no page count estimates
+/// to zero pages, and such a day could never clear any barrier.
+fn apply_daily_barrier(
+    days: HashSet<NaiveDate>,
+    reading: &HashMap<NaiveDate, (i64, bool)>,
+    target: i64,
+    from: NaiveDate,
+) -> HashSet<NaiveDate> {
+    days.into_iter()
+        .filter(|day| {
+            if *day < from {
+                return true;
+            }
+            match reading.get(day) {
+                Some((pages, unmeasurable)) => *pages >= target || *unmeasurable,
+                None => true,
+            }
+        })
+        .collect()
+}
+
+/// The days that count towards the reading streak: every day with a logged
+/// entry, reduced by the daily page goal if the user set one.
+fn streak_day_set(connection: &mut PgConnection, user_id: Uuid) -> HashSet<NaiveDate> {
+    let days = reading_day_set(connection, user_id);
+
+    match daily_page_goal(connection, user_id) {
+        Some((target, from)) => {
+            let reading = daily_reading(connection, user_id, NaiveDate::MIN, NaiveDate::MAX);
+            apply_daily_barrier(days, &reading, target, from)
+        }
+        None => days,
+    }
+}
+
 /// Counts the marks running consecutively back from the reference, where `step`
 /// is the distance between two neighbours: one day for the day streak, seven
 /// for the week streak. The run stays alive until a full step is missed, so an
@@ -220,7 +278,7 @@ fn calculate_reading_streak(
     user_id: Uuid,
     reference: NaiveDate,
 ) -> (i64, i64) {
-    let days = reading_day_set(connection, user_id);
+    let days = streak_day_set(connection, user_id);
     let weeks: HashSet<NaiveDate> = days.iter().map(|day| week_start(*day)).collect();
 
     (
@@ -582,20 +640,26 @@ fn calculate_reading_states(
     (finished, reading, abandoned)
 }
 
-/// Aggregates the pages logged per day within the period.
+/// Aggregates the pages logged per day within the period, together with the
+/// days whose pages cannot be measured.
 ///
 /// Reading entries carry the *cumulative* progress of their reading, so the
 /// pages of a day are the positive delta towards the previous entry of the same
 /// reading. Entries before the period are only read to establish that baseline.
 /// This mirrors [`calculate_pages_progress`], hence the daily values add up to
 /// the `pages_read` of the overview.
-fn calculate_daily_pages(
+///
+/// The second field of a day is `true` when at least one entry of that day
+/// carries a percentage of a book with no known page count. Such an entry
+/// estimates to zero pages, so the day looks empty although the user did read.
+/// Every day that carries an entry gets a value, even a day of zero pages.
+fn daily_reading(
     connection: &mut PgConnection,
     user_id: Uuid,
     period_start: NaiveDate,
     period_end: NaiveDate,
-) -> HashMap<NaiveDate, i64> {
-    let mut per_day: HashMap<NaiveDate, i64> = HashMap::new();
+) -> HashMap<NaiveDate, (i64, bool)> {
+    let mut per_day: HashMap<NaiveDate, (i64, bool)> = HashMap::new();
 
     // join the book for its page count, so percentage entries convert to estimated
     // pages the same way [`calculate_pages_progress`] does
@@ -630,14 +694,36 @@ fn calculate_daily_pages(
             previous_progress = 0;
         }
 
+        let unmeasurable = matches!(mode, ReadingMode::Percentage)
+            && page_count.filter(|count| *count > 0).is_none();
         let progress = estimate_pages(progress, &mode, page_count);
-        if read_at >= period_start && progress > previous_progress {
-            *per_day.entry(read_at).or_insert(0) += progress - previous_progress;
+
+        if read_at >= period_start {
+            let day = per_day.entry(read_at).or_insert((0, false));
+            if progress > previous_progress {
+                day.0 += progress - previous_progress;
+            }
+            day.1 |= unmeasurable;
         }
         previous_progress = progress;
     }
 
     per_day
+}
+
+/// The pages logged per day within the period. Days without pages are left out,
+/// so callers can use the keys as the set of days that saw reading.
+fn calculate_daily_pages(
+    connection: &mut PgConnection,
+    user_id: Uuid,
+    period_start: NaiveDate,
+    period_end: NaiveDate,
+) -> HashMap<NaiveDate, i64> {
+    daily_reading(connection, user_id, period_start, period_end)
+        .into_iter()
+        .filter(|(_, (pages, _))| *pages > 0)
+        .map(|(day, (pages, _))| (day, pages))
+        .collect()
 }
 
 /// Counts the readings finished per day within the period. Re-reads of the same
@@ -785,19 +871,29 @@ pub(crate) async fn overview(
 /// - `current_weeks`: consecutive weeks with at least one reading day
 /// - `longest_weeks`: the longest run of such weeks ever
 /// - `week`: the seven days of the current week (Monday first), each with its
-///   `date` in `YYYY-MM-DD` format and whether it was `read`
+///   `date` in `YYYY-MM-DD` format, whether it counts as `read`, and the
+///   `pages` logged on it. A day whose pages stay below the daily goal has
+///   `pages` but does not count as `read`.
 pub(crate) async fn streak(auth: AuthUser) -> impl IntoResponse {
     let connection = &mut connect();
     let today = chrono::Utc::now().date_naive();
 
-    let days = reading_day_set(connection, auth.0);
+    let days = streak_day_set(connection, auth.0);
     let weeks: HashSet<NaiveDate> = days.iter().map(|day| week_start(*day)).collect();
     let monday = week_start(today);
+
+    // The pages of this week, so the home screen can tell a day that fell short
+    // of the barrier from a day with no reading at all.
+    let pages = daily_reading(connection, auth.0, monday, monday + TimeDelta::days(6));
 
     let week: Vec<serde_json::Value> = (0..7)
         .map(|offset| {
             let date = monday + TimeDelta::days(offset);
-            json!({ "date": date.to_string(), "read": days.contains(&date) })
+            json!({
+                "date": date.to_string(),
+                "read": days.contains(&date),
+                "pages": pages.get(&date).map(|(pages, _)| *pages).unwrap_or(0),
+            })
         })
         .collect();
 
@@ -1275,6 +1371,37 @@ mod tests {
         assert_eq!(weeks.len(), 3);
         assert_eq!(current_run(&weeks, week_start(date(2026, 7, 25)), 7), 3);
         assert_eq!(longest_run(&weeks, 7), 3);
+    }
+
+    #[test]
+    fn test_daily_barrier() {
+        let days: HashSet<NaiveDate> = (20..=24).map(|day| date(2026, 7, day)).collect();
+        let reading: HashMap<NaiveDate, (i64, bool)> = HashMap::from([
+            (date(2026, 7, 20), (5, false)),
+            (date(2026, 7, 21), (5, false)),
+            (date(2026, 7, 22), (30, false)),
+            (date(2026, 7, 23), (15, false)),
+            // read in percent of a book with no page count: no pages to measure
+            (date(2026, 7, 24), (0, true)),
+        ]);
+
+        // The goal starts on the 22nd, so the two short days before it survive.
+        let barred = apply_daily_barrier(days.clone(), &reading, 20, date(2026, 7, 22));
+        assert_eq!(
+            barred,
+            HashSet::from([
+                date(2026, 7, 20),
+                date(2026, 7, 21),
+                date(2026, 7, 22),
+                date(2026, 7, 24),
+            ])
+        );
+        // 15 of 20 pages breaks the run, so it is only the 24th that carries it.
+        assert_eq!(current_run(&barred, date(2026, 7, 25), 1), 1);
+
+        // A day with an entry the barrier never saw stays in as well.
+        let unknown = apply_daily_barrier(days, &HashMap::new(), 20, date(2026, 7, 22));
+        assert_eq!(unknown.len(), 5);
     }
 
     #[test]

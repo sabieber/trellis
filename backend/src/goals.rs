@@ -47,6 +47,7 @@ pub(crate) fn get_period(timeframe: &ReadingGoalTimeframe) -> (NaiveDate, NaiveD
             let end = start + TimeDelta::days(6);
             (start, end)
         }
+        ReadingGoalTimeframe::Day => (today, today),
     }
 }
 
@@ -157,10 +158,11 @@ pub struct CreateGoalRequest {
 ///
 /// This route accepts a JSON payload with the following structure:
 /// - `goal_type`: The type of goal, either `"books"` or `"pages"`.
-/// - `timeframe`: The timeframe for the goal, one of `"year"`, `"month"`, or `"week"`.
+/// - `timeframe`: The timeframe, one of `"year"`, `"month"`, `"week"` or `"day"`.
 /// - `target`: The target number of books or pages to read within the timeframe.
 ///
-/// Only one goal per type and timeframe combination is allowed.
+/// Only one goal per type and timeframe combination is allowed. A `"day"` goal
+/// must be a pages goal: it sets the barrier the reading streak has to clear.
 pub(crate) async fn create_goal(
     auth: AuthUser,
     Json(payload): Json<CreateGoalRequest>,
@@ -184,15 +186,30 @@ pub(crate) async fn create_goal(
         "year" => ReadingGoalTimeframe::Year,
         "month" => ReadingGoalTimeframe::Month,
         "week" => ReadingGoalTimeframe::Week,
+        "day" => ReadingGoalTimeframe::Day,
         _ => {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(json!(ErrorResponse {
-                    error: "Invalid timeframe. Must be 'year', 'month', or 'week'.".to_string()
+                    error: "Invalid timeframe. Must be 'year', 'month', 'week', or 'day'."
+                        .to_string()
                 })),
             )
         }
     };
+
+    // A daily goal is the barrier of the reading streak, which counts pages. A
+    // "one book per day" barrier would ask the user to finish a book every day.
+    if matches!(timeframe, ReadingGoalTimeframe::Day)
+        && matches!(goal_type, ReadingGoalType::Books)
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!(ErrorResponse {
+                error: "A daily goal must be a pages goal.".to_string()
+            })),
+        );
+    }
 
     if payload.target <= 0 {
         return (

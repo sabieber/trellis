@@ -1,7 +1,9 @@
 <!-- The reading streak as a raised garden bed: one planter, seven plants.
      A day with logged reading puts a plant in the soil, a missed day leaves a
-     bare mound, and days still to come sit as seeds. Plants that belong to the
-     running streak grow tall enough to reach the trellis behind the bed.
+     bare mound, and days still to come sit as seeds. A day that stayed below
+     the user's daily page goal shows a seedling: it was read on, but it does
+     not carry the streak. Plants that belong to the running streak grow tall
+     enough to reach the trellis behind the bed.
 
      Drawn in a fixed 300×86 pixel space and scaled to the card up to the width
      it was drawn for, so the plants keep their proportions on a phone without
@@ -102,6 +104,15 @@
               />
             </g>
           </g>
+          <!-- Read on, but short of the daily page goal: a seedling that broke
+               the surface and has not grown into a plant yet. -->
+          <template v-else-if="mark.state === 'seedling'">
+            <g :transform="`translate(${mark.x} 0) rotate(${mark.tilt} 0 ${SOIL_LINE + 6})`">
+              <path :d="`M0 ${SOIL_LINE + 4} V46`" class="stem seedling-stem"/>
+              <path :d="LEAF" transform="translate(0 47) scale(0.32 0.32)" :fill="mark.tone"/>
+              <path :d="LEAF" transform="translate(0 47) scale(-0.28 0.28)" fill="var(--color-green-deep)"/>
+            </g>
+          </template>
           <!-- A missed day is a mound of turned soil, a day still to come is a
                pair of seeds lying in it — raised versus flat, so the two never
                read as the same thing. -->
@@ -146,8 +157,11 @@ import {dateKey} from '@/utils/activityHeat';
 export interface StreakDay {
   /** The day in `YYYY-MM-DD` format. */
   date: string;
-  /** Whether reading progress was logged on that day. */
+  /** Whether the day counts towards the streak. A daily page goal can leave a
+   *  day with logged reading below the barrier, which reads as `false`. */
   read: boolean;
+  /** The pages logged on that day. */
+  pages: number;
 }
 
 const props = defineProps<{
@@ -249,7 +263,11 @@ const marks = computed(() => {
   return props.week.map((day, index) => {
     const x = Math.round(6 + step * (index + 0.5));
     const isToday = day.date === today;
-    const state = day.read ? 'read' : (day.date > today ? 'future' : 'miss');
+    const state = day.read
+        ? 'read'
+        : day.date > today
+            ? 'future'
+            : day.pages > 0 ? 'seedling' : 'miss';
     const inStreak = day.read && props.currentDays > 0 && day.date >= streakStart;
 
     return {
@@ -326,6 +344,11 @@ const marks = computed(() => {
   stroke-width: 2.4;
   fill: none;
   stroke-linecap: round;
+}
+
+/* A sprout carries far less wood than a grown plant. */
+.seedling-stem {
+  stroke-width: 1.5;
 }
 
 /* Catches the light on the crown of a turned-over mound. */
