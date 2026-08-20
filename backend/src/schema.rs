@@ -143,7 +143,7 @@ diesel::table! {
         rating_mode -> Varchar,
         #[max_length = 8]
         locale -> Varchar,
-        edition_languages -> Array<Text>,
+        edition_languages -> Array<Nullable<Text>>,
     }
 }
 

@@ -17,10 +17,10 @@ pub struct User {
     // loads.
     pub rating_mode: String,
     pub locale: String,
-    // `TEXT[]` is `Array<Text>` in the schema, not the `Array<Nullable<Text>>`
-    // that `diesel print-schema` writes for it — nothing ever puts a NULL in
-    // this list, and `Vec<Option<String>>` would infect every reader.
-    pub edition_languages: Vec<String>,
+    // `Option` because Postgres cannot forbid NULL elements in a `TEXT[]`, so
+    // that is what `diesel print-schema` writes. Nothing ever stores a NULL
+    // here; the settings handler flattens them away.
+    pub edition_languages: Vec<Option<String>>,
 }
 
 #[derive(Queryable, Selectable, Insertable)]

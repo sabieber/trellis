@@ -43,7 +43,7 @@ pub(crate) async fn settings(auth: AuthUser) -> impl IntoResponse {
             Json(json!({
                 "rating_mode": user.rating_mode,
                 "locale": user.locale,
-                "edition_languages": user.edition_languages,
+                "edition_languages": user.edition_languages.into_iter().flatten().collect::<Vec<_>>(),
             })),
         ),
         Err(_) => (
@@ -84,7 +84,7 @@ pub struct SettingsRequest {
 struct SettingsChange {
     rating_mode: Option<String>,
     locale: Option<String>,
-    edition_languages: Option<Vec<String>>,
+    edition_languages: Option<Vec<Option<String>>>,
 }
 
 /// Updates the settings of the calling user.
@@ -130,7 +130,9 @@ pub(crate) async fn update_settings(
     let change = SettingsChange {
         rating_mode: payload.rating_mode,
         locale: payload.locale,
-        edition_languages: payload.edition_languages,
+        edition_languages: payload
+            .edition_languages
+            .map(|codes| codes.into_iter().map(Some).collect()),
     };
 
     // Diesel cannot build an update without a column to set.
