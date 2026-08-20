@@ -12,6 +12,9 @@ pub struct User {
     pub name: String,
     pub password: String,
     pub elevated: bool,
+    // `rating_mode` is last because the migration appended the column; the field
+    // order must match the schema column order for positional `Queryable` loads.
+    pub rating_mode: String,
 }
 
 #[derive(Queryable, Selectable, Insertable)]

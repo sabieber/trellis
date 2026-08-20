@@ -49,10 +49,19 @@
             </div>
           </div>
           <span v-if="metric === 'rating'" class="flex-none flex items-center gap-0.5 text-gold">
-            <!-- Same half-fill as Rating.vue: a full fill with no stroke merges
-                 the petals and centre into a blob at this size. -->
-            <FlowerIcon class="size-3.5" fill="color-mix(in srgb, currentColor 50%, transparent)"/>
-            <span class="stat-mono">{{ book.rating }}</span>
+            <!-- Thumbs mode has no score to print, so the thumb stands alone. -->
+            <component
+                v-if="thumbs"
+                :is="tendency(book.rating) === -1 ? ThumbsDownIcon : ThumbsUpIcon"
+                class="size-3.5"
+                :class="{ 'rotate-[-90deg]': tendency(book.rating) === 0 }"
+            />
+            <template v-else>
+              <!-- Same half-fill as Rating.vue: a full fill with no stroke merges
+                   the petals and centre into a blob at this size. -->
+              <FlowerIcon class="size-3.5" fill="color-mix(in srgb, currentColor 50%, transparent)"/>
+              <span class="stat-mono">{{ book.rating }}</span>
+            </template>
           </span>
           <span v-else class="stat-mono flex-none">{{ $t('stats.timesRead', { n: book.readings }) }}</span>
         </li>
@@ -63,15 +72,16 @@
 
 <script lang="ts">
 import {computed, defineComponent, type PropType} from 'vue';
-import {FlowerIcon} from '@lucide/vue';
+import {FlowerIcon, ThumbsDownIcon, ThumbsUpIcon} from '@lucide/vue';
 import BookCover from '@/components/ui/BookCover.vue';
 import type {BookStat} from '@/composables/useStatsBreakdown';
 import {useBookCovers} from '@/composables/useBookCovers';
 import {formatPeriod} from '@/utils/period';
 import {authorRoute, isLinkableAuthor} from '@/utils/authorRoute';
+import {ratingMode, tendency} from '@/utils/ratingMode';
 
 export default defineComponent({
-  components: {FlowerIcon, BookCover},
+  components: {FlowerIcon, ThumbsDownIcon, ThumbsUpIcon, BookCover},
   props: {
     mode: {type: String, required: true},
     year: {type: Number, required: true},
@@ -85,7 +95,12 @@ export default defineComponent({
   setup(props) {
     const periodLabel = computed(() => formatPeriod(props.mode, props.year, props.month));
     const {resolvedCoverUrl, onResolveCover} = useBookCovers();
-    return {periodLabel, resolvedCoverUrl, onResolveCover, authorRoute, isLinkableAuthor};
+    const thumbs = computed(() => ratingMode.value === 'thumbs');
+
+    return {
+      periodLabel, resolvedCoverUrl, onResolveCover, authorRoute, isLinkableAuthor,
+      thumbs, tendency, ThumbsDownIcon, ThumbsUpIcon,
+    };
   },
 });
 </script>

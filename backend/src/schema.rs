@@ -139,6 +139,8 @@ diesel::table! {
         name -> Varchar,
         password -> Text,
         elevated -> Bool,
+        #[max_length = 8]
+        rating_mode -> Varchar,
     }
 }
 

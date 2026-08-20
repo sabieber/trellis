@@ -1,4 +1,5 @@
-<!-- How the books finished in the period are spread across the 1–5 rating scores. -->
+<!-- How the books finished in the period are spread across the rating scores:
+     five bars in star mode, two tendency bars in thumbs mode. -->
 <template>
   <div class="lg:h-full lg:flex lg:flex-col">
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-3">
@@ -6,7 +7,7 @@
         <h2 class="t-eyebrow">{{ $t('stats.ratingsTitle') }}</h2>
         <span class="t-meta">{{ periodLabel }}</span>
       </div>
-      <span v-if="!loading && rated > 0" class="t-meta">{{ $t('stats.ratedAvg', { count: rated, avg: average }) }}</span>
+      <span v-if="!loading && rated > 0" class="t-meta">{{ summary }}</span>
     </div>
 
     <div class="bg-surface border border-line rounded-md p-4 flex flex-col flex-1 justify-center">
@@ -23,7 +24,9 @@
 
 <script lang="ts">
 import {computed, defineComponent, type PropType} from 'vue';
+import {useI18n} from 'vue-i18n';
 import MiniBars from '@/components/stats/MiniBars.vue';
+import {ratingMode} from '@/utils/ratingMode';
 import {formatPeriod} from '@/utils/period';
 
 export default defineComponent({
@@ -36,12 +39,23 @@ export default defineComponent({
     loading: {type: Boolean, default: false},
   },
   setup(props) {
-    const bars = computed(() =>
-        [1, 2, 3, 4, 5].map((score) => ({
-          label: score,
-          value: props.distribution[score - 1] ?? 0,
-        })),
-    );
+    const {t} = useI18n();
+
+    const count = (score: number) => props.distribution[score - 1] ?? 0;
+
+    // Thumbs mode collapses the five scores into the three thumbs. The 3s keep
+    // their own bar: they were rated, but they lean nowhere, so counting them as
+    // a like or a dislike would invent an opinion.
+    const bars = computed(() => {
+      if (ratingMode.value === 'thumbs') {
+        return [
+          {label: t('stats.disliked'), value: count(1) + count(2)},
+          {label: t('stats.soso'), value: count(3)},
+          {label: t('stats.liked'), value: count(4) + count(5)},
+        ];
+      }
+      return [1, 2, 3, 4, 5].map((score) => ({label: score, value: count(score)}));
+    });
 
     const rated = computed(() => props.distribution.reduce((sum, count) => sum + count, 0));
 
@@ -51,9 +65,24 @@ export default defineComponent({
       return (weighted / rated.value).toFixed(1);
     });
 
+    // A mean of 1s and 5s says nothing, so thumbs mode reports the share of the
+    // books with a tendency that got a thumbs up.
+    const summary = computed(() => {
+      if (ratingMode.value !== 'thumbs') {
+        return t('stats.ratedAvg', {count: rated.value, avg: average.value});
+      }
+      const up = count(4) + count(5);
+      const withTendency = up + count(1) + count(2);
+      if (withTendency === 0) return t('stats.ratedCount', {count: rated.value});
+      return t('stats.ratedLiked', {
+        count: rated.value,
+        percent: Math.round((up / withTendency) * 100),
+      });
+    });
+
     const periodLabel = computed(() => formatPeriod(props.mode, props.year, props.month));
 
-    return {bars, rated, average, periodLabel};
+    return {bars, rated, summary, periodLabel};
   },
 });
 </script>

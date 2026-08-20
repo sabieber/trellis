@@ -26,7 +26,8 @@
             <p v-if="book.subtitle" class="t-meta text-[15px] mt-1">{{ book.subtitle }}</p>
             <p class="t-meta text-sm mt-1.5">{{ book.authors?.join(', ') }}</p>
             <div v-if="book.average_rating" class="flex items-center gap-2 mt-2.5">
-              <Rating :rating="book.average_rating"/>
+              <!-- The catalog average, not the user's own verdict: always stars. -->
+              <Rating :rating="book.average_rating" stars/>
               <span class="t-meta">
                 {{ $t('searchDetail.avgRating', { rating: book.average_rating.toFixed(1) }) }}
                 <span v-if="book.ratings_count"> · {{ $t('searchDetail.ratingsCount', { count: book.ratings_count }) }}</span>

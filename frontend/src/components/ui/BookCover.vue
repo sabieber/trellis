@@ -42,17 +42,28 @@
     <div v-if="hasNote" class="cv-note">
       <StickyNoteIcon class="cv-note-icon" fill="color-mix(in srgb, currentColor 50%, transparent)"/>
     </div>
+    <!-- Thumbs mode has no number to show: the badge is the thumb itself, turned
+         on its side for a 3, which leans neither way. -->
     <div v-if="rating" class="cv-rating">
-      <FlowerIcon class="cv-rating-icon" fill="color-mix(in srgb, currentColor 50%, transparent)"/>
-      <span class="cv-rating-num">{{ rating }}</span>
+      <component
+          v-if="thumbs"
+          :is="ratingTendency === -1 ? ThumbsDownIcon : ThumbsUpIcon"
+          class="cv-rating-icon"
+          :class="{ 'cv-rating-neutral': ratingTendency === 0 }"
+      />
+      <template v-else>
+        <FlowerIcon class="cv-rating-icon" fill="color-mix(in srgb, currentColor 50%, transparent)"/>
+        <span class="cv-rating-num">{{ rating }}</span>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import {computed} from 'vue';
-import {FlowerIcon, StickyNoteIcon} from '@lucide/vue';
+import {FlowerIcon, StickyNoteIcon, ThumbsDownIcon, ThumbsUpIcon} from '@lucide/vue';
 import {useCoverImage} from '@/composables/useCoverImage';
+import {ratingMode, tendency} from '@/utils/ratingMode';
 
 const props = withDefaults(
     defineProps<{
@@ -90,6 +101,9 @@ const cw = computed(() => {
   for (const ch of props.title) h = (h * 31 + ch.charCodeAt(0)) | 0;
   return `cv--${WAYS[Math.abs(h) % WAYS.length]}`;
 });
+
+const thumbs = computed(() => ratingMode.value === 'thumbs');
+const ratingTendency = computed(() => tendency(props.rating));
 
 const showingArt = computed(() => Boolean(props.coverUrl) && !imgFailed.value);
 
@@ -275,6 +289,10 @@ const shortAuthor = computed(() => {
   color: var(--color-gold);
   width: 10px;
   height: 10px;
+}
+
+.cv-rating-neutral {
+  transform: rotate(-90deg);
 }
 
 .cv-rating-num {

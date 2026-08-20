@@ -11,7 +11,7 @@ use argon2::{
 };
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{DefaultBodyLimit, Multipart};
-use axum::routing::post;
+use axum::routing::{get, post};
 use axum::{extract::Json, http::StatusCode, response::IntoResponse, Router};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -21,6 +21,76 @@ use std::io::Cursor;
 use uuid::Uuid;
 
 const MAX_IMPORT_BYTES: usize = 5 * 1024 * 1024; // 5 MB
+
+/// The two ways the user rates a book. Both write the same `books.rating`
+/// column: `stars` writes 1..5, `thumbs` writes 1 for down and 5 for up. A score
+/// the other mode wrote renders through its tendency, so switching never
+/// rewrites anything.
+pub(crate) const STARS: &str = "stars";
+pub(crate) const THUMBS: &str = "thumbs";
+
+/// Reads the settings of the calling user. The single home for every preference
+/// that has to follow the user between devices.
+pub(crate) async fn settings(auth: AuthUser) -> impl IntoResponse {
+    let connection = &mut connect();
+
+    match users
+        .filter(crate::schema::users::dsl::id.eq(auth.0))
+        .first::<User>(connection)
+    {
+        Ok(user) => (
+            StatusCode::OK,
+            Json(json!({ "rating_mode": user.rating_mode })),
+        ),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!(ErrorResponse {
+                error: "User not found.".to_string(),
+            })),
+        ),
+    }
+}
+
+/// Request type for updating the settings. Every field is optional: a client
+/// sends only the setting it changes.
+#[derive(Debug, Deserialize)]
+pub struct SettingsRequest {
+    pub rating_mode: Option<String>,
+}
+
+/// Updates the settings of the calling user.
+pub(crate) async fn update_settings(
+    auth: AuthUser,
+    Json(payload): Json<SettingsRequest>,
+) -> impl IntoResponse {
+    let Some(mode) = payload.rating_mode else {
+        return (StatusCode::OK, Json(json!({})));
+    };
+
+    if mode != STARS && mode != THUMBS {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!(ErrorResponse {
+                error: "Invalid rating mode.".to_string(),
+            })),
+        );
+    }
+
+    let connection = &mut connect();
+
+    match diesel::update(users.filter(crate::schema::users::dsl::id.eq(auth.0)))
+        .set(crate::schema::users::dsl::rating_mode.eq(&mode))
+        .execute(connection)
+    {
+        Ok(_) => (StatusCode::OK, Json(json!({ "rating_mode": mode }))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Failed to update settings: {}", e),
+            })),
+        ),
+    }
+}
 
 /// What a catalog lookup contributed for one ISBN. Exactly one of the two ids is
 /// set — whichever catalog answered — plus its page count when it knows one.
@@ -34,6 +104,7 @@ pub(crate) fn register_routes(router: Router) -> Router {
     router
         .route("/api/user/register", post(register))
         .route("/api/user/login", post(login))
+        .route("/api/user/settings", get(settings).put(update_settings))
         .route(
             "/api/user/import-good-reads",
             post(import_good_reads).layer(DefaultBodyLimit::max(MAX_IMPORT_BYTES)),
@@ -84,6 +155,7 @@ pub(crate) async fn register(
         name: payload.username.clone(),
         password: password_hash,
         elevated: false,
+        rating_mode: STARS.to_string(),
     };
 
     let connection = &mut connect();

@@ -27,7 +27,11 @@
     "save": "Speichern",
     "edit": "Bearbeiten",
     "ratingAria": "{rating} von 5 Blüten",
-    "close": "Schließen"
+    "close": "Schließen",
+    "thumbUpAria": "Daumen hoch",
+    "thumbDownAria": "Daumen runter",
+    "thumbNeutralAria": "Geht so",
+    "notRated": "Nicht bewertet"
   },
   "stats": {
     "title": "Statistik",
@@ -90,7 +94,12 @@
     "perDayUnit": "Tag",
     "allTime": "Insgesamt",
     "byYear": "nach Jahr",
-    "perYearUnit": "Jahr"
+    "perYearUnit": "Jahr",
+    "liked": "Mag ich",
+    "disliked": "Mag ich nicht",
+    "ratedCount": "{count} bewertet",
+    "ratedLiked": "{count} bewertet · {percent}% positiv",
+    "soso": "Geht so"
   },
   "author": {
     "bookCount": "{n} Bücher",
@@ -105,7 +114,8 @@
     "onYourShelf": "In deinem Regal",
     "moreWorks": "Mehr von diesem Autor",
     "showMore": "Mehr anzeigen",
-    "showLess": "Weniger anzeigen"
+    "showLess": "Weniger anzeigen",
+    "likedShare": "{percent}% positiv"
   },
   "series": {
     "bookCount": "{n} Bücher",
@@ -386,7 +396,11 @@
     "editionLanguages": "Sprachen der Ausgaben",
     "editionLanguagesDesc": "Zeigt nur Ausgaben in diesen Sprachen sowie Ausgaben ohne Sprachangabe. Ohne Auswahl werden alle angezeigt.",
     "addLanguage": "Sprache hinzufügen…",
-    "allLanguages": "Alle Sprachen"
+    "allLanguages": "Alle Sprachen",
+    "rating": "Bewertung",
+    "ratingFlowers": "Blüten",
+    "ratingThumbs": "Daumen",
+    "ratingModeDesc": "Wie du ein Buch bewertest. Beim Wechsel wird nichts umgerechnet: Eine vorhandene Bewertung behält ihren Wert und erscheint als der Daumen, zu dem sie tendiert."
   },
   "auth": {
     "tagline": "eine Bibliothek zum Wachsen",

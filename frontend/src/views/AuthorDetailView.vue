@@ -15,7 +15,7 @@
           <h2 class="t-display text-2xl truncate">{{ authorName }}</h2>
           <p v-if="!loading && books.length" class="t-meta mt-1">
             <span class="whitespace-nowrap">{{ $t('author.bookCount', { n: books.length }) }}</span>
-            <span v-if="avgRating !== null"> · <span class="whitespace-nowrap">{{ $t('author.avgRating', { r: avgRating }) }}</span></span>
+            <span v-if="ratingSummary"> · <span class="whitespace-nowrap">{{ ratingSummary }}</span></span>
             <span v-if="totalPages > 0"> · <span class="whitespace-nowrap">{{ $t('author.totalPages', { n: totalPages.toLocaleString() }) }}</span></span>
           </p>
         </div>
@@ -135,6 +135,7 @@ import {seriesRoute} from '@/utils/seriesRoute';
 import {asShelfBook} from '@/utils/catalogBook';
 import {fetchAuthorInfo, type AuthorInfo} from '@/api/bookApi';
 import {useLayoutMode} from '@/composables/useLayoutMode';
+import {ratingMode, tendency} from '@/utils/ratingMode';
 import type {ShelfBook} from '@/types/shelf';
 
 export default defineComponent({
@@ -154,11 +155,22 @@ export default defineComponent({
 
     const authorName = computed(() => route.params.name as string);
 
-    const avgRating = computed(() => {
+    // A mean of thumbs (1s and 5s) says nothing, so thumbs mode reports the
+    // share of the author's books that got a thumbs up. Books with a 3 lean
+    // nowhere and are in neither half.
+    const ratingSummary = computed(() => {
       const rated = books.value.filter((b) => b.rating != null);
       if (!rated.length) return null;
+
+      if (ratingMode.value === 'thumbs') {
+        const withTendency = rated.filter((b) => tendency(b.rating) !== 0);
+        if (!withTendency.length) return null;
+        const up = withTendency.filter((b) => tendency(b.rating) === 1).length;
+        return t('author.likedShare', {percent: Math.round((up / withTendency.length) * 100)});
+      }
+
       const sum = rated.reduce((acc, b) => acc + (b.rating as number), 0);
-      return (sum / rated.length).toFixed(1);
+      return t('author.avgRating', {r: (sum / rated.length).toFixed(1)});
     });
 
     const authorMeta = computed(() => {
@@ -238,7 +250,7 @@ export default defineComponent({
 
     return {
       books, sortedBooks, loading, sortBy, authorName,
-      avgRating, totalPages, layoutMode, pageContainer,
+      ratingSummary, totalPages, layoutMode, pageContainer,
       info, bioExpanded, authorMeta, authorLinks, seriesRoute, workBooks,
     };
   },

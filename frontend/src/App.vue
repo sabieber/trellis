@@ -119,6 +119,7 @@ import {
 } from "@lucide/vue";
 import {useAuthStore} from '@/stores/auth';
 import {apiFetch} from '@/api/client';
+import {loadRatingMode} from '@/utils/ratingMode';
 
 interface Goal {
   id: string;
@@ -179,6 +180,10 @@ export default defineComponent({
 
     // Refetch on navigation so logged progress shows up without a reload.
     watch([() => auth.isAuthenticated, () => route.path], fetchYearGoal, {immediate: true});
+
+    // The rating scale is a user setting, so it is read once per session and
+    // again after a login — every rating on screen renders through it.
+    watch(() => auth.isAuthenticated, (yes) => { if (yes) void loadRatingMode(); }, {immediate: true});
 
     return {
       navItems,

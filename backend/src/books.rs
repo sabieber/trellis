@@ -1209,8 +1209,18 @@ struct BrowseFilters {
     author: Option<String>,
     genre: Option<String>,
     tag: Option<String>,
-    /// Outer `None` does not filter; inner `None` means "no rating set".
-    rating: Option<Option<i16>>,
+    /// `None` does not filter at all.
+    rating: Option<RatingFilter>,
+}
+
+/// What a rating filter selects. A star reader picks an exact score, a thumbs
+/// reader a tendency — both end up as an inclusive range over the same column.
+enum RatingFilter {
+    /// No rating set at all.
+    Unrated,
+    /// Inclusive range: an exact star is `(n, n)`, thumbs up `(4, 5)`, thumbs
+    /// down `(1, 2)`. A 3 has no tendency, so neither thumb matches it.
+    Range(i16, i16),
 }
 
 /// Builds the filtered book query. Called once for the count and once for the
@@ -1241,8 +1251,8 @@ fn browse_query<'a>(
     }
 
     query = match filters.rating {
-        Some(Some(rating)) => query.filter(b::rating.eq(rating)),
-        Some(None) => query.filter(b::rating.is_null()),
+        Some(RatingFilter::Range(low, high)) => query.filter(b::rating.between(low, high)),
+        Some(RatingFilter::Unrated) => query.filter(b::rating.is_null()),
         None => query,
     };
 
@@ -1291,11 +1301,13 @@ fn parse_browse_filters(
     };
 
     // The column only ever holds 1..=5, so anything else is a bad request rather
-    // than an empty result.
+    // than an empty result. `up`/`down` come from the thumbs mode of the filter.
     let rating = match normalize(payload.rating.clone()) {
-        Some(raw) if raw == UNLABELLED => Some(None),
+        Some(raw) if raw == UNLABELLED => Some(RatingFilter::Unrated),
+        Some(raw) if raw == "up" => Some(RatingFilter::Range(4, 5)),
+        Some(raw) if raw == "down" => Some(RatingFilter::Range(1, 2)),
         Some(raw) => match raw.parse::<i16>() {
-            Ok(value) if (1..=5).contains(&value) => Some(Some(value)),
+            Ok(value) if (1..=5).contains(&value) => Some(RatingFilter::Range(value, value)),
             _ => return Err("Invalid rating."),
         },
         None => None,
@@ -1465,6 +1477,35 @@ mod tests {
     use super::*;
     use axum::{body::Body, http::Request, routing::post, Router};
     use tower::ServiceExt;
+
+    /// The thumbs filter has to reach the same rows as the star filter it
+    /// replaces: `up` is 4..5, `down` is 1..2, and a 3 is in neither.
+    #[test]
+    fn test_rating_filter_parsing() {
+        let parse = |raw: &str| {
+            let payload = BrowseRequest {
+                shelf_id: None,
+                author: None,
+                genre: None,
+                tag: None,
+                rating: Some(raw.to_string()),
+                offset: None,
+            };
+            parse_browse_filters(Uuid::nil(), &payload).map(|f| match f.rating {
+                Some(RatingFilter::Range(low, high)) => format!("{low}..{high}"),
+                Some(RatingFilter::Unrated) => "unrated".to_string(),
+                None => "all".to_string(),
+            })
+        };
+
+        assert_eq!(parse("up").unwrap(), "4..5");
+        assert_eq!(parse("down").unwrap(), "1..2");
+        assert_eq!(parse("3").unwrap(), "3..3");
+        assert_eq!(parse(UNLABELLED).unwrap(), "unrated");
+        assert_eq!(parse("").unwrap(), "all");
+        assert!(parse("6").is_err());
+        assert!(parse("sideways").is_err());
+    }
 
     #[tokio::test]
     async fn test_get_book_info_requires_auth() {

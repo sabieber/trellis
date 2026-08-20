@@ -50,8 +50,10 @@
           :value="stats.reading_streak_weeks"
           :subtext="$t('stats.weeksInRow', stats.reading_streak_weeks)"
       />
+      <!-- A mean of thumbs (1s and 5s) is a number without a meaning. The
+           distribution card carries the share of likes instead. -->
       <StatCard
-          v-if="stats.average_rating !== null"
+          v-if="stats.average_rating !== null && !thumbs"
           :icon="FlowerIcon"
           :label="$t('stats.avgRating')"
           :value="stats.average_rating.toFixed(1)"
@@ -89,6 +91,7 @@ import {
 } from '@lucide/vue';
 import StatCard from '@/components/stats/StatCard.vue';
 import {usePeriodResource} from '@/composables/usePeriodResource';
+import {ratingMode} from '@/utils/ratingMode';
 import {formatPeriod} from '@/utils/period';
 import moment from 'moment';
 
@@ -156,9 +159,12 @@ export default defineComponent({
 
     const formatNumber = (n: number) => n.toLocaleString();
 
+    const thumbs = computed(() => ratingMode.value === 'thumbs');
+
     return {
       stats,
       loading,
+      thumbs,
       periodLabel,
       finishedInLabel,
       pagesPerDay,

@@ -107,6 +107,7 @@ import Button from '@/components/ui/Button.vue';
 import FilterSelect from '@/components/ui/FilterSelect.vue';
 import {apiFetch} from '@/api/client';
 import {useLayoutMode} from '@/composables/useLayoutMode';
+import {ratingMode, THUMBS_MIDDLE} from '@/utils/ratingMode';
 import type {ShelfBook} from '@/types/shelf';
 
 const route = useRoute();
@@ -157,13 +158,20 @@ const genreOptions = computed(
     () => [{value: UNLABELLED, label: t('books.noGenre')}, ...asOptions(genres.value)]);
 const tagOptions = computed(
     () => [{value: UNLABELLED, label: t('books.noTag')}, ...asOptions(tags.value)]);
-// The rating scale is fixed at 1..5, so this list needs nothing from the server.
+// The rating scale is fixed, so this list needs nothing from the server. Thumbs
+// mode filters by tendency: the server reads `up` as 4..5 and `down` as 1..2.
 const ratingOptions = computed(() => [
   {value: UNLABELLED, label: t('books.noRating')},
-  ...[5, 4, 3, 2, 1].map((value) => ({
-    value: String(value),
-    label: t('common.ratingAria', {rating: value}),
-  })),
+  ...(ratingMode.value === 'thumbs'
+      ? [
+        {value: 'up', label: t('common.thumbUpAria')},
+        {value: String(THUMBS_MIDDLE), label: t('common.thumbNeutralAria')},
+        {value: 'down', label: t('common.thumbDownAria')},
+      ]
+      : [5, 4, 3, 2, 1].map((value) => ({
+        value: String(value),
+        label: t('common.ratingAria', {rating: value}),
+      }))),
 ]);
 
 // Only the newest request may write the list; changing two filters quickly

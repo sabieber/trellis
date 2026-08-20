@@ -27,7 +27,11 @@
     "save": "Save",
     "edit": "Edit",
     "ratingAria": "{rating} out of 5 flowers",
-    "close": "Close"
+    "close": "Close",
+    "thumbUpAria": "Thumbs up",
+    "thumbDownAria": "Thumbs down",
+    "thumbNeutralAria": "So-so",
+    "notRated": "Not rated"
   },
   "stats": {
     "title": "Statistics",
@@ -90,7 +94,12 @@
     "perDayUnit": "day",
     "allTime": "All time",
     "byYear": "by year",
-    "perYearUnit": "year"
+    "perYearUnit": "year",
+    "liked": "Liked",
+    "disliked": "Disliked",
+    "ratedCount": "{count} rated",
+    "ratedLiked": "{count} rated · {percent}% liked",
+    "soso": "So-so"
   },
   "author": {
     "bookCount": "{n} books",
@@ -105,7 +114,8 @@
     "onYourShelf": "On your shelf",
     "moreWorks": "More by this author",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "likedShare": "liked {percent}%"
   },
   "series": {
     "bookCount": "{n} books",
@@ -386,7 +396,11 @@
     "editionLanguages": "Edition languages",
     "editionLanguagesDesc": "Show only editions in these languages, plus editions that state no language. Add none to show all of them.",
     "addLanguage": "Add a language…",
-    "allLanguages": "All languages"
+    "allLanguages": "All languages",
+    "rating": "Rating",
+    "ratingFlowers": "Flowers",
+    "ratingThumbs": "Thumbs",
+    "ratingModeDesc": "How you rate a book. Switching converts nothing: an existing rating keeps its score and shows up as the thumb it leans towards."
   },
   "auth": {
     "tagline": "a garden library",

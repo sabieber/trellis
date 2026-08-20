@@ -45,6 +45,22 @@
     </div>
 
     <div class="mt-6">
+      <h3 class="t-eyebrow mb-2">{{ $t('profile.rating') }}</h3>
+      <div class="bg-surface border border-line rounded-md p-4">
+        <p class="t-meta mb-3">{{ $t('profile.ratingModeDesc') }}</p>
+        <SegmentedControl v-model="ratingModeSetting" :options="ratingModeOptions">
+          <template #option="{ option }">
+            <span class="flex items-center gap-1.5">
+              <FlowerIcon v-if="option.value === 'stars'" class="size-4" fill="color-mix(in srgb, currentColor 50%, transparent)"/>
+              <ThumbsUpIcon v-else class="size-4"/>
+              {{ option.label }}
+            </span>
+          </template>
+        </SegmentedControl>
+      </div>
+    </div>
+
+    <div class="mt-6">
       <h3 class="t-eyebrow mb-2">{{ $t('profile.editionLanguages') }}</h3>
       <div class="bg-surface border border-line rounded-md p-4">
         <p class="t-meta mb-3">{{ $t('profile.editionLanguagesDesc') }}</p>
@@ -82,14 +98,15 @@ import PageContainer from '@/components/PageContainer.vue';
 import Button from '@/components/ui/Button.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import BookLabels from '@/components/BookLabels.vue';
-import {PowerIcon} from "@lucide/vue";
+import {FlowerIcon, PowerIcon, ThumbsUpIcon} from "@lucide/vue";
 import {apiFetch} from '@/api/client';
 import {useAuthStore} from '@/stores/auth';
 import {setLocale, type Locale} from '@/i18n';
 import {editionLanguageOptions, editionLanguages, languageLabel, setEditionLanguages} from '@/utils/editionLanguages';
+import {ratingMode, setRatingMode, type RatingMode} from '@/utils/ratingMode';
 
 export default defineComponent({
-  components: {PageContainer, PowerIcon, Button, SegmentedControl, BookLabels},
+  components: {PageContainer, FlowerIcon, PowerIcon, ThumbsUpIcon, Button, SegmentedControl, BookLabels},
   setup() {
     const router = useRouter();
     const {t, locale} = useI18n();
@@ -122,6 +139,17 @@ export default defineComponent({
 
     const removeEditionLanguage = (name: string) => setEditionLanguages(
         editionLanguages.value.filter((code) => languageLabel(code, locale.value) !== name));
+    // Switching converts nothing: the stored 1..5 score stays, and each mode
+    // renders it its own way.
+    const ratingModeOptions = computed(() => [
+      {value: 'stars', label: t('profile.ratingFlowers')},
+      {value: 'thumbs', label: t('profile.ratingThumbs')},
+    ]);
+    const ratingModeSetting = computed({
+      get: () => ratingMode.value,
+      set: (value: string) => { void setRatingMode(value as RatingMode); },
+    });
+
     const pageContainer = ref<any>(null);
     const selectedFile = ref<File | null>(null);
     const isUploading = ref(false);
@@ -214,6 +242,8 @@ export default defineComponent({
       deriveReadingDays,
       language,
       languageOptions,
+      ratingModeSetting,
+      ratingModeOptions,
       selectedLanguageNames,
       languageSuggestions,
       addEditionLanguage,
