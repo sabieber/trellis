@@ -81,6 +81,16 @@
         />
       </div>
 
+      <!-- Alone in its row, so it keeps the half-width column of the rows above
+           instead of stretching a pie and its legend across the whole page. -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-7">
+        <GenreDistributionSection
+            v-bind="period"
+            :distribution="breakdown?.genre_distribution ?? []"
+            :loading="breakdownLoading"
+        />
+      </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-7">
         <TopAuthorsSection
             v-bind="period"
@@ -120,6 +130,7 @@ import RatingDistributionSection from '@/components/stats/RatingDistributionSect
 import PageDistributionSection from '@/components/stats/PageDistributionSection.vue';
 import WeekdaySection from '@/components/stats/WeekdaySection.vue';
 import ReadingStatesSection from '@/components/stats/ReadingStatesSection.vue';
+import GenreDistributionSection from '@/components/stats/GenreDistributionSection.vue';
 import TopAuthorsSection from '@/components/stats/TopAuthorsSection.vue';
 import TopBooksSection from '@/components/stats/TopBooksSection.vue';
 import ChartTooltip from '@/components/stats/ChartTooltip.vue';
@@ -138,6 +149,7 @@ export default defineComponent({
     PageDistributionSection,
     WeekdaySection,
     ReadingStatesSection,
+    GenreDistributionSection,
     TopAuthorsSection,
     TopBooksSection,
     ChartTooltip,

@@ -10,6 +10,13 @@ export interface AuthorStat {
     pages: number;
 }
 
+/** A genre and how many of the period's finished books carry it. */
+export interface GenreStat {
+    genre: string;
+    /** Distinct finished books with this genre (a re-read counts once). */
+    books: number;
+}
+
 /** A finished book highlighted in the period's book lists. */
 export interface BookStat {
     book_id: string;
@@ -39,6 +46,8 @@ export interface StatsBreakdown {
     /** Counts of finished books per 100-page band, index 0 (0–99) upward. */
     page_distribution: number[];
     top_authors: AuthorStat[];
+    /** Genres of the finished books, most books first. A book counts in each of its genres. */
+    genre_distribution: GenreStat[];
     /** Up to three finished books with the highest rating, best first. */
     top_rated: BookStat[];
     /** Up to three books with the most finished readings, most read first. */
