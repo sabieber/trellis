@@ -21,6 +21,9 @@ const i18n = createI18n({
 })
 
 // Keep moment's date formatting in the same language as the UI.
+//
+// This changes the language on this device only. The language is a user
+// setting, so call `changeLocale` (utils/userSettings.ts) to also save it.
 export function setLocale(locale: Locale) {
   i18n.global.locale.value = locale
   moment.locale(locale)

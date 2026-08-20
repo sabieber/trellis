@@ -1,5 +1,4 @@
 import {ref} from 'vue';
-import {apiFetch} from '@/api/client';
 
 /**
  * How the user rates a book. Both modes write the same `books.rating` column:
@@ -9,6 +8,7 @@ import {apiFetch} from '@/api/client';
  *
  * The mode lives on the user row, not in localStorage: a rating scale that
  * differs between the phone and the desktop is a scale nobody can read.
+ * `utils/userSettings.ts` reads it and writes it.
  */
 export type RatingMode = 'stars' | 'thumbs';
 
@@ -30,26 +30,4 @@ export function tendency(rating: number | null | undefined): -1 | 0 | 1 {
   if (rating >= 4) return 1;
   if (rating <= 2) return -1;
   return 0;
-}
-
-export async function loadRatingMode(): Promise<void> {
-  try {
-    const response = await apiFetch('/api/user/settings');
-    if (response.ok) {
-      const data = await response.json();
-      if (data.rating_mode === 'thumbs' || data.rating_mode === 'stars') {
-        ratingMode.value = data.rating_mode;
-      }
-    }
-  } catch {
-    // Keep the default; a rating scale is not worth a blocking error.
-  }
-}
-
-export async function setRatingMode(mode: RatingMode): Promise<void> {
-  ratingMode.value = mode;
-  await apiFetch('/api/user/settings', {
-    method: 'PUT',
-    body: JSON.stringify({rating_mode: mode}),
-  });
 }

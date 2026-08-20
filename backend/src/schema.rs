@@ -141,6 +141,9 @@ diesel::table! {
         elevated -> Bool,
         #[max_length = 8]
         rating_mode -> Varchar,
+        #[max_length = 8]
+        locale -> Varchar,
+        edition_languages -> Array<Text>,
     }
 }
 

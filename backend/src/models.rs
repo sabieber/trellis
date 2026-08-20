@@ -12,9 +12,15 @@ pub struct User {
     pub name: String,
     pub password: String,
     pub elevated: bool,
-    // `rating_mode` is last because the migration appended the column; the field
-    // order must match the schema column order for positional `Queryable` loads.
+    // The settings come last because the migrations appended their columns; the
+    // field order must match the schema column order for positional `Queryable`
+    // loads.
     pub rating_mode: String,
+    pub locale: String,
+    // `TEXT[]` is `Array<Text>` in the schema, not the `Array<Nullable<Text>>`
+    // that `diesel print-schema` writes for it — nothing ever puts a NULL in
+    // this list, and `Vec<Option<String>>` would infect every reader.
+    pub edition_languages: Vec<String>,
 }
 
 #[derive(Queryable, Selectable, Insertable)]

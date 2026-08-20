@@ -7,8 +7,10 @@ import {ref} from 'vue';
  * Two Towers" has editions in twenty of them. An empty list means "show all",
  * which is where everyone starts.
  *
- * The preference lives in localStorage next to the UI locale. Neither one is
- * server state — both follow the device.
+ * The preference lives on the user row and follows the reader between devices.
+ * localStorage only caches it, so the first render after a reload has an answer
+ * before `utils/userSettings.ts` gets one from the server. Write through
+ * `changeEditionLanguages` — the setter here does not reach the server.
  */
 const STORAGE_KEY = 'editionLanguages';
 

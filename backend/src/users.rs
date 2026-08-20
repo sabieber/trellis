@@ -40,7 +40,11 @@ pub(crate) async fn settings(auth: AuthUser) -> impl IntoResponse {
     {
         Ok(user) => (
             StatusCode::OK,
-            Json(json!({ "rating_mode": user.rating_mode })),
+            Json(json!({
+                "rating_mode": user.rating_mode,
+                "locale": user.locale,
+                "edition_languages": user.edition_languages,
+            })),
         ),
         Err(_) => (
             StatusCode::NOT_FOUND,
@@ -51,11 +55,36 @@ pub(crate) async fn settings(auth: AuthUser) -> impl IntoResponse {
     }
 }
 
+/// How many edition languages one user can pick. The list is a preference, not
+/// a data store — this only stops a client from writing a novel into the column.
+const MAX_EDITION_LANGUAGES: usize = 32;
+
+/// Whether a value looks like a language tag: letters and dashes, and short.
+/// The backend does not know which languages the frontend offers, so it checks
+/// the shape instead of a list — a new UI language never touches this code.
+fn is_language_tag(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 8
+        && value.chars().all(|c| c.is_ascii_alphabetic() || c == '-')
+}
+
 /// Request type for updating the settings. Every field is optional: a client
 /// sends only the setting it changes.
 #[derive(Debug, Deserialize)]
 pub struct SettingsRequest {
     pub rating_mode: Option<String>,
+    pub locale: Option<String>,
+    pub edition_languages: Option<Vec<String>>,
+}
+
+/// The columns one request writes. Diesel skips every field that is `None`, so
+/// a request that carries one setting leaves the others alone.
+#[derive(AsChangeset)]
+#[diesel(table_name = crate::schema::users)]
+struct SettingsChange {
+    rating_mode: Option<String>,
+    locale: Option<String>,
+    edition_languages: Option<Vec<String>>,
 }
 
 /// Updates the settings of the calling user.
@@ -63,26 +92,60 @@ pub(crate) async fn update_settings(
     auth: AuthUser,
     Json(payload): Json<SettingsRequest>,
 ) -> impl IntoResponse {
-    let Some(mode) = payload.rating_mode else {
-        return (StatusCode::OK, Json(json!({})));
+    if let Some(mode) = &payload.rating_mode {
+        if mode != STARS && mode != THUMBS {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Invalid rating mode.".to_string(),
+                })),
+            );
+        }
+    }
+
+    // An empty locale is how the user takes their choice back: the browser
+    // language answers again.
+    if let Some(locale) = &payload.locale {
+        if !locale.is_empty() && !is_language_tag(locale) {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Invalid locale.".to_string(),
+                })),
+            );
+        }
+    }
+
+    if let Some(codes) = &payload.edition_languages {
+        if codes.len() > MAX_EDITION_LANGUAGES || !codes.iter().all(|code| is_language_tag(code)) {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Invalid edition languages.".to_string(),
+                })),
+            );
+        }
+    }
+
+    let change = SettingsChange {
+        rating_mode: payload.rating_mode,
+        locale: payload.locale,
+        edition_languages: payload.edition_languages,
     };
 
-    if mode != STARS && mode != THUMBS {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!(ErrorResponse {
-                error: "Invalid rating mode.".to_string(),
-            })),
-        );
+    // Diesel cannot build an update without a column to set.
+    if change.rating_mode.is_none() && change.locale.is_none() && change.edition_languages.is_none()
+    {
+        return (StatusCode::OK, Json(json!({})));
     }
 
     let connection = &mut connect();
 
     match diesel::update(users.filter(crate::schema::users::dsl::id.eq(auth.0)))
-        .set(crate::schema::users::dsl::rating_mode.eq(&mode))
+        .set(change)
         .execute(connection)
     {
-        Ok(_) => (StatusCode::OK, Json(json!({ "rating_mode": mode }))),
+        Ok(_) => (StatusCode::OK, Json(json!({}))),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!(ErrorResponse {
@@ -156,6 +219,10 @@ pub(crate) async fn register(
         password: password_hash,
         elevated: false,
         rating_mode: STARS.to_string(),
+        // No language picked yet, and no edition filter: the browser answers for
+        // the first one, and a new reader sees every edition.
+        locale: String::new(),
+        edition_languages: Vec::new(),
     };
 
     let connection = &mut connect();
@@ -698,9 +765,19 @@ pub(crate) async fn import_good_reads(
 
 #[cfg(test)]
 mod tests {
-    use super::{import_good_reads, login};
+    use super::{import_good_reads, is_language_tag, login};
     use axum::{body::Body, http::Request, routing::post, Router};
     use tower::ServiceExt;
+
+    #[test]
+    fn test_language_tags() {
+        assert!(is_language_tag("de"));
+        assert!(is_language_tag("pt-BR"));
+        assert!(!is_language_tag(""));
+        assert!(!is_language_tag("de,en"));
+        assert!(!is_language_tag("de'; DROP"));
+        assert!(!is_language_tag("verylonglanguage"));
+    }
 
     #[tokio::test]
     async fn test_login_without_credentials_returns_non_ok() {

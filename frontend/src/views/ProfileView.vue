@@ -101,9 +101,10 @@ import BookLabels from '@/components/BookLabels.vue';
 import {FlowerIcon, PowerIcon, ThumbsUpIcon} from "@lucide/vue";
 import {apiFetch} from '@/api/client';
 import {useAuthStore} from '@/stores/auth';
-import {setLocale, type Locale} from '@/i18n';
-import {editionLanguageOptions, editionLanguages, languageLabel, setEditionLanguages} from '@/utils/editionLanguages';
-import {ratingMode, setRatingMode, type RatingMode} from '@/utils/ratingMode';
+import {type Locale} from '@/i18n';
+import {editionLanguageOptions, editionLanguages, languageLabel} from '@/utils/editionLanguages';
+import {ratingMode, type RatingMode} from '@/utils/ratingMode';
+import {changeEditionLanguages, changeLocale, changeRatingMode} from '@/utils/userSettings';
 
 export default defineComponent({
   components: {PageContainer, FlowerIcon, PowerIcon, ThumbsUpIcon, Button, SegmentedControl, BookLabels},
@@ -115,7 +116,7 @@ export default defineComponent({
     const languageOptions = [{value: 'en', label: 'English'}, {value: 'de', label: 'Deutsch'}];
     const language = computed({
       get: () => locale.value,
-      set: (value: string) => setLocale(value as Locale),
+      set: (value: string) => changeLocale(value as Locale),
     });
     // No selection means no filter: a new reader sees every edition. The order
     // is the order they picked, and the edition lists follow it.
@@ -133,11 +134,11 @@ export default defineComponent({
     const addEditionLanguage = (name: string) => {
       const picked = options.value.find((option) => option.label === name);
       if (picked && !editionLanguages.value.includes(picked.code)) {
-        setEditionLanguages([...editionLanguages.value, picked.code]);
+        changeEditionLanguages([...editionLanguages.value, picked.code]);
       }
     };
 
-    const removeEditionLanguage = (name: string) => setEditionLanguages(
+    const removeEditionLanguage = (name: string) => changeEditionLanguages(
         editionLanguages.value.filter((code) => languageLabel(code, locale.value) !== name));
     // Switching converts nothing: the stored 1..5 score stays, and each mode
     // renders it its own way.
@@ -147,7 +148,7 @@ export default defineComponent({
     ]);
     const ratingModeSetting = computed({
       get: () => ratingMode.value,
-      set: (value: string) => { void setRatingMode(value as RatingMode); },
+      set: (value: string) => changeRatingMode(value as RatingMode),
     });
 
     const pageContainer = ref<any>(null);
