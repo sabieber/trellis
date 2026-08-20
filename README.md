@@ -52,7 +52,7 @@ docker compose up db
 cd backend && cargo run
 
 # terminal 3 — frontend dev server (proxies /api to the backend)
-cd frontend && npm install && npm run dev
+cd frontend && pnpm install && pnpm run dev
 ```
 
 The app is then served at http://localhost:5173. The backend requires a

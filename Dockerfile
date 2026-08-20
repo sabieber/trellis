@@ -3,12 +3,13 @@
 # --- Stage 1: build the frontend to static assets ---
 FROM node:22-alpine AS frontend
 WORKDIR /frontend
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+RUN corepack enable
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
 # Same-origin API calls: the backend serves these assets, so no host/port.
 ENV VITE_API_BASE_URL=""
-RUN npm run build-only
+RUN pnpm run build-only
 
 # --- Stage 2: build the backend release binary ---
 FROM rust:1.88-bookworm AS backend
