@@ -1,7 +1,7 @@
 use crate::auth::AuthUser;
 use crate::db::connect;
 use crate::goals::{calculate_books_progress, calculate_pages_progress, estimate_pages};
-use crate::models::{ReadingGoalTimeframe, ReadingGoalType, ReadingMode};
+use crate::models::{LabelKind, ReadingGoalTimeframe, ReadingGoalType, ReadingMode};
 use crate::schema::books::dsl::books;
 use crate::schema::reading_entries::dsl::reading_entries;
 use crate::schema::reading_goals::dsl::reading_goals;
@@ -600,6 +600,51 @@ fn calculate_most_read(
         .into_iter()
         .map(|(id, title, author, cover, count, _)| (id, title, author, cover, count))
         .collect()
+}
+
+/// The genres of the distinct books finished within the period, ranked by book
+/// count. A genre describes the book, not the reading, so a re-read counts once.
+/// A book carrying several genres counts in each of them — the counts therefore
+/// sum to more than the books finished. Books without a genre are left out.
+fn calculate_genre_distribution(
+    connection: &mut PgConnection,
+    user_id: Uuid,
+    period_start: NaiveDate,
+    period_end: NaiveDate,
+) -> Vec<(String, i64)> {
+    use crate::schema::book_labels::dsl as bl;
+
+    let finished: Vec<Uuid> = readings
+        .filter(schema::readings::dsl::user.eq(user_id))
+        .filter(schema::readings::dsl::finished_at.is_not_null())
+        .filter(schema::readings::dsl::finished_at.ge(period_start))
+        .filter(schema::readings::dsl::finished_at.le(period_end))
+        .select(schema::readings::dsl::book)
+        .load::<Uuid>(connection)
+        .unwrap_or_default()
+        .into_iter()
+        .collect::<HashSet<Uuid>>()
+        .into_iter()
+        .collect();
+
+    // (book, kind, label) is the primary key, so one row here is one book.
+    let labels: Vec<String> = bl::book_labels
+        .filter(bl::user.eq(user_id))
+        .filter(bl::kind.eq(LabelKind::Genre))
+        .filter(bl::book.eq_any(finished))
+        .select(bl::label)
+        .load(connection)
+        .unwrap_or_default();
+
+    let mut per_genre: HashMap<String, i64> = HashMap::new();
+    for label in labels {
+        *per_genre.entry(label).or_insert(0) += 1;
+    }
+
+    let mut genres: Vec<(String, i64)> = per_genre.into_iter().collect();
+    // Most books first, then alphabetically for a stable order.
+    genres.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    genres
 }
 
 /// Counts the readings by outcome within the period: finished (finished in the
@@ -1227,6 +1272,8 @@ pub struct BreakdownRequest {
 ///   (0–99) up to the highest non-empty band
 /// - `top_authors`: up to five authors of finished books, each with the number of
 ///   finished `books` and their summed `pages`, most read first
+/// - `genre_distribution`: the genres of the books finished in the period with
+///   their book count, most books first (a book counts in each of its genres)
 /// - `top_rated`: up to three finished books with the highest `rating`, best first
 /// - `most_read`: up to three finished books with the most finished `readings` in
 ///   the period, most read first
@@ -1262,6 +1309,8 @@ pub(crate) async fn breakdown(
     let page_distribution =
         calculate_page_distribution(connection, auth.0, period_start, period_end);
     let top_authors = calculate_top_authors(connection, auth.0, period_start, period_end);
+    let genre_distribution =
+        calculate_genre_distribution(connection, auth.0, period_start, period_end);
     let top_rated = calculate_top_rated(connection, auth.0, period_start, period_end);
     let most_read = calculate_most_read(connection, auth.0, period_start, period_end);
     let (finished, reading, abandoned) =
@@ -1270,6 +1319,11 @@ pub(crate) async fn breakdown(
     let authors: Vec<serde_json::Value> = top_authors
         .into_iter()
         .map(|(author, count, page_sum)| json!({"author": author, "books": count, "pages": page_sum}))
+        .collect();
+
+    let genres: Vec<serde_json::Value> = genre_distribution
+        .into_iter()
+        .map(|(genre, count)| json!({"genre": genre, "books": count}))
         .collect();
 
     let top_rated: Vec<serde_json::Value> = top_rated
@@ -1295,6 +1349,7 @@ pub(crate) async fn breakdown(
             "rating_distribution": rating_distribution,
             "page_distribution": page_distribution,
             "top_authors": authors,
+            "genre_distribution": genres,
             "top_rated": top_rated,
             "most_read": most_read,
             "reading_states": {
