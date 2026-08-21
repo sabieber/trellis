@@ -52,8 +52,8 @@ importers:
         specifier: ^10.5.4
         version: 10.5.4(postcss@8.5.26)
       daisyui:
-        specifier: ^5.7.18
-        version: 5.7.18
+        specifier: ^5.7.19
+        version: 5.7.19
       npm-run-all2:
         specifier: ^9.0.3
         version: 9.0.3
@@ -1392,8 +1392,8 @@ packages:
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
-  daisyui@5.7.18:
-    resolution: {integrity: sha512-ucODxcoGsL5oqMMiO5SzX++cAuNiko4S3XipKtEtq4c1t8tpeetcCBJSVe1t+C/q2oXgRv/wYz5yu1rXE5Cl1A==}
+  daisyui@5.7.19:
+    resolution: {integrity: sha512-0ylsSwFdzecFBh1XKPw/FB74bYX1kiufv7/dFvj3FxrUMWGkACfwqIzIMrsxIMzUlKF6ZHwH6YaOwPNvQGGmsg==}
 
   data-view-buffer@1.0.2:
     resolution: {integrity: sha512-EmKO5V3OLXh1rtK2wgXRansaK1/mtVdTUEiEI0W8RkvgT05kfxaH29PliLnpLP73yYO6142Q72QNa8Wx/A5CqQ==}
@@ -4116,7 +4116,7 @@ snapshots:
 
   csstype@3.2.3: {}
 
-  daisyui@5.7.18: {}
+  daisyui@5.7.19: {}
 
   data-view-buffer@1.0.2:
     dependencies:
