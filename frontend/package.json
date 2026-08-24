@@ -12,7 +12,7 @@
     "type-check": "vue-tsc --build"
   },
   "dependencies": {
-    "@lucide/vue": "^1.31.0",
+    "@lucide/vue": "^1.33.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
     "barcode-detector": "^3.2.2",
