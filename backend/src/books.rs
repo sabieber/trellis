@@ -9,7 +9,7 @@ use axum::{extract::Json, http::StatusCode, response::IntoResponse, Router};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 /// The wire shape of a book, as every handler that returns a list of them sends
@@ -292,8 +292,8 @@ pub struct BookInfoResponse {
     pub shelf_ids: Vec<String>,
     // The user's own labels ride along here rather than in a route of their
     // own: this response is already fetched on page load. So do the notes.
-    pub genres: Vec<String>,
-    pub tags: Vec<String>,
+    // Keyed by kind slug, one key per kind in `LABEL_KINDS`.
+    pub labels: HashMap<&'static str, Vec<String>>,
     pub notes: Vec<serde_json::Value>,
 }
 
@@ -364,7 +364,7 @@ pub(crate) async fn get_book_info(
         .first::<Book>(connection)
     {
         Ok(book) => {
-            let (genres, tags) = labels_for_book(connection, book_id).unwrap_or_default();
+            let labels = labels_for_book(connection, book_id).unwrap_or_default();
             let notes = crate::notes::notes_for_book(connection, book_id).unwrap_or_default();
             (
                 StatusCode::OK,
@@ -379,8 +379,7 @@ pub(crate) async fn get_book_info(
                     page_count: book.page_count,
                     readings: json_readings,
                     shelf_ids,
-                    genres,
-                    tags,
+                    labels,
                     notes,
                 })),
             )
@@ -882,7 +881,36 @@ fn normalize_label(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// Request type for adding/removing a label. `kind` is `genre` or `tag`.
+/// Every label kind with the slug the API speaks. New kinds are added here and
+/// nowhere else — the handlers below are kind-agnostic.
+const LABEL_KINDS: [(LabelKind, &str); 6] = [
+    (LabelKind::Genre, "genre"),
+    (LabelKind::Tag, "tag"),
+    (LabelKind::ReceivedFrom, "received_from"),
+    (LabelKind::GivenTo, "given_to"),
+    (LabelKind::BorrowedFrom, "borrowed_from"),
+    (LabelKind::BorrowedTo, "borrowed_to"),
+];
+
+/// The kinds whose labels are people. They share one suggestion pool: the same
+/// name is a lender on one book and a recipient on the next, and typing it
+/// twice is the thing the suggestions exist to prevent.
+const PERSON_KINDS: [LabelKind; 4] = [
+    LabelKind::ReceivedFrom,
+    LabelKind::GivenTo,
+    LabelKind::BorrowedFrom,
+    LabelKind::BorrowedTo,
+];
+
+fn kind_slug(kind: LabelKind) -> &'static str {
+    LABEL_KINDS
+        .iter()
+        .find(|(candidate, _)| *candidate == kind)
+        .map(|(_, slug)| *slug)
+        .unwrap_or("tag")
+}
+
+/// Request type for adding/removing a label. `kind` is one of `LABEL_KINDS`.
 #[derive(Debug, Deserialize)]
 pub struct LabelRequest {
     pub book_id: String,
@@ -894,11 +922,11 @@ pub struct LabelRequest {
 /// string is the 400 message.
 fn parse_label_request(payload: &LabelRequest) -> Result<(Uuid, LabelKind, String), &'static str> {
     let book_id = Uuid::parse_str(&payload.book_id).map_err(|_| "Invalid book ID.")?;
-    let kind = match payload.kind.as_str() {
-        "genre" => LabelKind::Genre,
-        "tag" => LabelKind::Tag,
-        _ => return Err("Unknown label kind."),
-    };
+    let kind = LABEL_KINDS
+        .iter()
+        .find(|(_, slug)| *slug == payload.kind)
+        .map(|(kind, _)| *kind)
+        .ok_or("Unknown label kind.")?;
     let label = normalize_label(&payload.label);
     if label.is_empty() {
         return Err("Label must not be empty.");
@@ -909,25 +937,24 @@ fn parse_label_request(payload: &LabelRequest) -> Result<(Uuid, LabelKind, Strin
     Ok((book_id, kind, label))
 }
 
-/// Fans a kind-ordered label row set out into (genres, tags) — the shape both
-/// the book response and the suggestion pool are served in.
-fn split_by_kind(rows: Vec<(LabelKind, String)>) -> (Vec<String>, Vec<String>) {
-    let mut genres = Vec::new();
-    let mut tags = Vec::new();
+/// Fans a label row set out into one list per kind, keyed by slug. Every kind
+/// gets a key, so the frontend never has to guess between "empty" and "absent".
+fn split_by_kind(rows: Vec<(LabelKind, String)>) -> HashMap<&'static str, Vec<String>> {
+    let mut split: HashMap<&'static str, Vec<String>> = LABEL_KINDS
+        .iter()
+        .map(|(_, slug)| (*slug, Vec::new()))
+        .collect();
     for (kind, label) in rows {
-        match kind {
-            LabelKind::Genre => genres.push(label),
-            LabelKind::Tag => tags.push(label),
-        }
+        split.entry(kind_slug(kind)).or_default().push(label);
     }
-    (genres, tags)
+    split
 }
 
-/// Loads all labels of a book, split into (genres, tags).
+/// Loads all labels of a book, split by kind.
 fn labels_for_book(
     conn: &mut PgConnection,
     book_id: Uuid,
-) -> QueryResult<(Vec<String>, Vec<String>)> {
+) -> QueryResult<HashMap<&'static str, Vec<String>>> {
     use crate::schema::book_labels::dsl as bl;
 
     bl::book_labels
@@ -1079,11 +1106,8 @@ fn label_list_response(
     kind: LabelKind,
 ) -> (StatusCode, Json<serde_json::Value>) {
     match labels_for_book(conn, book_id) {
-        Ok((genres, tags)) => {
-            let labels = match kind {
-                LabelKind::Genre => genres,
-                LabelKind::Tag => tags,
-            };
+        Ok(mut split) => {
+            let labels = split.remove(kind_slug(kind)).unwrap_or_default();
             (StatusCode::OK, Json(json!({ "labels": labels })))
         }
         Err(e) => (
@@ -1095,8 +1119,9 @@ fn label_list_response(
     }
 }
 
-/// Lists every distinct label the user has used, grouped by kind — the pool the
-/// frontend's suggestion dropdown draws from.
+/// Lists every distinct label the user has used, as the three pools the
+/// frontend's suggestion dropdowns draw from: `genre`, `tag` and `person` —
+/// the last one merged across the four person kinds.
 pub(crate) async fn suggest_labels(auth: AuthUser) -> impl IntoResponse {
     use crate::schema::book_labels::dsl as bl;
 
@@ -1107,13 +1132,29 @@ pub(crate) async fn suggest_labels(auth: AuthUser) -> impl IntoResponse {
         .select((bl::kind, bl::label))
         .distinct()
         .order(bl::label.asc())
-        .load(connection)
-        .map(split_by_kind)
+        .load::<(LabelKind, String)>(connection)
     {
-        Ok((genres, tags)) => (
-            StatusCode::OK,
-            Json(json!({ "genres": genres, "tags": tags })),
-        ),
+        Ok(rows) => {
+            // The four person kinds share a pool, so the same name entered as a
+            // lender must not come back a second time as a recipient.
+            let mut person: Vec<String> = Vec::new();
+            for (kind, label) in rows.iter() {
+                if PERSON_KINDS.contains(kind)
+                    && !person.iter().any(|seen| seen.eq_ignore_ascii_case(label))
+                {
+                    person.push(label.clone());
+                }
+            }
+            let mut split = split_by_kind(rows);
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "genre": split.remove("genre").unwrap_or_default(),
+                    "tag": split.remove("tag").unwrap_or_default(),
+                    "person": person,
+                })),
+            )
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!(ErrorResponse {
@@ -1505,6 +1546,28 @@ mod tests {
         assert_eq!(parse("").unwrap(), "all");
         assert!(parse("6").is_err());
         assert!(parse("sideways").is_err());
+    }
+
+    /// Every kind survives the round trip through its slug, and the split keeps
+    /// a key for a kind with no labels on it.
+    #[test]
+    fn test_label_kinds_round_trip() {
+        for (kind, slug) in LABEL_KINDS {
+            let payload = LabelRequest {
+                book_id: Uuid::nil().to_string(),
+                kind: slug.to_string(),
+                label: "  Aunt   Mary ".to_string(),
+            };
+            let (_, parsed, label) = parse_label_request(&payload).unwrap();
+            assert_eq!(parsed, kind);
+            assert_eq!(kind_slug(parsed), slug);
+            assert_eq!(label, "Aunt Mary");
+        }
+
+        let split = split_by_kind(vec![(LabelKind::GivenTo, "Mary".to_string())]);
+        assert_eq!(split.len(), LABEL_KINDS.len());
+        assert_eq!(split["given_to"], vec!["Mary".to_string()]);
+        assert!(split["genre"].is_empty());
     }
 
     #[tokio::test]

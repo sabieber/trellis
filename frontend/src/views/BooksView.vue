@@ -255,8 +255,8 @@ const fetchFilterOptions = async () => {
   if (shelfResponse.ok) shelves.value = (await shelfResponse.json()).shelves;
   if (labelResponse.ok) {
     const data = await labelResponse.json();
-    genres.value = data.genres;
-    tags.value = data.tags;
+    genres.value = data.genre;
+    tags.value = data.tag;
   }
 };
 

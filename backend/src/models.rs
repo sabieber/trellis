@@ -69,13 +69,18 @@ pub struct BookShelf {
     pub added_at: chrono::NaiveDateTime,
 }
 
-/// Genres and tags are the same mechanism with a different heading; this
-/// discriminator is the only thing that separates them.
+/// Genres, tags and the four "who had this copy" fields are the same mechanism
+/// with a different heading; this discriminator is the only thing that
+/// separates them.
 #[derive(Debug, Clone, Copy, PartialEq, diesel_derive_enum::DbEnum)]
 #[ExistingTypePath = "crate::schema::sql_types::LabelKind"]
 pub enum LabelKind {
     Genre,
     Tag,
+    ReceivedFrom,
+    GivenTo,
+    BorrowedFrom,
+    BorrowedTo,
 }
 
 #[derive(Queryable, Selectable, Insertable)]

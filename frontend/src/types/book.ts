@@ -23,9 +23,17 @@ export interface BookSearchResult {
   series?: SeriesRef | null
 }
 
-/// The user's own labels on a book. Genres and tags are one mechanism with two
-/// headings; this discriminator is all that separates them.
-export type LabelKind = 'genre' | 'tag'
+/// The user's own labels on a book. Genres, tags and the four "who had this
+/// copy" fields are one mechanism with six headings; this discriminator is all
+/// that separates them.
+export type LabelKind =
+    'genre' | 'tag' | 'received_from' | 'given_to' | 'borrowed_from' | 'borrowed_to'
+
+/// The kinds whose labels are people. They draw from one suggestion pool.
+export const PERSON_KINDS = ['received_from', 'given_to', 'borrowed_from', 'borrowed_to'] as const
+
+/// Which pool a kind's suggestions come from — the key the backend sends them under.
+export type SuggestionPool = 'genre' | 'tag' | 'person'
 
 /// A note the user wrote about a book. `page` is optional: a note about the
 /// book as a whole carries none.

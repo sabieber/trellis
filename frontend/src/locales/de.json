@@ -194,6 +194,14 @@
     "noTags": "Noch keine Tags.",
     "addGenre": "Genre hinzufügen",
     "addTag": "Tag hinzufügen",
+    "personFields": {
+      "received_from": "Erhalten von",
+      "given_to": "Verschenkt an",
+      "borrowed_from": "Geliehen von",
+      "borrowed_to": "Verliehen an"
+    },
+    "noPerson": "Noch niemand.",
+    "addPerson": "Person zu {field} hinzufügen",
     "removeLabel": "{label} entfernen",
     "removeFromShelfTitle": "Aus Regal entfernen",
     "deleteReadingTitle": "Lesung löschen",

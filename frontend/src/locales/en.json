@@ -194,6 +194,14 @@
     "noTags": "No tags yet.",
     "addGenre": "Add genre",
     "addTag": "Add tag",
+    "personFields": {
+      "received_from": "Received from",
+      "given_to": "Given to",
+      "borrowed_from": "Borrowed from",
+      "borrowed_to": "Borrowed to"
+    },
+    "noPerson": "Nobody yet.",
+    "addPerson": "Add person to {field}",
     "removeLabel": "Remove {label}",
     "removeFromShelfTitle": "Remove from Shelf",
     "deleteReadingTitle": "Delete Reading",

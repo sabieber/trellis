@@ -152,6 +152,21 @@
                 @add="addLabel('tag', $event)"
                 @remove="removeLabel('tag', $event)"
             />
+            <!-- Who this copy came from and where it went. Same control as the
+                 genres and tags, and all four draw from one pool of people. -->
+            <div class="grid gap-5 sm:grid-cols-2">
+              <BookLabels
+                  v-for="kind in PERSON_KINDS"
+                  :key="kind"
+                  :title="$t(`bookDetail.personFields.${kind}`)"
+                  :labels="labels[kind]"
+                  :suggestions="suggestions.person"
+                  :empty-text="$t('bookDetail.noPerson')"
+                  :add-label="$t('bookDetail.addPerson', { field: $t(`bookDetail.personFields.${kind}`) })"
+                  @add="addLabel(kind, $event)"
+                  @remove="removeLabel(kind, $event)"
+              />
+            </div>
           </div>
         </div>
 
@@ -358,7 +373,8 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import Rating from '@/components/ui/Rating.vue';
 import {apiFetch} from '@/api/client';
 import moment from 'moment';
-import type {BookNote, BookSearchResult, LabelKind} from '@/types/book';
+import {PERSON_KINDS} from '@/types/book';
+import type {BookNote, BookSearchResult, LabelKind, SuggestionPool} from '@/types/book';
 
 export default defineComponent({
   components: {
@@ -435,11 +451,15 @@ export default defineComponent({
     // User-provided page count, stored on the book row; takes precedence over
     // the page count reported by the external catalogs.
     const pageCountOverride = ref<number | null>(null);
-    // The user's own genres/tags on this book, plus everything they have used
-    // on any book, which feeds the suggestion dropdowns. Keyed by kind so the
-    // label handlers stay kind-agnostic.
-    const labels = reactive<Record<LabelKind, string[]>>({genre: [], tag: []});
-    const suggestions = reactive<Record<LabelKind, string[]>>({genre: [], tag: []});
+    // The user's own labels on this book, plus everything they have used on any
+    // book, which feeds the suggestion dropdowns. Keyed by kind so the label
+    // handlers stay kind-agnostic. The four person kinds share one pool.
+    const labels = reactive<Record<LabelKind, string[]>>({
+      genre: [], tag: [], received_from: [], given_to: [], borrowed_from: [], borrowed_to: [],
+    });
+    const suggestions = reactive<Record<SuggestionPool, string[]>>({genre: [], tag: [], person: []});
+    const poolOf = (kind: LabelKind): SuggestionPool =>
+        kind === 'genre' || kind === 'tag' ? kind : 'person';
     const pendingRemoveShelfId = ref<string | null>(null);
     const pendingDeleteReadingId = ref<string | null>(null);
 
@@ -472,8 +492,7 @@ export default defineComponent({
           shelfIds.value = data.shelf_ids ?? [];
           rating.value = data.rating ?? 0;
           pageCountOverride.value = data.page_count ?? null;
-          labels.genre = data.genres ?? [];
-          labels.tag = data.tags ?? [];
+          Object.assign(labels, data.labels ?? {});
           notes.value = data.notes ?? [];
           linkedSource.value = data.google_books_id
               ? 'google'
@@ -542,8 +561,9 @@ export default defineComponent({
         const response = await apiFetch('/api/books/label-suggestions', {method: 'POST'});
         if (response.ok) {
           const data = await response.json();
-          suggestions.genre = data.genres ?? [];
-          suggestions.tag = data.tags ?? [];
+          suggestions.genre = data.genre ?? [];
+          suggestions.tag = data.tag ?? [];
+          suggestions.person = data.person ?? [];
         }
       } catch (error) {
         console.error('Failed to fetch label suggestions:', error);
@@ -571,8 +591,9 @@ export default defineComponent({
       // Suggestions are fetched once on mount, so a label the user just
       // invented has to join the pool by hand. Take it from the server's list
       // rather than the typed string, which may differ in casing.
+      const pool = suggestions[poolOf(kind)];
       for (const entry of labels[kind]) {
-        if (!suggestions[kind].includes(entry)) suggestions[kind].push(entry);
+        if (!pool.includes(entry)) pool.push(entry);
       }
     };
 
@@ -894,6 +915,7 @@ export default defineComponent({
       rating,
       labels,
       suggestions,
+      PERSON_KINDS,
       addLabel,
       removeLabel,
       notes,
