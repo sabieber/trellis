@@ -157,7 +157,10 @@
     "abandonReading": "Lesen aufgeben",
     "deleteReading": "Lesung löschen",
     "abandonTitle": "Lesen aufgeben",
-    "abandonMessage": "Möchtest du dieses Lesen wirklich aufgeben? Es wird als nicht beendet markiert."
+    "abandonMessage": "Möchtest du dieses Lesen wirklich aufgeben? Es wird als nicht beendet markiert.",
+    "editEntry": "Eintrag bearbeiten",
+    "deleteEntryTitle": "Eintrag löschen",
+    "deleteEntryMessage": "Möchtest du diesen Eintrag wirklich löschen? Der Lesefortschritt wird aus den übrigen Einträgen neu berechnet."
   },
   "searchDetail": {
     "avgRating": "{rating} Ø",

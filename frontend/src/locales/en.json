@@ -157,7 +157,10 @@
     "abandonReading": "Abandon reading",
     "deleteReading": "Delete reading",
     "abandonTitle": "Abandon Reading",
-    "abandonMessage": "Are you sure you want to abandon this reading? It will be marked as not finished."
+    "abandonMessage": "Are you sure you want to abandon this reading? It will be marked as not finished.",
+    "editEntry": "Edit entry",
+    "deleteEntryTitle": "Delete Entry",
+    "deleteEntryMessage": "Are you sure you want to delete this entry? The reading progress is recalculated from the remaining entries."
   },
   "searchDetail": {
     "avgRating": "{rating} avg",

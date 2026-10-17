@@ -1,7 +1,7 @@
 <template>
   <div class="modal modal-open">
     <div class="modal-box flex flex-col gap-4">
-      <h3 class="t-title text-lg">{{ $t('progressModal.title') }}</h3>
+      <h3 class="t-title text-lg">{{ editing ? $t('readingDetail.editEntry') : $t('progressModal.title') }}</h3>
       <form @submit.prevent.stop="submitForm" class="contents">
         <fieldset class="flex flex-col gap-1.5">
           <label class="t-meta">{{ $t('progressModal.date') }}</label>
@@ -18,7 +18,7 @@
             <Button v-if="totalPages > 0" variant="soft" type="submit" class="flex-1" @click="finishBook">{{ $t('common.finish') }}</Button>
           </div>
           <div class="flex w-full gap-2">
-            <Button variant="ghost" type="button" class="flex-1" @click="$emit('abandon')">{{ $t('common.abandon') }}</Button>
+            <Button v-if="!editing" variant="ghost" type="button" class="flex-1" @click="$emit('abandon')">{{ $t('common.abandon') }}</Button>
             <Button variant="ghost" type="button" class="flex-1" @click="$emit('close')">{{ $t('common.cancel') }}</Button>
           </div>
         </div>
@@ -48,10 +48,20 @@ export default defineComponent({
       type: String,
       default: 'pages',
     },
+    /// The date to start from. Empty means today, which is what tracking new progress wants.
+    initialReadAt: {
+      type: String,
+      default: '',
+    },
+    /// Edit of an existing entry: no abandon button, and its own title.
+    editing: {
+      type: Boolean,
+      default: false,
+    },
   },
   setup(props, { emit }) {
     const progress = ref(props.initialProgress);
-    const readAt = ref(new Date().toISOString().split('T')[0]);
+    const readAt = ref(props.initialReadAt || new Date().toISOString().split('T')[0]);
     const progressInput = ref<HTMLInputElement | null>(null);
 
     const submitForm = () => {

@@ -26,7 +26,13 @@
               <span class="text-sm text-ink">{{ entry.read_at }}</span>
               <span class="t-meta">{{ mode === 'percentage' ? `${entry.progress}%` : $t('readingDetail.page', { n: entry.progress }) }}</span>
             </div>
-            <p class="t-meta mt-1">{{ entry.mode }}</p>
+            <div class="flex justify-between items-center mt-1">
+              <p class="t-meta">{{ entry.mode }}</p>
+              <div class="flex gap-3">
+                <button @click="editingEntry = entry" class="text-sm text-sage hover:underline">{{ $t('common.edit') }}</button>
+                <button @click="deletingEntry = entry" class="text-sm text-clay hover:underline">{{ $t('common.delete') }}</button>
+              </div>
+            </div>
           </li>
         </ul>
       </div>
@@ -62,6 +68,23 @@
         @confirm="deleteReading"
         @cancel="showDeleteConfirm = false"
     />
+    <TrackProgressModal
+        v-if="editingEntry"
+        editing
+        :initialProgress="editingEntry.progress"
+        :initialReadAt="editingEntry.read_at"
+        :totalPages="totalPages"
+        :mode="mode"
+        @close="editingEntry = null"
+        @submit="updateEntry"
+    />
+    <ConfirmDialog
+        v-if="deletingEntry"
+        :title="$t('readingDetail.deleteEntryTitle')"
+        :message="$t('readingDetail.deleteEntryMessage')"
+        @confirm="deleteEntry"
+        @cancel="deletingEntry = null"
+    />
   </PageContainer>
 </template>
 
@@ -83,7 +106,10 @@ export default defineComponent({
     const route = useRoute();
     const router = useRouter();
     const bookId = ref('');
-    const entries = ref<Array<{ id: string, read_at: string, progress: number, mode: string }>>([]);
+    type Entry = { id: string, read_at: string, progress: number, mode: string };
+    const entries = ref<Array<Entry>>([]);
+    const editingEntry = ref<Entry | null>(null);
+    const deletingEntry = ref<Entry | null>(null);
     const loading = ref(true);
     const showModal = ref(false);
     const showDeleteConfirm = ref(false);
@@ -135,6 +161,44 @@ export default defineComponent({
           pageContainer.value?.showToast({message: apiErrorMessage(response.status, t), type: 'alert-error'});
         }
       } catch (error) {
+        pageContainer.value?.showToast({message: t('error.network'), type: 'alert-error'});
+      }
+    };
+
+    const updateEntry = async (progress: number, readAt: string) => {
+      const entry = editingEntry.value;
+      if (!entry) return;
+      try {
+        const response = await apiFetch('/api/readings/entry/update', {
+          method: 'POST',
+          body: JSON.stringify({entry_id: entry.id, progress, read_at: readAt}),
+        });
+        if (response.ok) {
+          editingEntry.value = null;
+          fetchReadingEntries(route.params.id as string);
+        } else {
+          pageContainer.value?.showToast({message: apiErrorMessage(response.status, t), type: 'alert-error'});
+        }
+      } catch {
+        pageContainer.value?.showToast({message: t('error.network'), type: 'alert-error'});
+      }
+    };
+
+    const deleteEntry = async () => {
+      const entry = deletingEntry.value;
+      if (!entry) return;
+      deletingEntry.value = null;
+      try {
+        const response = await apiFetch('/api/readings/entry/delete', {
+          method: 'POST',
+          body: JSON.stringify({entry_id: entry.id}),
+        });
+        if (response.ok) {
+          fetchReadingEntries(route.params.id as string);
+        } else {
+          pageContainer.value?.showToast({message: apiErrorMessage(response.status, t), type: 'alert-error'});
+        }
+      } catch {
         pageContainer.value?.showToast({message: t('error.network'), type: 'alert-error'});
       }
     };
@@ -211,6 +275,10 @@ export default defineComponent({
       showModal,
       showDeleteConfirm,
       showAbandonConfirm,
+      editingEntry,
+      deletingEntry,
+      updateEntry,
+      deleteEntry,
       trackProgress,
       deleteReading,
       onAbandonFromModal,

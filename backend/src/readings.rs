@@ -131,6 +131,8 @@ pub(crate) fn register_routes(router: Router) -> Router {
         .route("/api/readings/delete", post(delete_reading))
         .route("/api/readings/update-started-at", post(update_started_at))
         .route("/api/readings/cancel", post(cancel_reading))
+        .route("/api/readings/entry/update", post(update_entry))
+        .route("/api/readings/entry/delete", post(delete_entry))
 }
 
 #[derive(Debug, Deserialize)]
@@ -158,6 +160,18 @@ pub struct TrackProgressRequest {
 pub struct UpdateStartedAtRequest {
     pub reading_id: String,
     pub started_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EntryRequest {
+    pub entry_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateEntryRequest {
+    pub entry_id: String,
+    pub progress: i32,
+    pub read_at: String,
 }
 
 fn parse_uuid(id_str: &str, kind: &str) -> Result<Uuid, ApiResponse> {
@@ -200,6 +214,84 @@ fn find_reading_for_user(
     Ok(reading)
 }
 
+fn find_entry_for_user(
+    entry_id: Uuid,
+    auth: &AuthUser,
+    connection: &mut PgConnection,
+) -> Result<ReadingEntry, ApiResponse> {
+    let entry = reading_entries
+        .filter(schema::reading_entries::dsl::id.eq(entry_id))
+        .first::<ReadingEntry>(connection)
+        .map_err(|_| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(json!(ErrorResponse {
+                    error: "Entry not found.".to_string()
+                })),
+            )
+        })?;
+
+    if entry.user != auth.0 {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!(ErrorResponse {
+                error: "Access denied.".to_string()
+            })),
+        ));
+    }
+
+    Ok(entry)
+}
+
+/// Recomputes the reading state that its entries derive: `progress` follows the
+/// newest entry, and `finished_at` is the date of the first entry that reaches
+/// `total_pages`. Every write to `reading_entries` goes through here, because an
+/// edit or a delete can lower the progress or undo a finish — a handler that only
+/// wrote its own value forward would leave a corrected entry with a stale reading.
+///
+/// A reading with no known page count (`total_pages == 0`, the GoodReads sentinel)
+/// never finishes here. Otherwise the first entry would clear `progress >= 0` and
+/// finish the book on the spot.
+/// The rule `resync_reading` applies, without the database around it.
+/// `entries` must come in `(read_at, created_at)` order.
+fn derive_reading_state(
+    entries: &[(chrono::NaiveDate, i32)],
+    total_pages: i32,
+) -> (i32, Option<chrono::NaiveDate>) {
+    let progress = entries.last().map(|(_, p)| *p).unwrap_or(0);
+    let finished_at = match total_pages > 0 {
+        true => entries
+            .iter()
+            .find(|(_, p)| *p >= total_pages)
+            .map(|(date, _)| *date),
+        false => None,
+    };
+    (progress, finished_at)
+}
+
+fn resync_reading(conn: &mut PgConnection, reading_id: Uuid, total_pages: i32) -> QueryResult<()> {
+    use schema::reading_entries::dsl as e;
+    use schema::readings::dsl as r;
+
+    let entries: Vec<(chrono::NaiveDate, i32)> = reading_entries
+        .filter(e::reading.eq(reading_id))
+        .order((e::read_at.asc(), e::created_at.asc()))
+        .select((e::read_at, e::progress))
+        .load(conn)?;
+
+    let (progress, finished_at) = derive_reading_state(&entries, total_pages);
+
+    diesel::update(readings.filter(r::id.eq(reading_id)))
+        .set((
+            r::progress.eq(progress),
+            r::finished_at.eq(finished_at),
+            r::updated_at.eq(chrono::Utc::now().naive_utc()),
+        ))
+        .execute(conn)?;
+
+    Ok(())
+}
+
 pub(crate) async fn get_reading_info(
     auth: AuthUser,
     Json(payload): Json<ReadingRequest>,
@@ -218,6 +310,10 @@ pub(crate) async fn get_reading_info(
 
     let db_entries = match reading_entries
         .filter(crate::schema::reading_entries::dsl::reading.eq(reading_id))
+        .order((
+            crate::schema::reading_entries::dsl::read_at.asc(),
+            crate::schema::reading_entries::dsl::created_at.asc(),
+        ))
         .load::<ReadingEntry>(connection)
     {
         Ok(e) => e,
@@ -398,17 +494,7 @@ pub(crate) async fn track_progress(
             .values(&new_entry)
             .execute(connection)?;
 
-        diesel::update(readings.filter(schema::readings::dsl::id.eq(reading_id)))
-            .set(schema::readings::dsl::progress.eq(payload.progress))
-            .execute(connection)?;
-
-        if payload.progress >= reading.total_pages {
-            diesel::update(readings.filter(schema::readings::dsl::id.eq(reading_id)))
-                .set(schema::readings::dsl::finished_at.eq(new_entry.read_at))
-                .execute(connection)?;
-        }
-
-        Ok(())
+        resync_reading(connection, reading.id, reading.total_pages)
     });
 
     match transaction_result {
@@ -631,6 +717,118 @@ pub(crate) async fn delete_reading(
     }
 }
 
+pub(crate) async fn update_entry(
+    auth: AuthUser,
+    Json(payload): Json<UpdateEntryRequest>,
+) -> impl IntoResponse {
+    let connection = &mut connect();
+
+    let entry_id = match parse_uuid(&payload.entry_id, "entry ID") {
+        Ok(id) => id,
+        Err(e) => return e,
+    };
+
+    let read_at = match chrono::NaiveDate::parse_from_str(&payload.read_at, "%Y-%m-%d") {
+        Ok(d) => d,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!(ErrorResponse {
+                    error: "Invalid date format. Use YYYY-MM-DD.".to_string()
+                })),
+            )
+        }
+    };
+
+    let entry = match find_entry_for_user(entry_id, &auth, connection) {
+        Ok(e) => e,
+        Err(e) => return e,
+    };
+
+    let reading = match find_reading_for_user(entry.reading, &auth, connection) {
+        Ok(r) => r,
+        Err(e) => return e,
+    };
+
+    if payload.progress < 0 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!(ErrorResponse {
+                error: "Progress must not be negative.".to_string()
+            })),
+        );
+    }
+
+    let result = connection.transaction::<_, diesel::result::Error, _>(|connection| {
+        use schema::reading_entries::dsl as e;
+
+        diesel::update(reading_entries.filter(e::id.eq(entry_id)))
+            .set((
+                e::progress.eq(payload.progress),
+                e::read_at.eq(read_at),
+                e::updated_at.eq(chrono::Utc::now().naive_utc()),
+            ))
+            .execute(connection)?;
+
+        resync_reading(connection, reading.id, reading.total_pages)
+    });
+
+    match result {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({ "message": "Entry updated successfully." })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Error updating entry: {}", e)
+            })),
+        ),
+    }
+}
+
+pub(crate) async fn delete_entry(
+    auth: AuthUser,
+    Json(payload): Json<EntryRequest>,
+) -> impl IntoResponse {
+    let connection = &mut connect();
+
+    let entry_id = match parse_uuid(&payload.entry_id, "entry ID") {
+        Ok(id) => id,
+        Err(e) => return e,
+    };
+
+    let entry = match find_entry_for_user(entry_id, &auth, connection) {
+        Ok(e) => e,
+        Err(e) => return e,
+    };
+
+    let reading = match find_reading_for_user(entry.reading, &auth, connection) {
+        Ok(r) => r,
+        Err(e) => return e,
+    };
+
+    let result = connection.transaction::<_, diesel::result::Error, _>(|connection| {
+        diesel::delete(reading_entries.filter(schema::reading_entries::dsl::id.eq(entry_id)))
+            .execute(connection)?;
+
+        resync_reading(connection, reading.id, reading.total_pages)
+    });
+
+    match result {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({ "message": "Entry deleted successfully." })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!(ErrorResponse {
+                error: format!("Error deleting entry: {}", e)
+            })),
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -693,6 +891,60 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/api/readings/cancel")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    fn date(day: u32) -> chrono::NaiveDate {
+        chrono::NaiveDate::from_ymd_opt(2026, 1, day).unwrap()
+    }
+
+    #[test]
+    fn test_derive_reading_state() {
+        // no entries left: back to zero, not finished
+        assert_eq!(derive_reading_state(&[], 300), (0, None));
+
+        // progress follows the newest entry, not the highest one
+        let entries = [(date(1), 100), (date(2), 250), (date(3), 200)];
+        assert_eq!(derive_reading_state(&entries, 300), (200, None));
+
+        // a finish is dated by the first entry that reaches the total
+        let entries = [(date(1), 100), (date(2), 300), (date(3), 300)];
+        assert_eq!(derive_reading_state(&entries, 300), (300, Some(date(2))));
+
+        // an unknown page count never finishes the reading
+        let entries = [(date(1), 40)];
+        assert_eq!(derive_reading_state(&entries, 0), (40, None));
+    }
+
+    #[tokio::test]
+    async fn test_update_entry_requires_auth() {
+        let app = Router::new().route("/api/readings/entry/update", post(update_entry));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/readings/entry/update")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_delete_entry_requires_auth() {
+        let app = Router::new().route("/api/readings/entry/delete", post(delete_entry));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/readings/entry/delete")
                     .body(Body::empty())
                     .unwrap(),
             )
