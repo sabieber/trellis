@@ -12,7 +12,7 @@ ENV VITE_API_BASE_URL=""
 RUN pnpm run build-only
 
 # --- Stage 2: build the backend release binary ---
-FROM rust:1.88-bookworm AS backend
+FROM rust:1.99-bookworm AS backend
 WORKDIR /code
 COPY backend/ ./
 RUN cargo build --release
