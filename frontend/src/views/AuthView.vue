@@ -15,35 +15,45 @@
     </div>
 
     <div class="w-full max-w-sm flex flex-col gap-4">
-      <div class="flex flex-col gap-1">
-        <label class="t-meta">{{ $t('common.name') }}</label>
-        <input
-            type="text"
-            class="input w-full"
-            placeholder="name"
-            v-model="username"
-            autocomplete="username"
-        />
-      </div>
-
-      <div class="flex flex-col gap-1">
-        <div class="flex justify-between items-center">
-          <label class="t-meta">{{ $t('common.password') }}</label>
-          <a v-if="activeTab === 'signin'" class="t-meta text-green-soft hover:text-green transition-colors duration-150 cursor-pointer">{{ $t('auth.forgotPassword') }}</a>
+      <!-- A real <form> with named fields is what password managers detect as a login form. -->
+      <form class="flex flex-col gap-4" @submit.prevent="submit">
+        <div class="flex flex-col gap-1">
+          <label for="auth-username" class="t-meta">{{ $t('common.name') }}</label>
+          <input
+              id="auth-username"
+              name="username"
+              type="text"
+              class="input w-full"
+              placeholder="name"
+              v-model="username"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+          />
         </div>
-        <input
-            type="password"
-            class="input w-full"
-            placeholder="••••••••"
-            v-model="password"
-            autocomplete="current-password"
-            @keydown.enter="submit"
-        />
-      </div>
 
-      <Button block class="mt-2" @click="submit">
-        {{ activeTab === 'signin' ? $t('common.login') : $t('auth.createAccount') }}
-      </Button>
+        <div class="flex flex-col gap-1">
+          <div class="flex justify-between items-center">
+            <label for="auth-password" class="t-meta">{{ $t('common.password') }}</label>
+            <a v-if="activeTab === 'signin'"
+               class="t-meta text-green-soft hover:text-green transition-colors duration-150 cursor-pointer">
+              {{ $t('auth.forgotPassword') }}</a>
+          </div>
+          <input
+              id="auth-password"
+              name="password"
+              type="password"
+              class="input w-full"
+              placeholder="••••••••"
+              v-model="password"
+              :autocomplete="activeTab === 'signin' ? 'current-password' : 'new-password'"
+          />
+        </div>
+
+        <Button type="submit" block class="mt-2">
+          {{ activeTab === 'signin' ? $t('common.login') : $t('auth.createAccount') }}
+        </Button>
+      </form>
 
       <p class="t-meta text-center mt-4">
         {{ activeTab === 'signin' ? $t('auth.newToTrellis') : $t('auth.alreadyGrowing') }}
