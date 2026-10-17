@@ -249,23 +249,23 @@ export default defineComponent({
 
 <style scoped>
 .grid-line {
-  stroke: rgb(236 226 204 / 0.07);
+  stroke: var(--color-line-soft);
   stroke-width: 1;
 }
 
 .axis-line {
-  stroke: #38321f;
+  stroke: var(--color-line);
   stroke-width: 1;
 }
 
 .axis-text {
   font-family: var(--font-mono), monospace;
   font-size: 10px;
-  fill: #8f866f;
+  fill: var(--color-muted);
 }
 
 .target-line {
-  stroke: #8f866f;
+  stroke: var(--color-muted);
   stroke-width: 1;
   stroke-dasharray: 4 3;
   opacity: 0.6;
@@ -274,23 +274,23 @@ export default defineComponent({
 .target-text {
   font-family: var(--font-mono), monospace;
   font-size: 10px;
-  fill: #8f866f;
+  fill: var(--color-muted);
 }
 
 .area {
-  fill: #93c456;
+  fill: var(--color-green);
   opacity: 0.16;
 }
 
 .line {
   fill: none;
-  stroke: #93c456;
+  stroke: var(--color-green);
   stroke-width: 2;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 
 .dot {
-  fill: #a7d06e;
+  fill: var(--color-green-soft);
 }
 </style>

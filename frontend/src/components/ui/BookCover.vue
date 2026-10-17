@@ -262,7 +262,7 @@ const shortAuthor = computed(() => {
 }
 
 .cv-note-icon {
-  color: var(--color-green-soft);
+  color: #a7d06e;
   width: 10px;
   height: 10px;
 }
@@ -286,7 +286,7 @@ const shortAuthor = computed(() => {
 }
 
 .cv-rating-icon {
-  color: var(--color-gold);
+  color: #d7b052;
   width: 10px;
   height: 10px;
 }

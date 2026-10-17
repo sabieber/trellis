@@ -45,3 +45,81 @@
   --depth: 0;                      /* flat — trellis uses hairlines, not depth */
   --noise: 0;
 }
+
+/* The light twins of the theme above. The values mirror the token blocks in
+   theme.css; see utils/theme.ts for how a device picks one. */
+@plugin "daisyui/theme" {
+  name: "trellis-light";
+  color-scheme: light;
+
+  --color-base-100: #f4eee0;
+  --color-base-200: #fcf9f1;
+  --color-base-300: #ede5d1;
+  --color-base-content: #2a2416;
+
+  --color-primary: #5a8a2a;
+  --color-primary-content: #fcf9f1;
+  --color-secondary: #4b7620;
+  --color-secondary-content: #fcf9f1;
+  --color-accent: #5a8a2a;
+  --color-accent-content: #fcf9f1;
+
+  --color-neutral: #e2d7bd;
+  --color-neutral-content: #463e2d;
+
+  --color-info: #5a513d;
+  --color-info-content: #fcf9f1;
+  --color-success: #5a8a2a;
+  --color-success-content: #fcf9f1;
+  --color-warning: #a87d1a;
+  --color-warning-content: #fcf9f1;
+  --color-error: #a9532f;
+  --color-error-content: #fcf9f1;
+
+  --radius-selector: 999px;
+  --radius-field: 11px;
+  --radius-box: 16px;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "trellis-eink";
+  color-scheme: light;
+
+  --color-base-100: #ffffff;
+  --color-base-200: #ffffff;
+  --color-base-300: #e6e6e6;
+  --color-base-content: #000000;
+
+  --color-primary: #1d3a0a;
+  --color-primary-content: #ffffff;
+  --color-secondary: #1d3a0a;
+  --color-secondary-content: #ffffff;
+  --color-accent: #1d3a0a;
+  --color-accent-content: #ffffff;
+
+  --color-neutral: #cccccc;
+  --color-neutral-content: #000000;
+
+  --color-info: #222222;
+  --color-info-content: #ffffff;
+  --color-success: #1d3a0a;
+  --color-success-content: #ffffff;
+  --color-warning: #3d2c00;
+  --color-warning-content: #ffffff;
+  --color-error: #5e1a00;
+  --color-error-content: #ffffff;
+
+  --radius-selector: 999px;
+  --radius-field: 11px;
+  --radius-box: 16px;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}

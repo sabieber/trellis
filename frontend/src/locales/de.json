@@ -409,6 +409,14 @@
     "editionLanguagesDesc": "Zeigt nur Ausgaben in diesen Sprachen sowie Ausgaben ohne Sprachangabe. Ohne Auswahl werden alle angezeigt.",
     "addLanguage": "Sprache hinzufügen…",
     "allLanguages": "Alle Sprachen",
+    "theme": "Darstellung",
+    "themeDesc": "Gilt nur für dieses Gerät. eInk setzt auf reines Schwarz-Weiß ohne Animationen, für eReader.",
+    "themes": {
+      "dark": "Dunkel",
+      "light": "Hell",
+      "eink": "eInk",
+      "system": "System"
+    },
     "rating": "Bewertung",
     "ratingFlowers": "Blüten",
     "ratingThumbs": "Daumen",

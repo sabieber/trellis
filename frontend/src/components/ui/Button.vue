@@ -49,33 +49,33 @@ withDefaults(
 }
 
 .button--primary {
-  background: #93c456;
-  color: #16170d;
+  background: var(--color-green);
+  color: var(--color-on-green);
 }
 
 .button--primary:hover {
-  background: #a7d06e;
+  background: var(--color-green-soft);
 }
 
 .button--ghost {
   background: transparent;
-  color: #ece2cc;
-  border-color: #38321f;
+  color: var(--color-ink);
+  border-color: var(--color-line);
 }
 
 .button--ghost:hover {
-  background: #2a2619;
-  border-color: rgb(236 226 204 / 0.12);
+  background: var(--color-surface-2);
+  border-color: var(--color-line-hair);
 }
 
 .button--soft {
-  background: rgb(147 196 86 / 0.13);
-  color: #a7d06e;
-  border-color: rgb(147 196 86 / 0.32);
+  background: color-mix(in srgb, var(--color-green) 13%, transparent);
+  color: var(--color-green-soft);
+  border-color: color-mix(in srgb, var(--color-green) 32%, transparent);
 }
 
 .button--soft:hover {
-  background: rgb(147 196 86 / 0.2);
+  background: color-mix(in srgb, var(--color-green) 20%, transparent);
 }
 
 .button--block {

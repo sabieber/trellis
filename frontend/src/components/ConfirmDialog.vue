@@ -22,7 +22,7 @@ export default defineComponent({
     title: {type: String, required: true},
     message: {type: String, required: true},
     confirmLabel: {type: String, default: ''},
-    confirmClass: {type: String, default: 'text-[#c47556]!'},
+    confirmClass: {type: String, default: 'text-clay!'},
   },
   emits: ['confirm', 'cancel'],
 });

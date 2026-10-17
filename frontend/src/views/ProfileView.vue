@@ -3,7 +3,7 @@
     <template #title-button>
       <button
           @click="logout"
-          class="flex items-center gap-1.5 text-sm font-semibold text-[#c98b6e] px-3 py-2 rounded-sm hover:bg-surface-2 transition-colors duration-150"
+          class="flex items-center gap-1.5 text-sm font-semibold text-clay-soft px-3 py-2 rounded-sm hover:bg-surface-2 transition-colors duration-150"
       >
         <PowerIcon class="size-5"/>
         {{ $t('common.logout') }}
@@ -41,6 +41,14 @@
       <h3 class="t-eyebrow mb-2">{{ $t('common.language') }}</h3>
       <div class="bg-surface border border-line rounded-md p-4">
         <SegmentedControl v-model="language" :options="languageOptions"/>
+      </div>
+    </div>
+
+    <div class="mt-6">
+      <h3 class="t-eyebrow mb-2">{{ $t('profile.theme') }}</h3>
+      <div class="bg-surface border border-line rounded-md p-4">
+        <p class="t-meta mb-3">{{ $t('profile.themeDesc') }}</p>
+        <SegmentedControl v-model="theme" :options="themeOptions"/>
       </div>
     </div>
 
@@ -105,6 +113,7 @@ import {type Locale} from '@/i18n';
 import {editionLanguageOptions, editionLanguages, languageLabel} from '@/utils/editionLanguages';
 import {ratingMode, type RatingMode} from '@/utils/ratingMode';
 import {changeEditionLanguages, changeLocale, changeRatingMode} from '@/utils/userSettings';
+import {theme, THEMES} from '@/utils/theme';
 
 export default defineComponent({
   components: {PageContainer, FlowerIcon, PowerIcon, ThumbsUpIcon, Button, SegmentedControl, BookLabels},
@@ -150,6 +159,9 @@ export default defineComponent({
       get: () => ratingMode.value,
       set: (value: string) => changeRatingMode(value as RatingMode),
     });
+
+    // Per device, not per account — see utils/theme.ts.
+    const themeOptions = computed(() => THEMES.map((value) => ({value, label: t(`profile.themes.${value}`)})));
 
     const pageContainer = ref<any>(null);
     const selectedFile = ref<File | null>(null);
@@ -245,6 +257,8 @@ export default defineComponent({
       languageOptions,
       ratingModeSetting,
       ratingModeOptions,
+      theme,
+      themeOptions,
       selectedLanguageNames,
       languageSuggestions,
       addEditionLanguage,

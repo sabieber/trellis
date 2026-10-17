@@ -7,6 +7,7 @@ import { registerSW } from 'virtual:pwa-register'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
+import './utils/theme'
 
 // Look for a new service worker every time the app comes back to the foreground.
 // An installed PWA on Android resumes from the recents list without a page load,

@@ -38,8 +38,8 @@ defineEmits<{ (e: 'update:modelValue', value: string): void }>();
   display: flex;
   padding: 3px;
   gap: 2px;
-  background: #221f17;
-  border: 1px solid #38321f;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
   border-radius: 11px;
 }
 
@@ -58,12 +58,12 @@ defineEmits<{ (e: 'update:modelValue', value: string): void }>();
   font-size: 12px;
   font-weight: 600;
   background: transparent;
-  color: #8f866f;
+  color: var(--color-muted);
   transition: 0.15s;
 }
 
 .segmented-control button.is-active {
-  background: #322d1e;
-  color: #ece2cc;
+  background: var(--color-surface-3);
+  color: var(--color-ink);
 }
 </style>

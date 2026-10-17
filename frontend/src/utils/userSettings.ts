@@ -15,6 +15,9 @@ import {ratingMode, type RatingMode} from '@/utils/ratingMode';
  *
  * Every setter writes the local value first and the server afterwards. A save
  * that fails costs the setting on the next device, not the click.
+ *
+ * The one exception is the colour theme (`utils/theme.ts`): it belongs to the
+ * screen, so it stays on the device.
  */
 interface UserSettings {
   rating_mode?: string;

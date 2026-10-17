@@ -39,9 +39,9 @@
           class="mt-auto flex items-center gap-3.5 bg-surface border border-line rounded-md p-3.5 hoverable-card"
       >
         <svg width="42" height="42" viewBox="0 0 62 62" class="flex-none">
-          <circle cx="31" cy="31" r="26" fill="none" stroke="#322d1e" stroke-width="6"/>
+          <circle cx="31" cy="31" r="26" fill="none" stroke="var(--color-surface-3)" stroke-width="6"/>
           <circle
-              cx="31" cy="31" r="26" fill="none" stroke="#93c456" stroke-width="6"
+              cx="31" cy="31" r="26" fill="none" stroke="var(--color-green)" stroke-width="6"
               stroke-linecap="round" stroke-dasharray="163.4"
               :stroke-dashoffset="163.4 * (1 - Math.min(yearGoal.progress / yearGoal.target, 1))"
               transform="rotate(-90 31 31)"

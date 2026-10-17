@@ -9,12 +9,12 @@
           <span class="t-meta">{{ $t('readingDetail.started') }}</span>
           <div v-if="editingStartDate" class="flex items-center gap-2">
             <input type="date" v-model="startDateDraft" class="input input-sm" />
-            <button @click="saveStartDate" class="text-sm text-[#7a9e7e] hover:underline">{{ $t('common.save') }}</button>
-            <button @click="editingStartDate = false" class="text-sm text-[#c47556] hover:underline">{{ $t('common.cancel') }}</button>
+            <button @click="saveStartDate" class="text-sm text-sage hover:underline">{{ $t('common.save') }}</button>
+            <button @click="editingStartDate = false" class="text-sm text-clay hover:underline">{{ $t('common.cancel') }}</button>
           </div>
           <div v-else class="flex items-center gap-2">
             <span class="text-sm text-ink">{{ startedAt }}</span>
-            <button @click="beginEditStartDate" class="text-sm text-[#7a9e7e] hover:underline">{{ $t('common.edit') }}</button>
+            <button @click="beginEditStartDate" class="text-sm text-sage hover:underline">{{ $t('common.edit') }}</button>
           </div>
         </div>
       </div>
@@ -34,13 +34,13 @@
       <Button block class="mt-5" @click="showModal = true">{{ $t('progressModal.title') }}</Button>
       <button
           @click="showAbandonConfirm = true"
-          class="w-full mt-2 py-2.5 text-sm text-[#c47556] cursor-pointer hover:underline transition-colors duration-150"
+          class="w-full mt-2 py-2.5 text-sm text-clay cursor-pointer hover:underline transition-colors duration-150"
       >
         {{ $t('readingDetail.abandonReading') }}
       </button>
       <button
           @click="showDeleteConfirm = true"
-          class="w-full mt-2 py-2.5 text-sm text-[#c47556] cursor-pointer hover:underline transition-colors duration-150"
+          class="w-full mt-2 py-2.5 text-sm text-clay cursor-pointer hover:underline transition-colors duration-150"
       >
         {{ $t('readingDetail.deleteReading') }}
       </button>

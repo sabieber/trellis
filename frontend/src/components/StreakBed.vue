@@ -393,7 +393,7 @@ const marks = computed(() => {
 }
 
 .daymark.is-today {
-  fill: var(--color-green-soft);
+  fill: #a7d06e;
   stroke: #2c1c10;
   stroke-opacity: 0.5;
 }

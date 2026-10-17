@@ -14,7 +14,7 @@ const clamped = computed(() => Math.max(0, Math.min(100, props.pct)));
 .plain-progress {
   height: 7px;
   border-radius: 999px;
-  background: #322d1e;
+  background: var(--color-surface-3);
   overflow: hidden;
 }
 
@@ -22,7 +22,7 @@ const clamped = computed(() => Math.max(0, Math.min(100, props.pct)));
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: #93c456;
+  background: var(--color-green);
   transition: width 0.4s ease;
 }
 </style>

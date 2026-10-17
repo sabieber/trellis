@@ -30,7 +30,7 @@
                 <RouterLink
                     v-if="goal.goal_type === 'books'"
                     :to="{ name: 'goal-detail', params: { id: goal.id } }"
-                    class="t-title text-base leading-tight cursor-pointer hover:text-[#7a9e7e] transition-colors duration-150 text-left"
+                    class="t-title text-base leading-tight cursor-pointer hover:text-sage transition-colors duration-150 text-left"
                 >
                   {{ formatGoalLabel(goal) }}
                 </RouterLink>

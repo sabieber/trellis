@@ -57,6 +57,6 @@ export default defineComponent({
   color: var(--color-ink);
   font-size: 12px;
   line-height: 1.35;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.4);
+  box-shadow: var(--shadow-soft);
 }
 </style>

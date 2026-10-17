@@ -17,17 +17,17 @@ withDefaults(defineProps<{ active?: boolean }>(), {active: false});
   font-family: var(--font-sans), sans-serif;
   font-size: 13px;
   font-weight: 600;
-  color: #b6ab8f;
+  color: var(--color-ink-dim);
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid #38321f;
-  background: #221f17;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
   white-space: nowrap;
 }
 
 .chip.is-active {
-  background: rgb(147 196 86 / 0.13);
-  border-color: rgb(147 196 86 / 0.32);
-  color: #a7d06e;
+  background: color-mix(in srgb, var(--color-green) 13%, transparent);
+  border-color: color-mix(in srgb, var(--color-green) 32%, transparent);
+  color: var(--color-green-soft);
 }
 </style>

@@ -288,28 +288,28 @@ export default defineComponent({
 
 <style scoped>
 .grid-line {
-    stroke: rgb(236 226 204 / 0.07);
+    stroke: var(--color-line-soft);
     stroke-width: 1;
 }
 
 .axis-line {
-    stroke: #38321f;
+    stroke: var(--color-line);
     stroke-width: 1;
 }
 
 .axis-text {
     font-family: var(--font-mono), monospace;
     font-size: 10px;
-    fill: #8f866f;
+    fill: var(--color-muted);
 }
 
 .bar {
-    fill: #93c456;
+    fill: var(--color-green);
     cursor: pointer;
     transition: fill 120ms ease;
 }
 
 .bar:hover {
-    fill: #a7d06e;
+    fill: var(--color-green-soft);
 }
 </style>

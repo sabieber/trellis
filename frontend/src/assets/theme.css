@@ -26,6 +26,17 @@
     /* --- functional warm gold (ratings ONLY) --- */
     --color-gold: #d7b052;
     --color-gold-bright: #e8c462;   /* hover preview while rating */
+    /* --- activity heatmap ramp (stats), empty to busiest --- */
+    --color-heat-0: #2a2619;
+    --color-heat-1: #3b4a25;
+    --color-heat-2: #556d2f;
+    --color-heat-3: #74993c;
+    --color-heat-4: #93c456;
+    --color-heat-future: #201d15;
+    /* --- text actions (edit / save are sage, cancel / delete are clay) --- */
+    --color-sage: #7a9e7e;
+    --color-clay: #c47556;
+    --color-clay-soft: #c98b6e;    /* logout */
 
     /* --- type --- */
     --font-serif: 'Spectral', Georgia, 'Times New Roman', serif;
@@ -42,6 +53,112 @@
     /* --- shadows --- */
     --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.28);
     --shadow-pop: 0 12px 40px rgb(0 0 0 / 0.5);
+}
+
+/* Light themes. The tokens above are the dark garden; these blocks repaint the
+   same names, so a component that sticks to the tokens needs nothing per theme.
+   utils/theme.ts sets the attribute. Book art (covers, spines, the clay of the
+   streak bed) keeps its own colours in every theme — it is an object, not
+   chrome. */
+[data-theme="trellis-light"] {
+    /* warm paper; cards sit lighter than the page */
+    --color-bg: #f4eee0;
+    --color-bg-2: #efe8d6;
+    --color-surface: #fcf9f1;
+    --color-surface-2: #ede5d1;
+    --color-surface-3: #e2d7bd;
+
+    --color-ink: #2a2416;
+    --color-ink-2: #463e2d;
+    --color-ink-dim: #5a513d;
+    --color-muted: #736953;
+    --color-faint: #9c927b;
+
+    --color-line: #d8cdb2;
+    --color-line-soft: rgb(42 36 22 / 0.06);
+    --color-line-hair: rgb(42 36 22 / 0.13);
+
+    /* green darkens instead of lightening: it has to carry text on paper */
+    --color-green: #5a8a2a;
+    --color-green-soft: #4b7620;
+    --color-green-deep: #45701e;
+    --color-on-green: #fcf9f1;
+    --color-gold: #a87d1a;
+    --color-gold-bright: #c4931f;
+
+    --color-heat-0: #ebe3cd;
+    --color-heat-1: #cfdcab;
+    --color-heat-2: #a5c277;
+    --color-heat-3: #779f45;
+    --color-heat-4: #5a8a2a;
+    --color-heat-future: #f6f1e5;
+
+    --color-sage: #4c7752;
+    --color-clay: #a9532f;
+    --color-clay-soft: #a85c3c;
+
+    --shadow-soft: 0 1px 2px rgb(60 45 20 / 0.12), 0 8px 24px rgb(60 45 20 / 0.08);
+    --shadow-pop: 0 12px 40px rgb(60 45 20 / 0.2);
+}
+
+/* eInk: a 16-level grey panel with slow refreshes. Every grey that is not far
+   from white vanishes, so text and lines go near-black, fills go white, and
+   anything that moves (transitions, the lattice, shadows) only leaves ghosts. */
+[data-theme="trellis-eink"] {
+    --color-bg: #ffffff;
+    --color-bg-2: #ffffff;
+    --color-surface: #ffffff;
+    --color-surface-2: #e6e6e6;
+    --color-surface-3: #cccccc;
+
+    --color-ink: #000000;
+    --color-ink-2: #111111;
+    --color-ink-dim: #222222;
+    --color-muted: #333333;
+    --color-faint: #555555;
+
+    --color-line: #222222;
+    --color-line-soft: rgb(0 0 0 / 0.25);
+    --color-line-hair: rgb(0 0 0 / 0.45);
+
+    /* reads as black on a grey panel, still green on a colour (Kaleido) one */
+    --color-green: #1d3a0a;
+    --color-green-soft: #1d3a0a;
+    --color-green-deep: #1d3a0a;
+    --color-on-green: #ffffff;
+    --color-gold: #3d2c00;
+    --color-gold-bright: #5c4400;
+
+    /* evenly spaced greys: the panel only tells lightness apart */
+    --color-heat-0: #eeeeee;
+    --color-heat-1: #bbbbbb;
+    --color-heat-2: #888888;
+    --color-heat-3: #444444;
+    --color-heat-4: #000000;
+    --color-heat-future: #ffffff;
+
+    --color-sage: #1d3a0a;
+    --color-clay: #5e1a00;
+    --color-clay-soft: #5e1a00;
+
+    --shadow-soft: none;
+    --shadow-pop: none;
+}
+
+[data-theme="trellis-eink"] .lattice-bg {
+    background-image: none;
+}
+
+/* daisyUI draws field borders at 20 % ink, which an eInk panel drops. */
+[data-theme="trellis-eink"] :is(.input, .select, .textarea, .file-input, .checkbox, .radio, .toggle) {
+    border-color: var(--color-line);
+}
+
+[data-theme="trellis-eink"] *,
+[data-theme="trellis-eink"] *::before,
+[data-theme="trellis-eink"] *::after {
+    transition: none !important;
+    animation: none !important;
 }
 
 /* Base */
@@ -112,7 +229,7 @@ body {
 }
 
 .hoverable-card:hover {
-    outline-color: #7a9e7e;
+    outline-color: var(--color-sage);
 }
 
 /* Makes one link inside a card cover the whole card, so the card stays

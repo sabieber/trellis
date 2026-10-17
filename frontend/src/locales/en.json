@@ -409,6 +409,14 @@
     "editionLanguagesDesc": "Show only editions in these languages, plus editions that state no language. Add none to show all of them.",
     "addLanguage": "Add a language…",
     "allLanguages": "All languages",
+    "theme": "Appearance",
+    "themeDesc": "Applies to this device only. eInk uses plain black and white without animations, for eReaders.",
+    "themes": {
+      "dark": "Dark",
+      "light": "Light",
+      "eink": "eInk",
+      "system": "System"
+    },
     "rating": "Rating",
     "ratingFlowers": "Flowers",
     "ratingThumbs": "Thumbs",

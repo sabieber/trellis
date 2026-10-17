@@ -336,36 +336,36 @@ export default defineComponent({
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   line-height: 1;
-  color: #b6ab8f;
+  color: var(--color-ink-dim);
 }
 
 .heat-0 {
-  background: #2a2619;
+  background: var(--color-heat-0);
 }
 
 .heat-1 {
-  background: #3b4a25;
+  background: var(--color-heat-1);
 }
 
 .heat-2 {
-  background: #556d2f;
+  background: var(--color-heat-2);
 }
 
 .heat-3 {
-  background: #74993c;
+  background: var(--color-heat-3);
 }
 
 .heat-4 {
-  background: #93c456;
+  background: var(--color-heat-4);
 }
 
 .heat-3,
 .heat-4 {
-  color: #16170d;
+  color: var(--color-on-green);
 }
 
 .heat-future {
-  background: #201d15;
+  background: var(--color-heat-future);
 }
 
 .heat-placeholder {
@@ -376,7 +376,7 @@ export default defineComponent({
   font-family: var(--font-mono), monospace;
   font-size: 10px;
   line-height: var(--cell, 12px);
-  color: #8f866f;
+  color: var(--color-muted);
   white-space: nowrap;
 }
 
